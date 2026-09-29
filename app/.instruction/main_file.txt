@@ -1,0 +1,457 @@
+Yes. I understand the distinction.
+
+You want a **separate general instruction specifically for the application's main entry file** — in this case `main.ts` — and **nothing from the module architecture should be mixed into it**.
+
+From your example, the main file is responsible for application-level bootstrap/configuration: connecting external services, creating NestJS, global middleware/pipes, CORS, WebSockets, Swagger, and starting the server. 
+
+I would write the instruction like this:
+
+# Main Application Entry File Guidelines
+
+## 1. Purpose
+
+The main application entry file is responsible only for **bootstrapping and configuring the application**.
+
+It is the first entry point executed when the backend starts.
+
+The file should configure the application and its global infrastructure, then start the server.
+
+It should **not contain business logic**.
+
+---
+
+# 2. Responsibilities
+
+The main entry file is responsible for:
+
+* Starting the application.
+* Creating the NestJS application instance.
+* Connecting required infrastructure services.
+* Configuring global middleware.
+* Configuring global validation.
+* Configuring CORS.
+* Configuring WebSockets when required.
+* Configuring API documentation.
+* Applying application-wide configuration.
+* Starting the HTTP server.
+* Displaying startup and infrastructure status.
+
+---
+
+# 3. Bootstrap Function
+
+Application initialization should be contained inside a single bootstrap function.
+
+General structure:
+
+```ts
+async function bootstrap() {
+  // infrastructure initialization
+
+  // application creation
+
+  // global configuration
+
+  // documentation
+
+  // server startup
+}
+
+bootstrap();
+```
+
+The bootstrap function should clearly describe the application startup sequence.
+
+---
+
+# 4. Infrastructure Connections
+
+External infrastructure required by the application should be initialized during startup.
+
+Examples include:
+
+```text
+Database
+Payment provider
+Storage provider
+Email provider
+Cache
+Message broker
+Other external services
+```
+
+Each connection should preferably have its own configuration/connection implementation.
+
+The main file should **call the connection function**, not implement the connection logic itself.
+
+Prefer:
+
+```ts
+await connectDatabase();
+await connectPaymentProvider();
+await connectStorage();
+```
+
+Instead of putting connection logic directly inside `main.ts`.
+
+The main file coordinates initialization; configuration modules own the implementation.
+
+---
+
+# 5. Application Creation
+
+Create the NestJS application after the required startup dependencies have been initialized.
+
+Example:
+
+```ts
+const app = await NestFactory.create(AppModule);
+```
+
+Application creation options should be configured here when they are global application concerns.
+
+---
+
+# 6. Global Configuration
+
+Global application configuration belongs in the main entry file.
+
+Examples:
+
+```text
+CORS
+Cookies
+Global pipes
+Global filters
+Global interceptors
+Global middleware
+WebSocket adapters
+```
+
+Example:
+
+```ts
+app.enableCors({
+  origin: ALLOWED_ORIGINS,
+  credentials: true,
+});
+```
+
+These configurations apply to the application as a whole and therefore belong in the bootstrap process.
+
+---
+
+# 7. Global Validation
+
+Request validation that applies to the entire application should be configured globally.
+
+Example:
+
+```ts
+app.useGlobalPipes(
+  new ValidationPipe({
+    transform: true,
+    whitelist: true,
+  }),
+);
+```
+
+Do not duplicate global validation configuration across individual controllers.
+
+Module-specific validation belongs to DTOs and controller-level configuration.
+
+---
+
+# 8. Middleware
+
+Application-wide middleware should be registered in the main entry file.
+
+Example:
+
+```ts
+app.use(cookieParser());
+```
+
+Only middleware that genuinely applies globally should be registered here.
+
+Feature-specific middleware should remain inside the appropriate module or feature configuration.
+
+---
+
+# 9. WebSocket Configuration
+
+If the application uses WebSockets, the global WebSocket adapter should be configured during application bootstrap.
+
+Example:
+
+```ts
+app.useWebSocketAdapter(new IoAdapter(app));
+```
+
+The main file configures the transport mechanism.
+
+The actual WebSocket business logic belongs to the appropriate gateway/module.
+
+---
+
+# 10. CORS
+
+CORS configuration belongs to the application bootstrap layer.
+
+Origins and other CORS configuration values should come from configuration rather than being hardcoded directly into the bootstrap logic.
+
+Example:
+
+```ts
+app.enableCors({
+  origin: ALLOWED_ORIGINS,
+  credentials: true,
+});
+```
+
+The main file applies the configuration; the configuration module owns the values.
+
+---
+
+# 11. API Documentation
+
+Global API documentation should be configured during application bootstrap.
+
+For NestJS Swagger:
+
+```ts
+const config = new DocumentBuilder()
+  .setTitle('Application API')
+  .setDescription('API documentation')
+  .setVersion('1.0')
+  .addBearerAuth()
+  .build();
+
+const document = SwaggerModule.createDocument(app, config);
+
+SwaggerModule.setup('api', app, document);
+```
+
+The main file is responsible for registering Swagger.
+
+Endpoint-specific documentation remains inside the relevant modules/controllers.
+
+---
+
+# 12. Server Startup
+
+The server should be started only after the application has been fully configured.
+
+Example:
+
+```ts
+await app.listen(APP_PORT);
+```
+
+The startup process should clearly indicate that the application is running.
+
+Example:
+
+```text
+[App] Running on http://localhost:PORT
+```
+
+---
+
+# 13. Startup Status
+
+The main file may display the status of important infrastructure services after the application starts.
+
+For example:
+
+```text
+CONNECTION STATUS:
+
+✓ Database
+✓ ORM
+✓ Payment Service
+✓ Storage Service
+✓ Email Service
+```
+
+This is useful for quickly verifying the startup state directly from the terminal.
+
+Status checks should use dedicated status functions from the corresponding configuration modules.
+
+The main file should not implement the health-check logic itself.
+
+---
+
+# 14. Logging
+
+Startup logs should be clear and structured.
+
+The main file should log important application-level events such as:
+
+```text
+Application starting
+Application running
+Server URL
+Infrastructure connection status
+API documentation URL
+```
+
+Avoid excessive logs that make the startup output difficult to read.
+
+The purpose of startup logging is to make the application state immediately visible from the terminal.
+
+---
+
+# 15. Serialization Configuration
+
+Application-wide serialization behavior may be configured in the main entry file when it is required globally.
+
+For example, if a type cannot be serialized correctly by JSON, the serialization behavior can be configured during bootstrap.
+
+This should only be done when it is a genuine application-wide requirement.
+
+---
+
+# 16. What Must NOT Be in the Main File
+
+The main entry file must not contain:
+
+* Business logic.
+* Database queries.
+* Prisma operations.
+* Feature-specific logic.
+* Authentication business logic.
+* Authorization rules.
+* Complex data processing.
+* CRUD operations.
+* Domain-specific calculations.
+* Module-specific workflows.
+* Large utility functions.
+
+Bad:
+
+```ts
+async function bootstrap() {
+  const users = await prisma.user.findMany();
+
+  // business logic...
+
+  // authentication logic...
+
+  // payment logic...
+}
+```
+
+Good:
+
+```ts
+async function bootstrap() {
+  await connectDatabase();
+
+  const app = await NestFactory.create(AppModule);
+
+  // global configuration
+
+  await app.listen(APP_PORT);
+}
+```
+
+---
+
+# 17. Dependency Responsibility
+
+The main file should **coordinate**, not implement.
+
+For example:
+
+```text
+main.ts
+   │
+   ├── connectDatabase()
+   │
+   ├── connectPaymentProvider()
+   │
+   ├── connectStorage()
+   │
+   ├── configure middleware
+   │
+   ├── configure validation
+   │
+   ├── configure documentation
+   │
+   └── start server
+```
+
+Each external system should own its own configuration and connection implementation.
+
+This keeps `main.ts` readable and prevents it from becoming a large configuration file.
+
+---
+
+# 18. Recommended Startup Order
+
+The startup sequence should generally follow this pattern:
+
+```text
+1. Initialize required infrastructure
+          ↓
+2. Create NestJS application
+          ↓
+3. Configure global application behavior
+          ↓
+4. Configure middleware
+          ↓
+5. Configure validation
+          ↓
+6. Configure WebSockets
+          ↓
+7. Configure API documentation
+          ↓
+8. Start server
+          ↓
+9. Display startup status
+```
+
+The exact order may change when a dependency requires a different initialization sequence.
+
+The important principle is that startup should be deterministic and easy to follow.
+
+---
+
+# 19. Main File Design Principle
+
+The main entry file should answer one question:
+
+> **How does the application start?**
+
+It should not answer:
+
+> How does the business work?
+
+Business logic belongs elsewhere.
+
+The ideal main file should be easy to read from top to bottom and allow a developer to understand the entire application startup process without searching through feature code.
+
+---
+
+# 20. Final Rule
+
+Keep the main entry file focused on:
+
+```text
+BOOTSTRAP
+   ↓
+INFRASTRUCTURE
+   ↓
+GLOBAL CONFIGURATION
+   ↓
+APPLICATION START
+   ↓
+STARTUP STATUS
+```
+
+Everything outside this responsibility should be moved to the appropriate configuration, infrastructure, module, or business layer.
+
+Your current `main.ts` already follows most of this pattern: infrastructure connections happen first, then NestJS is created, followed by global configuration, Swagger, and finally `app.listen()`.  
+
+So yes: **this should stay as a completely separate instruction from the module architecture instruction.**

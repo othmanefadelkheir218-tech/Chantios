@@ -1,0 +1,319 @@
+1. NestJS
+   Definition:
+   Main backend framework.
+ 
+Used For:
+ 
+* REST APIs
+* Modules
+* Dependency Injection
+* Controllers
+* Services
+ 
+---
+ 
+2. TypeScript
+ 
+Definition:
+Typed JavaScript.
+ 
+Used For:
+ 
+* Better code quality
+* Type safety
+* Easier maintenance
+ 
+---
+ 
+3. PostgreSQL
+ 
+Definition:
+Relational database.
+ 
+Used For:
+ 
+* Users
+* Projects
+* Investments
+* Transactions
+* Payouts
+* Messaging
+ 
+---
+ 
+4. Prisma
+ 
+Definition:
+ORM for database access.
+ 
+Used For:
+ 
+* Database queries
+* Migrations
+* Type-safe database operations
+ 
+---
+ 
+5. Docker
+ 
+Definition:
+Containerization platform.
+ 
+Used For:
+ 
+* Consistent environments
+* Deployment
+* Local development
+ 
+---
+ 
+6. Redis
+ 
+Definition:
+In-memory database.
+ 
+Used For:
+ 
+* Caching
+* Socket scaling
+* Queues
+* Session storage
+ 
+---
+ 
+7. Socket.IO
+ 
+Definition:
+Real-time communication.
+ 
+Used For:
+ 
+* Chat messages
+* Notifications
+* Live updates
+ 
+---
+ 
+8. JWT
+ 
+Definition:
+Authentication token system.
+ 
+Used For:
+ 
+* Login
+* API authorization
+* User sessions
+ 
+---
+ 
+9. Argon2
+ 
+Definition:
+Password hashing library.
+ 
+Used For:
+ 
+* Secure password storage
+ 
+---
+ 
+10. Stripe
+ 
+Definition:
+Payment processor.
+ 
+Used For:
+ 
+* Buying points
+* Payment processing
+* Webhooks
+ 
+---
+ 
+11. Resend
+ 
+Definition:
+Email service.
+ 
+Used For:
+ 
+* Verification emails
+* Notifications
+* Password reset emails
+ 
+---
+ 
+12. ImageKit
+ 
+Definition:
+Media management service.
+ 
+Used For:
+ 
+* Images
+* Videos
+* CDN delivery
+ 
+---
+ 
+13. Swagger
+ 
+Definition:
+API documentation system.
+ 
+Used For:
+ 
+* API testing
+* Developer documentation
+ 
+---
+ 
+14. Class Validator
+ 
+Definition:
+DTO validation library.
+ 
+Used For:
+ 
+* Input validation
+* Request validation
+ 
+---
+ 
+15. Class Transformer
+ 
+Definition:
+Object transformation library.
+ 
+Used For:
+ 
+* DTO mapping
+* Response formatting
+ 
+---
+ 
+16. Helmet
+ 
+Definition:
+Security middleware.
+ 
+Used For:
+ 
+* Security headers
+* Basic API protection
+ 
+---
+ 
+17. NestJS Throttler
+ 
+Definition:
+Rate limiting system.
+ 
+Used For:
+ 
+* Protect login endpoints
+* Prevent spam
+* Prevent brute-force attacks
+ 
+---
+ 
+18. NestJS Schedule
+ 
+Definition:
+Cron and scheduled tasks.
+ 
+Used For:
+ 
+* Payout jobs
+* Daily reports
+* Automated tasks
+ 
+---
+ 
+19. BullMQ
+ 
+Definition:
+Queue processing system.
+ 
+Used For:
+ 
+* Email queues
+* Notification queues
+* Background jobs
+ 
+---
+ 
+20. Pino
+ 
+Definition:
+Application logger.
+ 
+Used For:
+ 
+* Error logs
+* Request logs
+* Production monitoring
+ 
+---
+ 
+21. Joi
+ 
+Definition:
+Environment validation library.
+ 
+Used For:
+ 
+* Validate env variables
+* Startup checks
+ 
+---
+ 
+22. Git
+ 
+Definition:
+Version control system.
+ 
+Used For:
+ 
+* Source code management
+ 
+---
+ 
+23. GitHub
+ 
+Definition:
+Code repository platform.
+ 
+Used For:
+ 
+* Collaboration
+* CI/CD integration
+ 
+---
+ 
+ 
+---
+ 
+27. ESLint
+ 
+Definition:
+Code quality checker.
+ 
+Used For:
+ 
+* Detect coding mistakes
+* Enforce standards
+ 
+---
+ 
+28. Prettier
+ 
+Definition:
+Code formatter.
+
+
+
+4. GitHub (account required)
+5. Redis (infra required)
+6. Socket.IO (infra optional)

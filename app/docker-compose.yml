@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: chantieros_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-chantieros}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chantieros_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-chantieros}
+    ports:
+      - '${POSTGRES_PORT:-5440}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-chantieros} -d ${POSTGRES_DB:-chantieros}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: chantieros_redis
+    restart: unless-stopped
+    ports:
+      - '${REDIS_PORT:-6390}:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
+  redis_data:

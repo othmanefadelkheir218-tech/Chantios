@@ -1,0 +1,609 @@
+Code Architecture & Development Guidelines
+1. Architecture Philosophy
+
+The codebase follows a strict modular architecture.
+
+Code is organized around business domains/modules, with each module containing everything related to its own business logic.
+
+The main principles are:
+
+Keep modules isolated.
+Keep responsibilities separated.
+Keep business logic centralized.
+Avoid duplicated logic.
+Keep controllers lightweight.
+Keep database access centralized.
+Reuse existing business logic instead of recreating it.
+Make the structure predictable across the entire codebase.
+
+The fundamental rule is:
+
+Business logic should exist only once.
+
+If logic already exists somewhere in the application, reuse it instead of implementing the same logic again.
+
+2. Module Structure
+
+Each business module follows the same general structure.
+
+src/
+├── module-name/
+│   ├── decorators/
+│   ├── dto/
+│   ├── repositories/
+│   ├── handlers/
+│   ├── helpers/
+│   ├── module-name.service.ts
+│   ├── module-name.controller.ts
+│   └── module-name.module.ts
+
+Not every module must contain every directory.
+
+Only create a directory when the module actually needs it.
+
+The important rule is that the structure remains predictable and responsibilities remain separated.
+
+3. Module Creation Method
+
+When creating a new module, follow this process:
+
+Step 1 — Identify the business domain
+
+Determine what business responsibility the module represents.
+
+The module should have a clear purpose and should not become a generic container for unrelated functionality.
+
+Step 2 — Define the module structure
+
+Create the standard module structure:
+
+module-name/
+├── dto/
+├── repositories/
+├── handlers/
+├── helpers/
+├── module-name.service.ts
+├── module-name.controller.ts
+└── module-name.module.ts
+
+Add additional directories only when necessary.
+
+Step 3 — Define the data contract
+
+Create DTOs for incoming and outgoing data.
+
+DTOs are responsible for:
+
+Request validation.
+Request contracts.
+Response contracts when required.
+Defining the shape of data exchanged by the API.
+Step 4 — Define database access
+
+All database operations belonging to the module must be placed inside its repository.
+
+Services and handlers should not access Prisma directly.
+
+Step 5 — Implement business logic
+
+Business rules belong inside handlers.
+
+Handlers perform the actual business operations by coordinating repositories, helpers, and other modules when necessary.
+
+Step 6 — Add orchestration
+
+The service acts as the entry point between controllers and handlers.
+
+The service decides which handler should execute.
+
+Step 7 — Implement the controller
+
+The controller handles HTTP-level concerns.
+
+It receives the request, applies required guards/decorators/validation, calls the service, and returns the result.
+
+Step 8 — Register dependencies
+
+The module file registers the controllers, services, handlers, repositories, and required dependencies.
+
+4. Controller
+
+The controller is responsible for HTTP communication.
+
+HTTP Request
+     ↓
+Controller
+     ↓
+Service
+     ↓
+Handler
+     ↓
+Repository
+     ↓
+Database
+
+Controllers should:
+
+Receive requests.
+Extract request parameters/body/query data.
+Apply guards and decorators.
+Call service methods.
+Return responses.
+
+Controllers should not contain business logic.
+
+Avoid:
+
+Controller
+ ├── validation logic
+ ├── business rules
+ ├── database queries
+ └── response handling
+
+Prefer:
+
+Controller
+    ↓
+Service
+    ↓
+Handler
+
+The controller should remain small and easy to understand.
+
+5. Service
+
+The service is the orchestration layer.
+
+Its primary responsibility is to connect the controller with the appropriate business logic.
+
+Example:
+
+Controller
+    ↓
+Service
+    ↓
+CreateHandler
+
+The service should:
+
+Receive requests from controllers.
+Select the appropriate handler.
+Pass the required data.
+Coordinate high-level execution.
+
+The service should not contain large amounts of business logic.
+
+Avoid turning the service into a large "god service" containing every rule in the module.
+
+6. Handlers
+
+Handlers contain the module's business logic.
+
+Each handler should normally represent a specific business operation.
+
+Example:
+
+handlers/
+├── create-item.handler.ts
+├── update-item.handler.ts
+├── delete-item.handler.ts
+└── get-item.handler.ts
+
+Handlers are responsible for:
+
+Executing business rules.
+Validating business conditions.
+Coordinating repositories.
+Calling other module services when necessary.
+Producing the result of the business operation.
+
+Example flow:
+
+Create Item
+
+Controller
+    ↓
+Service
+    ↓
+CreateItemHandler
+    ↓
+Repository
+    ↓
+Database
+
+Handlers should contain the actual business decision-making.
+
+7. Repository
+
+Repositories are responsible for database access.
+
+All Prisma operations belonging to a module must be centralized inside its repository.
+
+Example:
+
+repositories/
+└── item.repository.ts
+
+Rules:
+
+Prisma queries belong in repositories.
+Handlers must not access Prisma directly.
+Services must not access Prisma directly.
+Controllers must never access Prisma directly.
+Database access should have a single clear location.
+
+Example:
+
+Handler
+   ↓
+Repository
+   ↓
+Prisma
+   ↓
+Database
+
+Instead of:
+
+Handler
+   ↓
+Prisma
+
+This makes database access easier to maintain, test, and change.
+
+8. Repository File Rule
+
+Each module should normally have one repository file.
+
+Example:
+
+items/
+└── repositories/
+    └── item.repository.ts
+
+The repository contains all database operations belonging to that module's domain.
+
+Do not create a separate repository for every small operation unless there is a strong architectural reason to do so.
+
+Avoid unnecessary fragmentation such as:
+
+repositories/
+├── create-item.repository.ts
+├── update-item.repository.ts
+├── delete-item.repository.ts
+└── find-item.repository.ts
+
+Prefer:
+
+repositories/
+└── item.repository.ts
+
+The repository becomes the single database-access point for that module.
+
+9. Helpers
+
+Helpers contain reusable logic that is specific to the module but does not belong directly inside a handler.
+
+Example:
+
+helpers/
+└── item.helper.ts
+
+Helpers should be used to:
+
+Avoid code duplication.
+Extract repeated calculations.
+Extract repeated transformations.
+Centralize reusable module-specific logic.
+
+If the same piece of logic is repeated multiple times, consider extracting it into a helper.
+
+Do not create helpers simply for the sake of creating files.
+
+The goal is to make the code clearer, not to increase the number of files.
+
+10. Decorators
+
+Decorators contain reusable metadata and documentation definitions related to the module.
+
+For example:
+
+decorators/
+└── item.swagger.ts
+
+API documentation should be kept organized rather than scattering large amounts of documentation configuration throughout controllers.
+
+11. DTOs
+
+DTOs define the data contracts used by the module.
+
+Example:
+
+dto/
+├── create-item.dto.ts
+├── update-item.dto.ts
+└── ...
+
+DTOs should contain:
+
+Validation rules.
+Request structures.
+Response structures when appropriate.
+
+DTOs should not contain business logic.
+
+Business decisions belong to handlers.
+
+12. Cross-Module Communication
+
+A module must not directly access another module's database layer.
+
+Bad:
+
+Module A
+   ↓
+Module B Repository
+
+Or:
+
+Module A
+   ↓
+Prisma
+   ↓
+Module B table
+
+Instead, communicate through the public business interface of the other module.
+
+Prefer:
+
+Module A
+   ↓
+Module B Service
+   ↓
+Module B Handler
+   ↓
+Module B Repository
+   ↓
+Database
+
+The exact entry point can depend on the architecture, but the important rule is:
+
+A module must not bypass another module's business logic.
+
+This guarantees that each module remains responsible for its own domain rules.
+
+13. Single Source of Truth
+
+Every business rule should have one authoritative implementation.
+
+Bad:
+
+Module A
+└── calculates business rule
+
+Module B
+└── calculates the same business rule
+
+Module C
+└── calculates the same business rule again
+
+Prefer:
+
+Business Rule
+      ↓
+Single Implementation
+      ↓
+Other modules reuse it
+
+This prevents different parts of the application from producing different results.
+
+14. Business Logic Placement
+
+Use the following rule when deciding where code belongs:
+
+Controller
+
+HTTP-related logic.
+
+Request
+Response
+Guards
+Decorators
+Parameters
+Service
+
+Orchestration.
+
+Which operation should execute?
+Which handler should be called?
+Handler
+
+Business logic.
+
+What should the application actually do?
+What business rules must be respected?
+Repository
+
+Database access.
+
+Create
+Find
+Update
+Delete
+Database queries
+Helper
+
+Reusable supporting logic.
+
+Transformations
+Calculations
+Repeated module-specific operations
+DTO
+
+Data contract and validation.
+
+Input structure
+Validation
+Output structure when required
+15. Logging
+
+Logging is used extensively during development and debugging.
+
+Important business operations should have useful logs, especially inside handlers.
+
+Example:
+
+Handler
+   ↓
+Log operation started
+   ↓
+Execute business logic
+   ↓
+Log important result
+   ↓
+Return result
+
+Errors should also be logged with enough context to understand what happened.
+
+The goal is to make it possible to understand the execution flow directly from the terminal.
+
+Logs should be useful and meaningful.
+
+Avoid excessive logs that only print values without explaining the operation.
+
+Prefer:
+
+Creating item
+Updating item
+Item not found
+Failed to update item
+
+over meaningless output such as:
+
+data =
+x =
+test =
+123 =
+
+Logging should help identify:
+
+Which operation was executed.
+Where it failed.
+Why it failed when possible.
+Relevant identifiers or context.
+16. Error Handling
+
+Errors should be handled at the appropriate layer.
+
+Business conditions should be handled by handlers.
+
+Database-specific operations should remain inside repositories.
+
+Controllers should not implement large error-handling systems.
+
+The error flow should remain predictable:
+
+Controller
+    ↓
+Service
+    ↓
+Handler
+    ↓
+Repository
+    ↓
+Error
+    ↑
+Handled / propagated appropriately
+
+Do not silently catch errors unless there is a specific reason to do so.
+
+17. Avoid Code Duplication
+
+Before writing new logic, check whether the functionality already exists.
+
+Ask:
+
+Does this logic already exist?
+Can an existing helper be reused?
+Can an existing handler be reused?
+Does another module already own this business rule?
+Should this logic become shared functionality?
+
+Do not copy existing business logic into a new module simply because it is easier.
+
+If the same logic exists in multiple places, maintenance becomes harder and behavior can diverge.
+
+18. Creating New Features
+
+When implementing a new feature, follow this general sequence:
+
+1. Identify the responsible module
+        ↓
+2. Define DTOs
+        ↓
+3. Define repository operations
+        ↓
+4. Implement handler
+        ↓
+5. Add helper logic if necessary
+        ↓
+6. Expose operation through service
+        ↓
+7. Add controller endpoint
+        ↓
+8. Register dependencies
+        ↓
+9. Add logging
+        ↓
+10. Test the complete flow
+
+Do not start by putting everything inside the controller or service.
+
+Build the feature according to its responsibility.
+
+19. Code Organization Rules
+
+Follow these rules consistently:
+
+One business domain → one module.
+Controllers handle HTTP.
+Services orchestrate.
+Handlers contain business logic.
+Repositories handle database access.
+DTOs define data contracts.
+Helpers contain reusable supporting logic.
+Prisma access exists only in repositories.
+Modules must not bypass other modules' business logic.
+Avoid duplicated business rules.
+Keep files focused on one responsibility.
+Do not create unnecessary abstractions.
+Do not create unnecessary files.
+Prefer predictable structures over clever structures.
+20. Final Development Principle
+
+The architecture should make it immediately obvious:
+
+Where should this code live?
+
+When adding code, determine its responsibility first.
+
+HTTP concern?
+    → Controller
+
+Orchestration?
+    → Service
+
+Business rule?
+    → Handler
+
+Database operation?
+    → Repository
+
+Repeated supporting logic?
+    → Helper
+
+Data contract / validation?
+    → DTO
+
+The purpose of this architecture is not to create more files.
+
+The purpose is to make responsibilities clear, business logic centralized, database access controlled, and the codebase predictable as it grows.
