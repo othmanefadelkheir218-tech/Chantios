@@ -31,8 +31,12 @@ One row per employee, per day, per project.
 | `projet_id` | Which project (required) |
 | `user_id` | Which employee logged the hours (required) |
 | `tache_id` | Optional link to one specific `planning_taches` row |
-| `date_travail` | Which day |
+| `date_travail` | Which day (full date e.g. `2026-10-04`) |
 | `heures` | How many hours (0–24, checked at the database level) |
+| `taux_horaire` | **Frozen** hourly rate at the moment of logging (copied from `users.taux_horaire`) |
+| `commentaire` | Short text — what was done (e.g. "finished tiling the bathroom floor") |
+
+**Why `taux_horaire` is frozen here:** the tenant can change an employee's salary anytime on the `users` table. Freezing the rate on each `pointages` row means past margin calculations never shift — same pattern as `stock_mouvements.prix_unitaire`. See `[[catalogue-stock-tables-and-cost-storage]]` for the full explanation.
 
 **Why `assigned_user_id` must be a real employee:** that same account is what the person uses to log hours later. A free-typed name would have nothing to attach the `pointages` row to.
 
@@ -42,10 +46,62 @@ Nothing ties a `user_id` to a single project. An employee can be assigned tasks 
 
 Example — Ahmed working on two projects the same day:
 
-| user_id | projet_id | tache_id | date_travail | heures |
-|---|---|---|---|---|
-| Ahmed | Project A | Démolition | Monday | 5 |
-| Ahmed | Project B | Peinture | Monday | 3 |
+| user_id | projet_id | tache_id | date_travail | heures | taux_horaire | commentaire |
+|---|---|---|---|---|---|---|
+| Ahmed | Project A | Démolition | 2026-10-04 | 5 | €20 | "knocked down the wall" |
+| Ahmed | Project B | Peinture | 2026-10-04 | 3 | €20 | "first coat done" |
+
+Each project pays only for its own hours. No mixing.
+
+## Full margin scenario — how the tenant knows if they win or lose money
+
+**Setup:**
+- Budget = **€1,000**
+- Materials cost = **€250** (already known from `stock_mouvements`)
+- Subcontractor cost = **€100** (from `facture_achat`)
+- Employees: Karim (€20/h), Youssef (€15/h)
+
+**`users` table (current rates, editable by tenant):**
+
+| id | nom | taux_horaire |
+|---|---|---|
+| U1 | Karim | €20 |
+| U2 | Youssef | €15 |
+
+**`pointages` rows logged:**
+
+| user_id | projet_id | date_travail | heures | taux_horaire (frozen) | commentaire |
+|---|---|---|---|---|---|
+| Karim | P1 | 2026-10-01 | 8 | €20 | "demo day 1" |
+| Karim | P1 | 2026-10-02 | 8 | €20 | "demo day 2" |
+| Youssef | P1 | 2026-10-01 | 6 | €15 | "tiling started" |
+
+**Employee cost calculation:**
+```
+Karim:   (8 + 8) × €20 = €320
+Youssef: 6       × €15 = €90
+Total employees         = €410
+```
+
+**Full margin:**
+```
+Budget              = €1,000
+− Materials         =   €250
+− Subcontractor     =   €100
+− Employees         =   €410
+─────────────────────────────
+Margin              =   €240  ✅ winning
+```
+
+**If Karim works 5 more days (8h/day):**
+```
+Extra cost = 5 × 8 × €20 = €800
+New total  = €250 + €100 + €410 + €800 = €1,560
+Margin     = €1,000 − €1,560 = −€560  ❌ LOSING MONEY → alert sent to tenant
+```
+
+**What if Karim's salary changes to €25/h next month?**
+Past `pointages` rows already have €20 frozen — nothing changes. History stays accurate.
 
 ## ⚠️ Gap: total daily hours across projects isn't checked — and the fix
 

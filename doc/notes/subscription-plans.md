@@ -11,7 +11,7 @@ A plan is a **row of data the admin manages**, not a hardcoded tier. The admin c
 
 Example: admin creates "Plan X," sells it to Customer A. Later removes "Plan X." Customer B can never see or pick it. Customer A keeps it unless the admin decides otherwise.
 
-## The 8 agreed dimensions
+## The 7 dimensions (v1)
 
 1. Number of projects per plan
 2. Number of "mini employees" (`ouvrier` — task + pointage only)
@@ -20,9 +20,10 @@ Example: admin creates "Plan X," sells it to Customer A. Later removes "Plan X."
 5. Number of subcontractors
 6. Document & photo storage quota
 7. History/data retention length
-8. Client connection channels (Email now; Telegram/WhatsApp as future additions)
 
 AI features are deliberately excluded from this list for now — handled separately, later.
+
+> **v2 — Client connection channels**: Email first. Telegram/WhatsApp as future additions. Not in v1.
 
 ## Extra monetization ideas on top of the plan list
 
@@ -33,7 +34,7 @@ AI features are deliberately excluded from this list for now — handled separat
 
 Move away from a fixed 3-value plan enum. Instead:
 
-- A **`plans` table**: one row per plan (admin-created), holding its name, price, active/inactive status, and a value for each of the 8 dimensions.
+- A `plans` **table**: one row per plan (admin-created), holding its name, price, active/inactive status, and a value for each of the 8 dimensions.
 - **Active/inactive, not hard delete**: removing a plan should deactivate it (stop new signups from picking it) rather than deleting the row outright — existing subscribers still reference it.
 - **Price changes**: since Stripe prices are immutable, changing a plan's price means creating a new Stripe Price and pointing new signups to it (see the open decision below for existing customers).
 
@@ -44,6 +45,7 @@ Move away from a fixed 3-value plan enum. Instead:
 - **No manual add-on toggle — usage-based billing instead**: there's no separate "buy/remove add-on" switch. Every dimension (employees, projects, storage...) is billed on **actual usage, checked at each renewal**: `bill = base plan price + (actual usage − base plan allowance) × per-unit overage price`, for whichever dimensions are over their base allowance.
 
   Worked example — employees, base plan = 5 included:
+
   - Tenant has 8 active employees this month → billed for 8 (5 base + 3 over).
   - They don't "remove an add-on" — they just deactivate/remove employees if they want to pay less. Nothing to toggle.
   - Current month is already paid for — no refund/proration mid-cycle, they keep all 8 seats until the period ends.
@@ -65,8 +67,9 @@ Move away from a fixed 3-value plan enum. Instead:
 - **Why storage differs from employees**: deactivating an employee drops usage instantly. Storage doesn't — the files physically still exist until deleted, so the system must check *before* accepting the downgrade rather than relying on usage naturally dropping on its own.
 
 ## Related notes
-- [[business-logic-overview]]
-- [[A_progress-tracker]]
+
+- \[\[business-logic-overview\]\]
+- \[\[A_progress-tracker\]\]
 
 ---
 
@@ -75,27 +78,29 @@ Move away from a fixed 3-value plan enum. Instead:
 ## Database Structure
 
 ### `plans` table
+
 **Purpose:** One row per plan version. Managed by the super-admin. Never edited once tenants are subscribed to it — changes create a new version row instead.
 
 | Column | Type | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `id` | uuid | PK |
 | `name` | varchar | "Pro", "Starter"… |
 | `is_active` | boolean | false = no new signups allowed |
 | `parent_plan_id` | uuid (nullable) | FK → plans.id — points to the previous version this was created from |
 | `base_price` | decimal | Monthly base price |
 | `stripe_price_id` | varchar | Stripe Price ID for this version |
-| `created_at` | timestamp | |
+| `created_at` | timestamp |  |
 
 > Plans are **immutable once in use**. Changing a plan (price, limits) = deactivate old row + create new row with `parent_plan_id` pointing to the old one. Existing tenants stay on the old row automatically.
 
 ---
 
 ### `plan_features` table
+
 **Purpose:** Stores the limit and overage rate for each dimension, per plan. Separate from `plans` so new features can be added without a schema migration — just insert new rows.
 
 | Column | Type | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `id` | uuid | PK |
 | `plan_id` | uuid | FK → plans.id |
 | `feature_key` | varchar | `"max_ouvriers"`, `"max_projects"`, `"storage_gb"`… |
@@ -109,10 +114,11 @@ Move away from a fixed 3-value plan enum. Instead:
 ---
 
 ### `tenant_subscriptions` table
+
 **Purpose:** One row per tenant. Tracks which exact plan version the tenant is on, their Stripe subscription, and any pending plan change.
 
 | Column | Type | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `id` | uuid | PK |
 | `tenant_id` | uuid | FK → tenants.id |
 | `plan_id` | uuid | FK → plans.id — the exact row the tenant is locked to |
@@ -127,36 +133,38 @@ Move away from a fixed 3-value plan enum. Instead:
 ---
 
 ### `billing_usage_snapshots` table
+
 **Purpose:** A snapshot of actual usage per tenant per billing cycle, taken at renewal. This is what drives the invoice calculation — not the plans table.
 
 | Column | Type | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `id` | uuid | PK |
 | `tenant_id` | uuid | FK → tenants.id |
-| `period_start` | timestamp | |
-| `period_end` | timestamp | |
-| `snapshot_taken_at` | timestamp | |
+| `period_start` | timestamp |  |
+| `period_end` | timestamp |  |
+| `snapshot_taken_at` | timestamp |  |
 | `feature_key` | varchar | One row per dimension (e.g. `"max_ouvriers"`) |
 | `actual_count` | int / decimal | Real usage at renewal time |
 | `included_allowance` | int | Copied from plan_features at snapshot time |
 | `overage_rate` | decimal | Copied from plan_features at snapshot time |
 | `overage_amount` | decimal | `max(0, actual - allowance) × overage_rate` |
-| `stripe_invoice_id` | varchar | |
+| `stripe_invoice_id` | varchar |  |
 
 > Rates and limits are **copied at snapshot time** so historical invoices stay accurate even if the plan changes later.
 
 ---
 
 ### Operational tables (e.g. `ouvriers`, `projects`, `clients`…)
+
 **Purpose:** The real business data. These are the tables the system counts at renewal to produce the snapshot.
 
 Example: `ouvriers`
 
 | Column | Type | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `id` | uuid | PK |
 | `tenant_id` | uuid | FK → tenants.id |
-| `name` | varchar | |
+| `name` | varchar |  |
 | `is_active` | boolean | Only active rows are counted at renewal |
 
 > The `plans` and `tenant_subscriptions` tables **never store counts**. Usage lives here.
@@ -170,13 +178,15 @@ Example: `ouvriers`
 **Step 1: Admin creates "Pro" plan**
 
 `plans`:
+
 | id | name | base_price | is_active | parent_plan_id |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | plan_001 | Pro | 50€ | true | null |
 
 `plan_features`:
+
 | plan_id | feature_key | limit_value | overage_rate |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | plan_001 | max_ouvriers | 5 | 2.00 |
 | plan_001 | max_projects | 10 | 5.00 |
 | plan_001 | storage_gb | 20 | 0.50 |
@@ -186,8 +196,9 @@ Example: `ouvriers`
 **Step 2: Tenant A subscribes**
 
 `tenant_subscriptions`:
+
 | id | tenant_id | plan_id | status | period_start | period_end |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | sub_001 | tenant_A | plan_001 | active | 2026-09-01 | 2026-09-30 |
 
 ---
@@ -197,8 +208,9 @@ Example: `ouvriers`
 No change to `plans` or `tenant_subscriptions`. The 2 new employees are saved in `ouvriers`:
 
 `ouvriers`:
+
 | id | tenant_id | name | is_active |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | ou_1 | tenant_A | Youssef | true |
 | ou_2 | tenant_A | Karim | true |
 | ou_3 | tenant_A | Ahmed | true |
@@ -208,13 +220,15 @@ No change to `plans` or `tenant_subscriptions`. The 2 new employees are saved in
 | ou_7 | tenant_A | Mehdi | true ← new |
 
 At renewal, system counts 7 active ouvriers → computes overage:
+
 ```
 bill = 50€ + (7 - 5) × 2€ = 54€
 ```
 
 `billing_usage_snapshots` (created at renewal):
+
 | tenant_id | feature_key | actual_count | included_allowance | overage_amount |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | tenant_A | max_ouvriers | 7 | 5 | 4.00€ |
 
 ---
@@ -224,14 +238,16 @@ bill = 50€ + (7 - 5) × 2€ = 54€
 Admin does NOT edit `plan_001`. Creates a new version:
 
 `plans`:
+
 | id | name | base_price | is_active | parent_plan_id |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | plan_001 | Pro | 50€ | **false** | null |
 | plan_002 | Pro | 60€ | **true** | plan_001 |
 
 `tenant_subscriptions` — **unchanged**:
+
 | id | tenant_id | plan_id | status |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | sub_001 | tenant_A | **plan_001** | active |
 
 - Tenant A → still on plan_001 → still pays 50€ base ✅
@@ -242,8 +258,9 @@ Admin does NOT edit `plan_001`. Creates a new version:
 **Step 5: Admin manually moves Tenant A to new plan**
 
 `tenant_subscriptions`:
+
 | id | tenant_id | plan_id | pending_plan_id | pending_plan_effective_at |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | sub_001 | tenant_A | plan_001 | plan_002 | 2026-10-01 (next renewal) |
 
 At next renewal → `plan_id` is updated to `plan_002` → Tenant A now pays 60€ base.

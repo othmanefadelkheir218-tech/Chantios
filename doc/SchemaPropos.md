@@ -23,7 +23,7 @@ CREATE TYPE user_role AS ENUM (
 CREATE TYPE client_type AS ENUM ('particulier','professionnel','syndic');
 
 CREATE TYPE projet_statut AS ENUM (
-  'prospect','devis_envoye','accepte','en_cours','termine','annule'
+  'prospect','en_cours','termine','annule'
 );
 
 CREATE TYPE devis_statut AS ENUM ('brouillon','envoye','accepte','refuse');
@@ -424,12 +424,11 @@ CREATE TABLE sous_traitants (
 );
 CREATE INDEX idx_sous_traitants_tenant ON sous_traitants (tenant_id);
 
--- THE missing piece: a real, enforced link between a subcontractor and a project
 CREATE TABLE contrats_sous_traitance (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   sous_traitant_id UUID NOT NULL REFERENCES sous_traitants(id) ON DELETE RESTRICT,
-  projet_id UUID NOT NULL REFERENCES projets(id) ON DELETE RESTRICT, -- NOT NULL: this is what was broken/unusable before
+  projet_id UUID NOT NULL REFERENCES projets(id) ON DELETE RESTRICT,
   description TEXT,
   montant_ht NUMERIC(12,2) NOT NULL CHECK (montant_ht >= 0),
   statut contrat_st_statut NOT NULL DEFAULT 'en_cours',
@@ -443,17 +442,16 @@ CREATE INDEX idx_contrats_st_traitant ON contrats_sous_traitance (sous_traitant_
 CREATE TABLE factures_achat (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  projet_id UUID NOT NULL REFERENCES projets(id) ON DELETE RESTRICT, -- NOT NULL fixes "often NULL" bug
-  contrat_sous_traitance_id UUID REFERENCES contrats_sous_traitance(id) ON DELETE SET NULL,
-  fournisseur TEXT NOT NULL,
+  projet_id UUID NOT NULL REFERENCES projets(id) ON DELETE RESTRICT,
+  contrat_sous_traitance_id UUID NOT NULL REFERENCES contrats_sous_traitance(id) ON DELETE RESTRICT,
   numero_facture TEXT,
-  categorie TEXT,
   date_facture DATE NOT NULL DEFAULT CURRENT_DATE,
   date_echeance DATE,
   montant_ht NUMERIC(12,2) NOT NULL CHECK (montant_ht >= 0),
   taux_tva NUMERIC(5,2) NOT NULL DEFAULT 21.00,
   statut facture_achat_statut NOT NULL DEFAULT 'a_payer',
-  reference_virement TEXT,
+  reference_paiement TEXT,
+  document_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_factures_achat_projet ON factures_achat (projet_id);
