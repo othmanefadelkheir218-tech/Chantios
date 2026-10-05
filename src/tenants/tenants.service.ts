@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { RequestActor } from '../common/decorators/actor.decorator';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { FindTenantsQueryDto } from './dto/find-tenants-query.dto';
@@ -34,8 +35,13 @@ export class TenantsService {
     private readonly verifyEmail: VerifyTenantEmailHandler,
   ) {}
 
-  create(dto: CreateTenantDto, actor: RequestActor) {
-    return this.createTenant.execute(dto, actor);
+  /** `tx` — step 02 registration runs this inside its own transaction. */
+  create(
+    dto: CreateTenantDto,
+    actor: RequestActor,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.createTenant.execute(dto, actor, tx);
   }
 
   findAll(query: FindTenantsQueryDto) {

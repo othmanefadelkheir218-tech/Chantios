@@ -14,6 +14,7 @@ export class CreateSubscriptionHandler {
   /** No route: step 02 registration calls this when it creates a tenant. */
   async execute(
     data: Prisma.TenantSubscriptionUncheckedCreateInput,
+    tx?: Prisma.TransactionClient,
   ): Promise<TenantSubscription> {
     this.logger.info(`Creating subscription for tenant ${data.tenantId}`);
 
@@ -21,6 +22,6 @@ export class CreateSubscriptionHandler {
       this.logger.warn(`Tenant ${data.tenantId} already has a subscription`);
       throw new ConflictException('This tenant already has a subscription');
     }
-    return this.subscriptions.create(data);
+    return this.subscriptions.create(data, tx);
   }
 }

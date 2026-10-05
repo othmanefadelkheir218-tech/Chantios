@@ -52,10 +52,16 @@ Check all 6 rows are in the database:
 & docker exec chantieros_postgres psql -U chantieros -d chantieros -c "select feature_key, limit_value, overage_rate from plan_features where plan_id = 'PLAN_A' order by 1;"
 ```
 
-## PLN-02 — A plan can be small
+## PLN-02 — A plan can be minimal, but never partial
 
-Create `TEST Plan Min` with one feature `{ "feature_key": "max_clients", "limit_value": 10 }` and no `overage_rate`.
-**Expected** `201`, the feature has `overage_rate` `"0"`.
+All 6 keys are **always** required (see PLN-03) — "small" means low or zero limits/rates, not fewer features.
+
+Create `TEST Plan Min` with all 6 features, most at `"limit_value": 0` and `"overage_rate": "0"` — e.g. `max_clients` the only one with a real allowance: `{ "feature_key": "max_clients", "limit_value": 10 }`, no `overage_rate` sent for it. Every other key: `{ "feature_key": "...", "limit_value": 0, "overage_rate": "0" }`.
+
+**Expected**
+- `201`, 6 features.
+- `max_clients`'s `overage_rate` is `"0"` (the default when you don't send one).
+- **`overage_rate: "0"` on any dimension means unlimited for it, at no extra cost** — see `subscription-plans.md` § "overage_rate: 0 means unlimited".
 
 ## PLN-03 — Invalid plans leave nothing behind
 
@@ -63,9 +69,11 @@ Each is **`400`**:
 
 | Body | Why |
 |---|---|
-| `features` has `max_workers` twice | `Duplicate feature_key: max_workers` |
+| 6 features, one key sent twice (so a 6th real key is consequently missing — e.g. `max_workers` twice, no `storage_gb`) | `Duplicate feature_key: max_workers` — checked **before** the missing-key check |
+| only 5 of the 6 keys, no duplicate (any one left out — e.g. no `retention_days`) | `All 6 features are required. Missing: retention_days` (names the actual missing key) |
+| 7 features — with only 6 possible keys this always means a repeat | same duplicate-key message |
 | a feature with `"feature_key": "max_planets"` | not one of the 6 keys |
-| `"features": []` | at least one feature |
+| `"features": []` | `features must contain at least 1 elements` |
 | no `features` | must be a list |
 | `"base_price": "abc"` or `"-5"` or `"1.234"` | not a valid amount |
 | `"limit_value": -1` | must not be less than 0 |
@@ -73,6 +81,8 @@ Each is **`400`**:
 | no `name` | name is required |
 | `"tenant_id": "x"` | property should not exist |
 | `"stripe_price_id": "string"` | property should not exist — it is created automatically, never sent (see PLN-15) |
+
+The exact-6 rule lives in `plan.helper.ts`, not in the DTO — the DTO only checks `features` is a non-empty array of well-shaped items. That is deliberate: a DTO-level size check would reject a short list with a generic "must contain at least N elements" and never show which key is missing.
 
 Then check no ghost plan was written:
 
@@ -115,7 +125,7 @@ Check:
 
 ## PLN-06 — Create a plan as default in one step
 
-`POST /api/admin/plans` with `"name": "TEST Plan B"`, `"base_price": "60.00"`, `"is_default": true` and 2 features.
+`POST /api/admin/plans` with `"name": "TEST Plan B"`, `"base_price": "60.00"`, `"is_default": true` and all 6 features (reuse PLN-01's list with different numbers if you like).
 
 **Expected**
 - `201`, `is_default: true`.
@@ -169,16 +179,27 @@ Make `TEST Plan Min` active and not default (it is). Copy its `id`: `PLAN_MIN`.
 
 ## PLN-11 — A version can change the features
 
+A sent `features` list **replaces** the copy — but it must still contain all 6 keys (PLN-03's rule applies here too).
+
 `POST /api/admin/plans/PLAN_MIN_V2/version`
 
 ```json
 {
   "name": "TEST Plan Min v3",
-  "features": [{ "feature_key": "max_workers", "limit_value": 2, "overage_rate": "3.00" }]
+  "features": [
+    { "feature_key": "max_workers", "limit_value": 2, "overage_rate": "3.00" },
+    { "feature_key": "max_managers", "limit_value": 0, "overage_rate": "0" },
+    { "feature_key": "max_clients", "limit_value": 10, "overage_rate": "0" },
+    { "feature_key": "max_subcontractors", "limit_value": 0, "overage_rate": "0" },
+    { "feature_key": "storage_gb", "limit_value": 5, "overage_rate": "0" },
+    { "feature_key": "retention_days", "limit_value": 90, "overage_rate": "9.99" }
+  ]
 }
 ```
 
-**Expected** `201`. The features are **only** `max_workers` (the list replaces the copy). `PLAN_MIN_V2` becomes inactive.
+**Expected** `201`. The features are exactly this new list of 6 (the list replaces the copy, it doesn't merge with it). `PLAN_MIN_V2` becomes inactive.
+
+Sending only `{ "features": [{ "feature_key": "max_workers", "limit_value": 2 }] }` (one key) instead → `400`, `All 6 features are required. Missing: ...`.
 
 ## PLN-12 — A version of the default plan becomes the default
 

@@ -14,7 +14,9 @@ export class SubscriptionRepository {
   /** Called by step 02 registration, in the same transaction as the tenant. */
   create(
     data: Prisma.TenantSubscriptionUncheckedCreateInput,
+    tx?: Prisma.TransactionClient,
   ): Promise<TenantSubscription> {
+    if (tx) return tx.tenantSubscription.create({ data });
     return this.prisma.tenantSubscription.create({ data });
   }
 

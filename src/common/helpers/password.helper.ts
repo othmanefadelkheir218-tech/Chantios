@@ -9,3 +9,12 @@ export function hashPassword(password: string): Promise<string> {
     parallelism: 1,
   });
 }
+
+/**
+ * Verifies a password or PIN against its argon2id hash. Used by every login
+ * flow: admin, tenant user, and the worker mobile PIN (doc/notes/auth-tokens.md
+ * — one hashing scheme for both).
+ */
+export function verifyPassword(hash: string, plain: string): Promise<boolean> {
+  return argon2.verify(hash, plain);
+}

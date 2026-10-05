@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsBoolean,
@@ -75,10 +74,25 @@ export class CreatePlanDto {
     description:
       'Must contain exactly these 6 keys, no more, no fewer: ' +
       FEATURE_KEYS.join(', '),
+    example: [
+      { feature_key: 'max_workers', limit_value: 5, overage_rate: '2.00' },
+      { feature_key: 'max_managers', limit_value: 3, overage_rate: '5.00' },
+      { feature_key: 'max_clients', limit_value: 50, overage_rate: '0.20' },
+      {
+        feature_key: 'max_subcontractors',
+        limit_value: 20,
+        overage_rate: '0.20',
+      },
+      { feature_key: 'storage_gb', limit_value: 20, overage_rate: '0.50' },
+      {
+        feature_key: 'retention_days',
+        limit_value: 365,
+        overage_rate: '9.99',
+      },
+    ],
   })
   @IsArray()
-  @ArrayMinSize(6)
-  @ArrayMaxSize(6)
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => PlanFeatureDto)
   features: PlanFeatureDto[];

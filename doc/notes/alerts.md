@@ -94,6 +94,14 @@ Margin is recomputed after every time entry, consumption and purchase invoice. A
 
 ---
 
+## Email templates & language (decided 2026-10-05, step 02)
+
+- **Location**: `src/email/templates/`, one file per template (`invite-employee.template.ts`, `password-reset.template.ts`, `email-verification.template.ts`...) — same shape as the existing `tenant-email-verification.template.ts`. Each template function takes a `locale: 'fr' | 'en' | 'ar'` parameter and returns `{ subject, html }`.
+- **Which locale**: the invitation email and the password-reset email use the **tenant's** `locale` column — `clients` has no `locale` of its own, and these two emails never reach a client, only `users` of that tenant. A user's own emails always use their tenant's locale, not a personal preference (there is no per-user locale column).
+- **Unknown/missing locale**: falls back to `en`.
+
+---
+
 ## End-of-day reminder time
 
 - **Configurable per tenant** — set once by the Main Admin in Settings

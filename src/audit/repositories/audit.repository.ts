@@ -8,11 +8,13 @@ import { AuditEntry } from '../helpers/audit.helper';
 export class AuditRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async write(entry: AuditEntry): Promise<void> {
-    await this.prisma.auditLog.create({
+  /** `tx` — lets a caller keep this write inside its own transaction. */
+  async write(entry: AuditEntry, tx?: Prisma.TransactionClient): Promise<void> {
+    await (tx ?? this.prisma).auditLog.create({
       data: {
         tenantId: entry.tenantId ?? null,
         adminUserId: entry.adminUserId ?? null,
+        userId: entry.userId ?? null,
         action: entry.action,
         entityType: entry.entityType,
         entityId: entry.entityId ?? null,

@@ -107,6 +107,8 @@ Over the attempt limit → the row is consumed and the user requests a new code.
 
 `admin_2fa` covers the super-admin TOTP flow (otplib). The TOTP secret itself lives on `admin_users`, not here — this table only tracks the one-time challenge.
 
+**Decision (2026-10-05, step 02 build):** a TOTP code is verified directly against `admin_users.totp_secret` (otplib) — it is never emailed and never compared against a stored hash, so this row's own `code_hash`/`attempt_count` don't apply to it the way they do to the other two types. The 5-minute window between password check and TOTP entry is carried instead as a short-lived signed JWT "challenge token" (`admin-login.handler.ts` issues it, `verify-2fa.handler.ts` decodes it) naming which admin is mid-login. No `one_time_codes` row is written for `admin_2fa` yet. **Known gap**: there is no 2FA enrollment route in v1 so far — `admin_users.totp_secret` is always `NULL` today, so `admin-login.handler.ts` skips the challenge whenever it's unset. Add the enrollment route before relying on this for anything real.
+
 ---
 
 ## Shared rules

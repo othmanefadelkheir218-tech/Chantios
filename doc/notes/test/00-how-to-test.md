@@ -10,6 +10,7 @@
 | [03-plans.md](03-plans.md) | Plans, features, default plan, versions |
 | [04-subscriptions.md](04-subscriptions.md) | Subscription of a tenant, plan change, usage |
 | [05-audit-analytics-feedback.md](05-audit-analytics-feedback.md) | Audit logs, analytics events, feedback |
+| [06-auth-users.md](06-auth-users.md) | Step 02 — auth, mobile login, users, invitations, roles/permissions |
 
 ---
 

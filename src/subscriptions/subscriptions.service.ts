@@ -23,9 +23,12 @@ export class SubscriptionsService {
     private readonly snapshotUsageHandler: SnapshotUsageHandler,
   ) {}
 
-  /** Called by step 02 registration. */
-  create(data: Prisma.TenantSubscriptionUncheckedCreateInput) {
-    return this.createSubscription.execute(data);
+  /** Called by step 02 registration, inside its own transaction. */
+  create(
+    data: Prisma.TenantSubscriptionUncheckedCreateInput,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.createSubscription.execute(data, tx);
   }
 
   findAll(query: FindSubscriptionsQueryDto) {

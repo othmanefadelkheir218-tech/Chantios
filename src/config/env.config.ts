@@ -17,6 +17,12 @@ export interface Env {
   IMAGEKIT_URL_ENDPOINT: string;
   RESEND_API_KEY: string;
   EMAIL: string;
+  APP_URL: string;
+  PORTAL_BASE_URL: string;
+  JWT_ACCESS_SECRET: string;
+  JWT_REFRESH_SECRET: string;
+  JWT_ACCESS_EXPIRES_IN: string;
+  JWT_REFRESH_EXPIRES_IN: string;
 }
 
 /** Every env variable used by the app. The app stops at startup if one is invalid. */
@@ -44,6 +50,12 @@ const envSchema = Joi.object<Env>({
   IMAGEKIT_URL_ENDPOINT: Joi.string().uri().required(),
   RESEND_API_KEY: Joi.string().pattern(/^re_/).required(),
   EMAIL: Joi.string().email().required(), // sender address (domain verified in Resend)
+  APP_URL: Joi.string().uri().required(), // invitation and password-reset links
+  PORTAL_BASE_URL: Joi.string().uri().required(), // step 12 — client portal
+  JWT_ACCESS_SECRET: Joi.string().min(32).required(),
+  JWT_REFRESH_SECRET: Joi.string().min(32).required(),
+  JWT_ACCESS_EXPIRES_IN: Joi.string().default('15m'),
+  JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
 }).unknown(true);
 
 export function validateEnv(raw: Record<string, unknown>): Env {

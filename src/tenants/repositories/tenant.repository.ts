@@ -7,8 +7,12 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class TenantRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(data: Prisma.TenantCreateInput): Promise<Tenant> {
-    return this.prisma.tenant.create({ data });
+  /** `tx` — step 02 registration runs this inside its own transaction. */
+  create(
+    data: Prisma.TenantCreateInput,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Tenant> {
+    return (tx ?? this.prisma).tenant.create({ data });
   }
 
   async findMany(
@@ -36,8 +40,11 @@ export class TenantRepository {
     return this.prisma.tenant.findUnique({ where: { id } });
   }
 
-  findByEmail(email: string): Promise<Tenant | null> {
-    return this.prisma.tenant.findUnique({ where: { email } });
+  findByEmail(
+    email: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Tenant | null> {
+    return (tx ?? this.prisma).tenant.findUnique({ where: { email } });
   }
 
   update(id: number, data: Prisma.TenantUpdateInput): Promise<Tenant> {

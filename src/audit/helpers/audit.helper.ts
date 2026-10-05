@@ -4,6 +4,8 @@ import { Prisma } from '@prisma/client';
 export interface AuditEntry {
   tenantId?: number | null;
   adminUserId?: number | null;
+  /** The tenant-side actor (step 02). No FK: history outlives the user row. */
+  userId?: number | null;
   action: string;
   entityType: string;
   entityId?: number | null;

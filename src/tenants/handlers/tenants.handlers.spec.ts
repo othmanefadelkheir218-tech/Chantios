@@ -104,7 +104,10 @@ describe('Tenants handlers', () => {
         actor,
       );
 
-      expect(repo.findByEmail).toHaveBeenCalledWith('contact@dupont.test');
+      expect(repo.findByEmail).toHaveBeenCalledWith(
+        'contact@dupont.test',
+        undefined,
+      );
       expect(result.endOfDayReminderTime).toBe('18:00');
       expect(audit.write).toHaveBeenCalledTimes(1);
       expect(callsOf(audit.write)[0][0]).toMatchObject({

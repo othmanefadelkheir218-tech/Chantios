@@ -10,6 +10,10 @@ const valid = {
   IMAGEKIT_URL_ENDPOINT: 'https://ik.imagekit.io/abc',
   RESEND_API_KEY: 're_abc',
   EMAIL: 'no-reply@example.com',
+  APP_URL: 'http://localhost:5300',
+  PORTAL_BASE_URL: 'http://localhost:3000/portal',
+  JWT_ACCESS_SECRET: 'a'.repeat(32),
+  JWT_REFRESH_SECRET: 'b'.repeat(32),
 };
 Object.assign(process.env, valid);
 

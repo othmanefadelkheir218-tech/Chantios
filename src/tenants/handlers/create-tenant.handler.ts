@@ -16,29 +16,38 @@ export class CreateTenantHandler {
     private readonly audit: AuditService,
   ) {}
 
-  async execute(dto: CreateTenantDto, actor: RequestActor) {
+  /** `tx` — step 02 registration runs this inside its own transaction. */
+  async execute(
+    dto: CreateTenantDto,
+    actor: RequestActor,
+    tx?: Prisma.TransactionClient,
+  ) {
     this.logger.info(`Creating tenant ${dto.email}`);
 
     const email = dto.email.toLowerCase();
-    if (await this.tenants.findByEmail(email)) {
+    if (await this.tenants.findByEmail(email, tx)) {
       this.logger.warn(`Cannot create tenant: email ${email} already used`);
       throw new ConflictException(`Email ${email} is already used`);
     }
 
     const tenant = await this.tenants.create(
       toTenantData(dto) as Prisma.TenantCreateInput,
+      tx,
     );
     const entity = toTenantEntity(tenant);
 
-    await this.audit.write({
-      tenantId: tenant.id,
-      adminUserId: actor.adminUserId,
-      action: 'create',
-      entityType: 'tenant',
-      entityId: tenant.id,
-      newValue: entity,
-      ipAddress: actor.ip,
-    });
+    await this.audit.write(
+      {
+        tenantId: tenant.id,
+        adminUserId: actor.adminUserId,
+        action: 'create',
+        entityType: 'tenant',
+        entityId: tenant.id,
+        newValue: entity,
+        ipAddress: actor.ip,
+      },
+      tx,
+    );
     this.logger.info(`Tenant created: ${tenant.id}`);
     return entity;
   }
