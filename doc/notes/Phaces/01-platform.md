@@ -1,0 +1,215 @@
+# Step 01 — Platform  *(phase 01)*
+
+> First step. Everything else depends on `tenants` and `admin_users`.
+> Read [00-START-HERE.md](00-START-HERE.md) first.
+
+## Goal
+
+Create the platform layer: companies (`tenants`), ChantierOS staff (`admin_users`), the plan catalogue, the subscription record, and the audit/analytics tables. No tenant-side user exists yet.
+
+## Decide first
+
+**None.** This step is fully specified.
+
+One operational rule to remember: **plans are never seeded.** The super-admin creates them as data, and one must carry `is_default = true` before step 02 can register a company.
+
+## Tables
+
+DDL in [Schema Proposal.md](../../Schema%20Proposal.md) § 1.
+
+| Table | Purpose |
+|---|---|
+| `tenants` | one row per company |
+| `admin_users` | ChantierOS staff — separate from `users`, never mixed |
+| `plans` | plan catalogue, admin-created, immutable once in use |
+| `plan_features` | one row per dimension per plan: `limit_value` + `overage_rate` |
+| `tenant_subscriptions` | one row per tenant. **There is no `subscriptions` table** |
+| `billing_usage_snapshots` | usage per dimension per cycle, written at renewal |
+| `audit_logs` | every sensitive platform action |
+| `analytics_events` | product analytics, append-only |
+| `feedback` | tenant feature requests |
+| `support_tickets` | created here, used at step 16 |
+
+`stripe_events` belongs to step 14, not here. This step owns the plan catalogue and the subscription record; step 14 owns only the Stripe integration.
+
+### Migration reset first
+
+The existing migration was a Prisma connectivity test and does not match the real schema.
+
+```bash
+docker compose up -d
+yarn prisma migrate reset
+rm -rf prisma/migrations/20260925213736_init_users
+```
+
+Write `prisma/schema.prisma` for **steps 01 and 02 together**, then one `init` migration. Doing 01 alone leaves `users` missing, and three tables here reference it.
+
+### Forward references
+
+`analytics_events.user_id`, `feedback.submitted_by` and `support_tickets.opened_by` point at `users`, which is step 02. In Prisma this is just a relation — declare it and let Prisma order the SQL. See [Schema Proposal.md](../../Schema%20Proposal.md) § 11.
+
+## Modules to create
+
+```
+src/
+├── tenants/
+│   ├── decorators/tenants.swagger.ts
+│   ├── dto/create-tenant.dto.ts, update-tenant.dto.ts, find-tenants-query.dto.ts,
+│   │       suspend-tenant.dto.ts
+│   ├── entities/tenant.entity.ts
+│   ├── handlers/create-tenant.handler.ts, find-tenants.handler.ts, find-tenant.handler.ts,
+│   │            update-tenant.handler.ts, set-tenant-status.handler.ts
+│   ├── repositories/tenant.repository.ts
+│   ├── tenants.service.ts
+│   ├── tenants.controller.ts
+│   └── tenants.module.ts
+├── admin-users/        (same shape — CRUD, internal only)
+├── plans/              (plans + plan_features in ONE module: one domain)
+├── subscriptions/      (tenant_subscriptions + billing_usage_snapshots)
+├── audit/              (writer service + @AuditLog decorator, no public routes)
+├── analytics/          (event emitter + list endpoint)
+└── feedback/
+```
+
+`plans` and `plan_features` are one business domain — one module, one repository. Do not split them.
+
+`audit` has one read-only controller (`GET /api/admin/audit-logs`). Writing goes through the service other modules call, plus the `@AuditLog(action, entityType)` decorator and its interceptor.
+
+## Routes
+
+All platform-only. Guards: `AdminAuthGuard` arrives in step 02 — until then mark them `@Public()` with a `// TODO: step 02` comment and lock them down at the end of step 02. Do not ship this step to any public host.
+
+| Method | Path | Who |
+|---|---|---|
+| `POST` | `/api/admin/tenants` | super_admin |
+| `GET` | `/api/admin/tenants` | admin staff |
+| `GET` | `/api/admin/tenants/:id` | admin staff |
+| `PATCH` | `/api/admin/tenants/:id` | super_admin |
+| `PATCH` | `/api/admin/tenants/:id/status` | super_admin — `active` / `suspended` / `banned` |
+| `POST` | `/api/admin/admin-users` | super_admin |
+| `GET` | `/api/admin/admin-users` | super_admin |
+| `PATCH` | `/api/admin/admin-users/:id` | super_admin |
+| `DELETE` | `/api/admin/admin-users/:id` | super_admin — sets `is_active = false` |
+| `POST` | `/api/admin/plans` | super_admin |
+| `GET` | `/api/admin/plans` | admin staff |
+| `GET` | `/api/admin/plans/:id` | admin staff |
+| `PATCH` | `/api/admin/plans/:id/deactivate` | super_admin |
+| `PATCH` | `/api/admin/plans/:id/default` | super_admin — moves `is_default` |
+| `POST` | `/api/admin/plans/:id/version` | super_admin — new version, `parent_plan_id` set |
+| `GET` | `/api/admin/subscriptions` | admin staff |
+| `GET` | `/api/admin/subscriptions/:tenantId` | admin staff |
+| `PATCH` | `/api/admin/subscriptions/:tenantId/plan` | super_admin — sets `pending_plan_id` |
+| `GET` | `/api/admin/subscriptions/:tenantId/usage` | admin staff — `billing_usage_snapshots` |
+| `GET` | `/api/admin/audit-logs` | super_admin |
+| `GET` | `/api/admin/analytics` | admin staff |
+| `GET` | `/api/admin/feedback` | admin staff |
+| `PATCH` | `/api/admin/feedback/:id/status` | admin staff |
+
+Tenant-side feedback submission (`POST /api/feedback`) waits for step 02 — it needs a logged-in `users` row.
+
+## DTOs
+
+### `create-tenant.dto.ts`
+`name` required. `email` required, `@IsEmail`, unique. `legal_name`, `vat_number`, `registration_number`, `phone`, address fields, `country` `@Length(2,2)` all optional. `default_vat_rate` `@IsNumberString`, default `21.00`. `default_payment_days` `@IsInt @Min(0)`, default `30`. `locale` `@IsIn(['fr','en','ar'])`, default `fr`. `currency` default `EUR`. `timezone` default `Europe/Brussels`. `end_of_day_reminder_time` default `18:00`.
+
+### `set-tenant-status.dto.ts`
+`status` `@IsIn(['active','suspended','banned'])`. `reason` optional string — goes to `audit_logs`.
+
+### `create-plan.dto.ts`
+`name` required. `base_price` `@IsNumberString`. `stripe_price_id` optional. `features` — array of `{ feature_key, limit_value, overage_rate }`, `feature_key` `@IsIn` the 6 keys: `max_workers`, `max_managers`, `max_clients`, `max_subcontractors`, `storage_gb`, `retention_days`.
+
+### `create-admin-user.dto.ts`
+`email` `@IsEmail` unique. `name` required. `password` `@MinLength(12)`. `role` `@IsIn(['super_admin','staff'])`.
+
+Money is a **string** in and out. Never `number`.
+
+## Repository methods
+
+```ts
+// tenant.repository.ts
+create(data): Promise<Tenant>
+findMany(where, skip, take): Promise<[Tenant[], number]>
+findById(id): Promise<Tenant | null>
+findByEmail(email): Promise<Tenant | null>
+update(id, data): Promise<Tenant>
+setStatus(id, status): Promise<Tenant>
+
+// plan.repository.ts
+create(data, features): Promise<Plan>        // one transaction
+findMany(where, skip, take): Promise<[Plan[], number]>
+findById(id): Promise<Plan | null>
+findDefault(): Promise<Plan | null>          // is_default = true
+deactivate(id): Promise<Plan>
+setDefault(id): Promise<Plan>                // clears the old default in the same tx
+createVersion(parentId, data, features): Promise<Plan>
+
+// subscription.repository.ts
+create(data): Promise<TenantSubscription>    // called by step 02 registration
+findByTenant(tenantId): Promise<TenantSubscription | null>
+findMany(where, skip, take)
+setPendingPlan(tenantId, planId, effectiveAt)
+snapshotUsage(rows): Promise<number>
+
+// audit.repository.ts
+write(entry): Promise<void>
+findMany(where, skip, take)
+```
+
+`setDefault` must clear the previous default **in the same transaction** — the partial unique index `idx_plans_one_default` rejects two.
+
+## Handlers
+
+| Handler | Rule it enforces |
+|---|---|
+| `create-tenant.handler` | `email` unique app-wide. Writes `audit_logs` |
+| `set-tenant-status.handler` | `suspended`/`banned` must also revoke sessions — the call is added in step 02. Writes `audit_logs` with old and new value |
+| `create-plan.handler` | `plans` + `plan_features` in one transaction. A new plan is never `is_default` unless asked |
+| `set-default-plan.handler` | clears the old default first, same transaction |
+| `create-plan-version.handler` | never edits a plan in use. Deactivates the old row, creates a new one with `parent_plan_id`. Existing tenants keep the old `plan_id` |
+| `deactivate-plan.handler` | refuses if it is the only `is_default` plan — step 02 registration would break |
+| `set-pending-plan.handler` | writes `pending_plan_id` + `pending_plan_effective_at`. Never changes `plan_id` now |
+| `snapshot-usage.handler` | copies `limit_value` and `overage_rate` into the snapshot so past invoices never shift |
+
+`deactivate-plan` refusing the last default plan is the one non-obvious guard here. Without it a later signup fails with a confusing error.
+
+## Tasks
+
+- [x] `docker compose up -d`, confirm Postgres and Redis are up
+- [x] `yarn prisma migrate reset`, delete `prisma/migrations/20260925213736_init_users`
+- [x] Write `prisma/schema.prisma` — all step 01 **and** step 02 tables, plus every enum
+- [x] `yarn prisma migrate dev --name init` — one migration
+- [x] Seed file: 7 `roles`, 3 `cost_types` (`tenant_id = NULL`), default `categories` (`tenant_id = NULL`)
+- [x] Raw SQL in the migration for the 3 views — or defer to the step that needs each one
+- [x] `tenants` module
+- [x] `admin-users` module
+- [x] `plans` module (plans + plan_features)
+- [x] `subscriptions` module (tenant_subscriptions + billing_usage_snapshots)
+- [x] `audit` module — service, `@AuditLog(action)` decorator, interceptor
+- [x] `analytics` module — fire-and-forget emitter through BullMQ, never blocking
+- [x] `feedback` module — admin side only
+- [x] Register all modules in `app.module.ts`
+- [x] Swagger tags per controller, `@ApiProperty` on every DTO
+
+The Prisma client extension for `tenant_id` is **not** built here — no table in this step is tenant-scoped in the way it needs. It belongs to step 02, where `users` arrives. See [technical/build-order.md](../technical/build-order.md) § 1b.
+
+## Acceptance
+
+- [x] `yarn prisma migrate dev` runs clean from an empty database
+- [x] Seed inserts 7 roles, 3 cost types, the default categories
+- [x] Create a tenant → row exists, `audit_logs` has one entry
+- [x] Creating a second tenant with the same email → rejected
+- [x] Create a plan with 6 `plan_features` → all 6 rows written in one transaction
+- [x] Mark plan B default while plan A was default → only B has `is_default = true`
+- [x] Try to deactivate the only default plan → refused with a clear message
+- [x] Create a plan version → old row `is_active = false`, new row has `parent_plan_id`
+- [x] Suspend a tenant → status changes, `audit_logs` records old and new value
+- [x] `/api/docs` shows tenants, admin-users, plans, subscriptions, analytics, feedback
+- [x] `yarn lint` and `yarn build` pass
+- [x] Update `../WhereIStop/state.md`
+
+## Notes to read
+
+- [subscription-plans.md](../subscription-plans.md) — plans, versioning, overage, the trial row
+- [entity-fields.md](../entity-fields.md) — `tenants` field meanings
+- [technical/build-order.md](../technical/build-order.md) — § 1 migration rules, § 3 guards
+- [Schema Proposal.md](../../Schema%20Proposal.md) — § 1 DDL, § 11 deferred FKs, § 13 seed

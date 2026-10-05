@@ -9,3 +9,8 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+
+# Telegram bot runtime files (change on every message)
+inbox.json
+outbox.json
+push.json

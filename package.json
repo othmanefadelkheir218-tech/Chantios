@@ -24,6 +24,10 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio --port 51212",
+    "seed:admin": "ts-node --transpile-only prisma/seeds/admin.seed.ts",
+    "seed:data": "ts-node --transpile-only prisma/seeds/data.seed.ts",
+    "seed:tenants": "ts-node --transpile-only prisma/seeds/tenants.seed.ts",
+    "seed:reset": "prisma migrate reset --force --skip-seed && ts-node --transpile-only prisma/seeds/reset.seed.ts",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "postinstall": "prisma generate"

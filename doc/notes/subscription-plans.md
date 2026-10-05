@@ -11,17 +11,28 @@ A plan is a **row of data the admin manages**, not a hardcoded tier. The admin c
 
 Example: admin creates "Plan X," sells it to Customer A. Later removes "Plan X." Customer B can never see or pick it. Customer A keeps it unless the admin decides otherwise.
 
-## The 7 dimensions (v1)
+## The dimensions (v1)
 
-1. Number of projects per plan
-2. Number of "mini employees" (`ouvrier` — task + pointage only)
-3. Number of managers (admin-dashboard access)
-4. Number of clients
-5. Number of subcontractors
-6. Document & photo storage quota
-7. History/data retention length
+These are the only things a plan can put a number on. Developers define this list once; the super-admin sets the values per plan.
 
-AI features are deliberately excluded from this list for now — handled separately, later.
+**Projects are unlimited.** A tenant creates as many as they want — never counted, never billed.
+
+| `feature_key` | What it counts | Counted at renewal as |
+|---|---|---|
+| `max_workers` | Mobile-only employees | Active `users` with the `worker` role |
+| `max_managers` | Dashboard employees | Active `users` with any other role |
+| `max_clients` | Client cards | `clients` where `is_active = true` |
+| `max_subcontractors` | Subcontractor cards | `subcontractors` where `is_active = true` |
+| `storage_gb` | Documents and photos | `SUM(media.file_size)` at that moment |
+| `retention_days` | How long history is kept | Not counted — a value, not a number to bill |
+
+The counting rule matters as much as the number. "Active" means `is_active = true` at the moment the snapshot is taken — not everything ever created. A company that deactivates an employee pays less at the next renewal.
+
+### Retention never touches business data
+
+`retention_days` deletes **only** `analytics_events` and read `notifications`. It never deletes a project, a quote, an invoice, an hour or a photo. Business data is kept forever, whatever the plan.
+
+AI is not part of v1 at all — no tokens, no AI dimension.
 
 > **v2 — Client connection channels**: Email first. Telegram/WhatsApp as future additions. Not in v1.
 
@@ -34,9 +45,27 @@ AI features are deliberately excluded from this list for now — handled separat
 
 Move away from a fixed 3-value plan enum. Instead:
 
-- A `plans` **table**: one row per plan (admin-created), holding its name, price, active/inactive status, and a value for each of the 8 dimensions.
+- A `plans` **table**: one row per plan version (admin-created), holding its name, price and active/inactive status. Its value on each dimension lives in `plan_features`, one row per dimension.
+- A `tenant_subscriptions` **table**: one row per tenant, pointing at the exact plan version they are locked to. **This is the only subscription table** — there is no separate `subscriptions` table.
 - **Active/inactive, not hard delete**: removing a plan should deactivate it (stop new signups from picking it) rather than deleting the row outright — existing subscribers still reference it.
 - **Price changes**: since Stripe prices are immutable, changing a plan's price means creating a new Stripe Price and pointing new signups to it (see the open decision below for existing customers).
+
+## Decided — what a brand-new company gets
+
+A `tenant_subscriptions` row is created **in the same transaction as the tenant**, at registration:
+
+| Column | Value at signup |
+|---|---|
+| `plan_id` | The plan where `is_default = true` |
+| `status` | `trialing` |
+| `period_start` | `now()` |
+| `period_end` | `now() + 14 days` |
+
+`SubscriptionGuard` allows `trialing`, `active` and `past_due`. It blocks `cancelled`, and any tenant whose own status is `suspended` or `banned`.
+
+Without this row a company that just registered would be locked out of its own app, because the guard would find no subscription to check. Pointing `plan_id` at a real plan from minute one also means billing at the end of the trial needs no special case — the renewal job counts usage the same way it always does.
+
+**Operational rule:** plans are never seeded, so the super-admin must create at least one plan and set `is_default = true` **before the app can accept signups**. Registration fails without a default plan, and that is correct — it is a setup error, not a user error.
 
 ## Decided
 
@@ -51,7 +80,29 @@ Move away from a fixed 3-value plan enum. Instead:
   - Current month is already paid for — no refund/proration mid-cycle, they keep all 8 seats until the period ends.
   - At next renewal, the system re-counts actual usage: still 8 active → billed for 8 again, automatically. Back down to 5 → billed for 5, automatically.
 
-- **Being over a plan's included allowance never blocks or force-deactivates anything that already exists.** It only stops *creating new* ones of that resource once usage is at/above the allowance — the overage itself just gets billed, not blocked. (Storage might need its own read on this — flagged below.)
+- **Going over a plan's included allowance never blocks anything.** Not creating, not editing, not existing records. The tenant can always add one more employee, project or client. The extra usage is simply counted at renewal and billed as overage.
+
+  There is no limit check anywhere in the request pipeline. `SubscriptionGuard` checks only that the tenant is not suspended and the subscription status allows access — it never counts resources and never refuses a create.
+
+  | Situation | What happens |
+  | --- | --- |
+  | Tenant on a 5-employee plan adds a 6th | Allowed. Billed 5 base + 1 overage at renewal |
+  | Tenant on a 50-client plan adds client 54 | Allowed. Billed 50 base + 4 overage at renewal |
+  | Tenant's subscription is `cancelled` or tenant is `suspended` | Blocked at the guard — no access at all |
+
+  Storage is the one exception, and only on a **downgrade request** — see below. Normal storage usage over the allowance is billed, never blocked.
+
+## Decided — the default plan is protected
+
+A signup always needs a default plan, so the platform guards it:
+
+- **The default plan cannot be deactivated.** The super-admin makes another plan the default first, then deactivates the old one.
+- **An inactive plan cannot be made the default.** New signups could not pick it.
+- **Making a plan the default clears the old default in the same transaction.** Only one row is ever `is_default`.
+- **A new version of the default plan becomes the default.** The old row is deactivated and loses the flag, the new row takes it, in one transaction — signups never find the default missing.
+- **A version copies what the request leaves out** (name, price, features) from the plan it replaces. The Stripe Price id is not copied: a new price needs a new Stripe Price.
+- **`retention_days` always has an overage rate of 0** — it is a value, not something billed.
+- **A plan change is planned, never applied now.** `pending_plan_id` is set and `pending_plan_effective_at` is the end of the current period (`period_end`). `plan_id` changes at renewal.
 
 ## What this adds to the data model
 
@@ -86,6 +137,7 @@ Move away from a fixed 3-value plan enum. Instead:
 | `id` | uuid | PK |
 | `name` | varchar | "Pro", "Starter"… |
 | `is_active` | boolean | false = no new signups allowed |
+| `is_default` | boolean | **The plan a new signup lands on.** Only one row may be true |
 | `parent_plan_id` | uuid (nullable) | FK → plans.id — points to the previous version this was created from |
 | `base_price` | decimal | Monthly base price |
 | `stripe_price_id` | varchar | Stripe Price ID for this version |
@@ -103,11 +155,11 @@ Move away from a fixed 3-value plan enum. Instead:
 | --- | --- | --- |
 | `id` | uuid | PK |
 | `plan_id` | uuid | FK → plans.id |
-| `feature_key` | varchar | `"max_ouvriers"`, `"max_projects"`, `"storage_gb"`… |
+| `feature_key` | varchar | One of the fixed keys listed above — `"max_workers"`, `"max_clients"`, `"storage_gb"`… |
 | `limit_value` | int | Included allowance (e.g. 5 employees) |
 | `overage_rate` | decimal | Price per extra unit beyond the limit |
 
-> `retention_days` and `client_channels` have no overage rate (binary — you either have it or not).
+> `retention_days` has no overage rate — you either have it or not.
 
 > **Open: feature translation** — `feature_key` is a code. Display names and translations (FR/AR/EN) need a separate lookup, not stored here.
 
@@ -124,7 +176,7 @@ Move away from a fixed 3-value plan enum. Instead:
 | `plan_id` | uuid | FK → plans.id — the exact row the tenant is locked to |
 | `stripe_subscription_id` | varchar | Stripe Subscription ID |
 | `stripe_price_id` | varchar | The Stripe Price at time of signup — may differ from `plans.stripe_price_id` after a plan version change |
-| `status` | varchar | `active`, `cancelled`, `past_due`… |
+| `status` | enum | `trialing` · `active` · `past_due` · `cancelled` |
 | `period_start` | timestamp | Current billing period start |
 | `period_end` | timestamp | Current billing period end / next renewal |
 | `pending_plan_id` | uuid (nullable) | FK → plans.id — new plan to apply at next renewal |
@@ -143,7 +195,7 @@ Move away from a fixed 3-value plan enum. Instead:
 | `period_start` | timestamp |  |
 | `period_end` | timestamp |  |
 | `snapshot_taken_at` | timestamp |  |
-| `feature_key` | varchar | One row per dimension (e.g. `"max_ouvriers"`) |
+| `feature_key` | varchar | One row per dimension (e.g. `"max_workers"`) |
 | `actual_count` | int / decimal | Real usage at renewal time |
 | `included_allowance` | int | Copied from plan_features at snapshot time |
 | `overage_rate` | decimal | Copied from plan_features at snapshot time |
@@ -154,18 +206,27 @@ Move away from a fixed 3-value plan enum. Instead:
 
 ---
 
-### Operational tables (e.g. `ouvriers`, `projects`, `clients`…)
+### Operational tables (`users`, `projects`, `clients`…)
 
-**Purpose:** The real business data. These are the tables the system counts at renewal to produce the snapshot.
+**Purpose:** The real business data. These are the tables the system counts at renewal to produce the snapshot. **There is no `workers` table** — employees are rows in `users` with `role_id` pointing at the `worker` role.
 
-Example: `ouvriers`
+Example: counting workers
 
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | uuid | PK |
 | `tenant_id` | uuid | FK → tenants.id |
 | `name` | varchar |  |
+| `role_id` | smallint | FK → roles.id — the 7 seeded roles are 1-7, not uuids |
 | `is_active` | boolean | Only active rows are counted at renewal |
+
+```sql
+-- max_workers usage at renewal
+SELECT COUNT(*) FROM users
+WHERE tenant_id = :tenant
+  AND is_active = true
+  AND role_id = (SELECT id FROM roles WHERE name = 'worker');
+```
 
 > The `plans` and `tenant_subscriptions` tables **never store counts**. Usage lives here.
 
@@ -187,8 +248,8 @@ Example: `ouvriers`
 
 | plan_id | feature_key | limit_value | overage_rate |
 | --- | --- | --- | --- |
-| plan_001 | max_ouvriers | 5 | 2.00 |
-| plan_001 | max_projects | 10 | 5.00 |
+| plan_001 | max_workers | 5 | 2.00 |
+| plan_001 | max_clients | 50 | 0.20 |
 | plan_001 | storage_gb | 20 | 0.50 |
 
 ---
@@ -205,9 +266,9 @@ Example: `ouvriers`
 
 **Step 3: Tenant A adds 2 seats (now has 7 active employees)**
 
-No change to `plans` or `tenant_subscriptions`. The 2 new employees are saved in `ouvriers`:
+No change to `plans` or `tenant_subscriptions`. The 2 new employees are saved in `users`:
 
-`ouvriers`:
+`users` (role = `worker`):
 
 | id | tenant_id | name | is_active |
 | --- | --- | --- | --- |
@@ -219,7 +280,7 @@ No change to `plans` or `tenant_subscriptions`. The 2 new employees are saved in
 | ou_6 | tenant_A | Hassan | true ← new |
 | ou_7 | tenant_A | Mehdi | true ← new |
 
-At renewal, system counts 7 active ouvriers → computes overage:
+At renewal, system counts 7 active `worker` users → computes overage:
 
 ```
 bill = 50€ + (7 - 5) × 2€ = 54€
@@ -229,7 +290,7 @@ bill = 50€ + (7 - 5) × 2€ = 54€
 
 | tenant_id | feature_key | actual_count | included_allowance | overage_amount |
 | --- | --- | --- | --- | --- |
-| tenant_A | max_ouvriers | 7 | 5 | 4.00€ |
+| tenant_A | max_workers | 7 | 5 | 4.00€ |
 
 ---
 

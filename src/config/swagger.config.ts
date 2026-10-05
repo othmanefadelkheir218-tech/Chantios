@@ -22,7 +22,16 @@ export function setupSwagger(app: INestApplication) {
         'access-token',
       )
       .addTag('Health', 'Check that the API and the database work')
-      .addTag('Users', 'Manage users (test module)')
+      .addTag('Tenants', 'Companies using ChantierOS (platform admin)')
+      .addTag('Admin users', 'ChantierOS staff accounts (platform admin)')
+      .addTag('Plans', 'Plan catalogue and its versions (platform admin)')
+      .addTag(
+        'Subscriptions',
+        'Tenant subscriptions and usage (platform admin)',
+      )
+      .addTag('Audit logs', 'Every sensitive platform action (platform admin)')
+      .addTag('Analytics', 'Product analytics events (platform admin)')
+      .addTag('Feedback', 'Tenant feature requests (platform admin)')
       .build(),
   );
 

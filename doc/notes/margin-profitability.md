@@ -7,7 +7,7 @@
 The money the company **keeps** after paying for everything on a project.
 
 ```
-Margin = Budget − Cost of Materials − Cost of Subcontractors − Cost of Employees
+Margin = Budget − Cost of Materials − Cost of Employees − Every other bill on the project
 ```
 
 If margin is positive → company made money.
@@ -17,27 +17,69 @@ If margin is negative → company lost money.
 
 ## Where does the budget come from?
 
-When a devis is accepted → `projets.montant_estime` is set **automatically** from the devis total HT. Staff never types it manually.
+**The budget is not a column.** It is the sum of every accepted quote on the project:
 
-If the client requests extra work mid-project → a new devis is created and accepted → budget updates to the new total. Every budget change is logged with the date and the new amount.
+```sql
+budget_excl_vat = SUM(quotes.amount_excl_vat)
+                  WHERE project_id = :p AND status = 'accepted'
+```
+
+It lives in the `project_margin_live` view, never in `projects`. Staff never types it.
+
+### Why a sum and not a stored column
+
+Extra work mid-project means a **second** quote, not an edit of the first:
+
+| Quote | Amount | Accepted |
+|---|---|---|
+| QUO-2026-0001 | €10,000 | 2026-10-02 |
+| QUO-2026-0014 | €1,500 | 2026-11-08 |
+| **Budget** | **€11,500** | |
+
+The budget becomes €11,500 with no update code and no risk of a stale number.
+
+### Budget history is free
+
+There is **no `project_budget_history` table.** The list of accepted quotes *is* the history — each one carries its amount and its `accepted_at`:
+
+```sql
+SELECT number, amount_excl_vat, accepted_at
+FROM quotes
+WHERE project_id = :p AND status = 'accepted'
+ORDER BY accepted_at;
+```
+
+A derived history can never drift from the real numbers. A history table would only be needed if a budget could change **without** a quote — which is not allowed.
 
 ---
 
 ## The full formula
 
 ```
-marge_ht  = budget_ht − cout_materiaux − cout_sous_traitance − cout_main_oeuvre
-marge_pct = (marge_ht / budget_ht) × 100
+margin_excl_vat = budget_excl_vat − material_cost − labor_cost − bill_cost
+margin_pct      = (margin_excl_vat / budget_excl_vat) × 100
 ```
 
 | Term | Source |
 |---|---|
-| `budget_ht` | `projets.montant_estime` (from accepted devis) |
-| `cout_materiaux` | `stock_mouvements`: qty × frozen `prix_unitaire` |
-| `cout_sous_traitance` | `factures_achat.montant_ht` linked to this project |
-| `cout_main_oeuvre` | `pointages`: heures × frozen `taux_horaire` |
+| `budget_excl_vat` | `SUM(quotes.amount_excl_vat)` where `status = 'accepted'` |
+| `material_cost` | `stock_movements`: qty × frozen `unit_price`, `type = 'consumption'` |
+| `labor_cost` | `time_entries`: hours × frozen `hourly_rate` |
+| `bill_cost` | `purchase_invoices.amount_excl_vat` on this project, **grouped by `cost_type_id`**, excluding `cost_type = material`. Counted whatever its `status` — a cost you owe is a cost, paying it later changes nothing |
 
-All calculated **live** from `projet_marge_live` view while project is active. Frozen once into `projet_cloture_snapshot` when project becomes `termine`.
+### Three sources, never four
+
+Each cost enters the margin through exactly one door:
+
+| Cost | Door |
+|---|---|
+| Materials | The stock ledger, when they are consumed |
+| Hours | `time_entries` |
+| Anything the company was billed for — subcontractor, and any cost type the tenant adds | `purchase_invoices`, by cost type |
+
+A material bill never counts here, because the tiles are already counted when they leave the stock. That is why a bill with `cost_type = material` has no `project_id` — see [[purchase-invoices]].
+
+All calculated **live** from `project_margin_live` view while project is active. Frozen once into `project_closure_snapshots` when project becomes `completed`.
 
 ---
 
@@ -48,19 +90,44 @@ All calculated **live** from `projet_marge_live` view while project is active. F
 | ⚠️ Warning | Real cost reaches **80%** of budget | Notification + email to admin and manager |
 | 🔴 Critical | Real cost reaches **95%** of budget | Notification + email to admin and manager |
 
+### Each level fires once — the dedup rule
+
+Margin is recomputed after every time entry, every consumption and every purchase invoice. Without a guard, a project sitting at 81% would email on **every** save.
+
+A small table remembers what was already sent:
+
+#### `project_margin_alerts`
+
+| Field | Meaning |
+|---|---|
+| `project_id` | Which project |
+| `level` | `warning` / `critical` |
+| `fired_at` | When it was sent |
+
+Primary key `(project_id, level)`. Before sending, check the row exists; if it does, send nothing.
+
+| Situation | Result |
+|---|---|
+| Project crosses 80% the first time | Warning sent, row written |
+| Project saves again at 83% | Nothing sent — row already exists |
+| Project later crosses 95% | Critical sent, second row written |
+| An accepted extra quote raises the budget and cost drops back under 80% | Both rows deleted — the levels can fire again |
+
+The last line matters: an extra accepted quote raises the budget, so a project can genuinely become healthy again.
+
 ---
 
 ## Full scenario — Mr. Dubois bathroom renovation
 
 ### Setup
 
-- **Devis accepted**: €10,000 HT → `projets.montant_estime` = €10,000 automatically
-- **Subcontractor hired**: plumber, agreed €2,500 (`contrats_sous_traitance`)
+- **Quote accepted**: €10,000 excl VAT → the budget in `project_margin_live` becomes €10,000. `projects` stores no budget column
+- **Subcontractor hired**: plumber, agreed €2,500 (`subcontractor_contracts`)
 - **2 employees**: Karim (€20/h), Youssef (€15/h)
 
 ---
 
-### Materials used (`stock_mouvements`)
+### Materials used (`stock_movements`)
 
 | Material | Qty | Frozen price | Cost |
 |---|---|---|---|
@@ -71,15 +138,15 @@ All calculated **live** from `projet_marge_live` view while project is active. F
 
 ---
 
-### Subcontractor bill (`factures_achat`)
+### Subcontractor bill (`purchase_invoices`)
 
-| Fournisseur | montant_ht |
+| Supplier | amount_excl_vat |
 |---|---|
-| Plombier Martin (via contract) | €2,500 |
+| Plumber Martin (via contract) | €2,500 |
 
 ---
 
-### Employee hours (`pointages`)
+### Employee hours (`time_entries`)
 
 | Employee | Hours | Frozen rate | Cost |
 |---|---|---|---|
@@ -97,7 +164,7 @@ Budget               = €10,000
 − Subcontractor      =  €2,500
 − Employees          =    €580
 ─────────────────────────────
-Margin (marge_ht)    =  €6,520
+Margin (margin_excl_vat)    =  €6,520
 Margin %             =  65.2%  ✅ healthy
 ```
 
@@ -105,7 +172,7 @@ Margin %             =  65.2%  ✅ healthy
 
 ### What if the project runs over?
 
-Client asks for extra work (new bathroom tiles in hallway). New devis: +€1,500 → accepted.
+Client asks for extra work (new bathroom tiles in hallway). New quote: +€1,500 → accepted.
 
 Budget updates: **€10,000 → €11,500**
 
@@ -173,7 +240,7 @@ Margin % = 4.8%
 
 ---
 
-## What the manager sees on `/marges` page
+## What the manager sees on `/margins` page
 
 One row per active project:
 
@@ -187,7 +254,7 @@ One row per active project:
 
 ## Related notes
 - [[catalogue-stock-tables-and-cost-storage]]
-- [[planning-pointages]]
-- [[sous-traitance]]
+- [[planning-time-entries]]
+- [[subcontracting]]
 - [[alerts]]
 - [[business-logic-overview]]

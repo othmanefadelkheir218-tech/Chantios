@@ -1,0 +1,187 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import { getLoggerToken } from 'nestjs-pino';
+import { PlanRepository } from '../repositories/plan.repository';
+import { CreatePlanVersionHandler } from './create-plan-version.handler';
+import { CreatePlanHandler } from './create-plan.handler';
+import { DeactivatePlanHandler } from './deactivate-plan.handler';
+import { SetDefaultPlanHandler } from './set-default-plan.handler';
+
+/** Arguments of every call to a mock, typed. */
+const callsOf = (fn: jest.Mock) => fn.mock.calls as unknown[][];
+
+const features = [
+  { featureKey: 'max_workers', limitValue: 5, overageRate: '2.00' },
+];
+const plan = (over: Record<string, unknown> = {}) => ({
+  id: 'p1',
+  name: 'Pro',
+  basePrice: '50.00',
+  isActive: true,
+  isDefault: false,
+  features,
+  ...over,
+});
+
+describe('Plans handlers', () => {
+  const repo = {
+    create: jest.fn(),
+    findById: jest.fn(),
+    deactivate: jest.fn(),
+    setDefault: jest.fn(),
+    createVersion: jest.fn(),
+  };
+  const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn() };
+
+  let create: CreatePlanHandler;
+  let deactivate: DeactivatePlanHandler;
+  let setDefault: SetDefaultPlanHandler;
+  let createVersion: CreatePlanVersionHandler;
+
+  beforeEach(async () => {
+    jest.resetAllMocks();
+    const handlers = [
+      CreatePlanHandler,
+      DeactivatePlanHandler,
+      SetDefaultPlanHandler,
+      CreatePlanVersionHandler,
+    ];
+    const module = await Test.createTestingModule({
+      providers: [
+        ...handlers,
+        { provide: PlanRepository, useValue: repo },
+        ...handlers.map((h) => ({
+          provide: getLoggerToken(h.name),
+          useValue: logger,
+        })),
+      ],
+    }).compile();
+
+    create = module.get(CreatePlanHandler);
+    deactivate = module.get(DeactivatePlanHandler);
+    setDefault = module.get(SetDefaultPlanHandler);
+    createVersion = module.get(CreatePlanVersionHandler);
+  });
+
+  describe('CreatePlanHandler', () => {
+    const dto = {
+      name: 'Pro',
+      base_price: '50.00',
+      features: [
+        {
+          feature_key: 'max_workers' as const,
+          limit_value: 5,
+          overage_rate: '2.00',
+        },
+        {
+          feature_key: 'retention_days' as const,
+          limit_value: 365,
+          overage_rate: '9.99',
+        },
+      ],
+    };
+
+    it('is never default unless asked', async () => {
+      repo.create.mockResolvedValue(plan());
+      await create.execute(dto);
+      expect(callsOf(repo.create)[0][0]).toMatchObject({ isDefault: false });
+    });
+
+    it('forces the overage of retention_days to 0', async () => {
+      repo.create.mockResolvedValue(plan());
+      await create.execute(dto);
+      const rows = callsOf(repo.create)[0][1] as {
+        featureKey: string;
+        overageRate: string;
+      }[];
+      expect(
+        rows.find((r) => r.featureKey === 'retention_days')?.overageRate,
+      ).toBe('0');
+      expect(
+        rows.find((r) => r.featureKey === 'max_workers')?.overageRate,
+      ).toBe('2.00');
+    });
+
+    it('rejects a repeated feature_key', async () => {
+      const twice = {
+        ...dto,
+        features: [dto.features[0], dto.features[0]],
+      };
+      await expect(create.execute(twice)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(repo.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('DeactivatePlanHandler', () => {
+    it('refuses the default plan', async () => {
+      repo.findById.mockResolvedValue(plan({ isDefault: true }));
+      await expect(deactivate.execute('p1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(repo.deactivate).not.toHaveBeenCalled();
+    });
+
+    it('deactivates a normal plan', async () => {
+      repo.findById.mockResolvedValue(plan());
+      repo.deactivate.mockResolvedValue(plan({ isActive: false }));
+      await expect(deactivate.execute('p1')).resolves.toMatchObject({
+        isActive: false,
+      });
+    });
+
+    it('404 when the plan does not exist', async () => {
+      repo.findById.mockResolvedValue(null);
+      await expect(deactivate.execute('x')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('SetDefaultPlanHandler', () => {
+    it('refuses an inactive plan', async () => {
+      repo.findById.mockResolvedValue(plan({ isActive: false }));
+      await expect(setDefault.execute('p1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(repo.setDefault).not.toHaveBeenCalled();
+    });
+
+    it('moves the default', async () => {
+      repo.findById.mockResolvedValue(plan());
+      repo.setDefault.mockResolvedValue(plan({ isDefault: true }));
+      await expect(setDefault.execute('p1')).resolves.toMatchObject({
+        isDefault: true,
+      });
+    });
+  });
+
+  describe('CreatePlanVersionHandler', () => {
+    it('copies what the request leaves out and passes the default flag on', async () => {
+      repo.findById.mockResolvedValue(plan({ isDefault: true }));
+      repo.createVersion.mockResolvedValue(plan({ id: 'p2' }));
+
+      await createVersion.execute('p1', { base_price: '60.00' });
+
+      const [parentId, data, rows, inheritDefault] = repo.createVersion.mock
+        .calls[0] as [
+        string,
+        Record<string, unknown>,
+        { featureKey: string }[],
+        boolean,
+      ];
+      expect(parentId).toBe('p1');
+      expect(data).toMatchObject({ name: 'Pro', basePrice: '60.00' });
+      expect(rows).toHaveLength(1);
+      expect(inheritDefault).toBe(true);
+    });
+
+    it('refuses a plan that is already replaced', async () => {
+      repo.findById.mockResolvedValue(plan({ isActive: false }));
+      await expect(createVersion.execute('p1', {})).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+  });
+});
