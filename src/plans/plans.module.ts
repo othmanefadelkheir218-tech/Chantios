@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
+import { StripeModule } from '../stripe/stripe.module';
 import { CreatePlanVersionHandler } from './handlers/create-plan-version.handler';
 import { CreatePlanHandler } from './handlers/create-plan.handler';
 import { DeactivatePlanHandler } from './handlers/deactivate-plan.handler';
@@ -11,7 +12,7 @@ import { PlansService } from './plans.service';
 import { PlanRepository } from './repositories/plan.repository';
 
 @Module({
-  imports: [AuditModule],
+  imports: [AuditModule, StripeModule],
   controllers: [PlansController],
   providers: [
     PlansService,

@@ -42,6 +42,7 @@ The 6 allowed `feature_key` values: `max_workers`, `max_managers`, `max_clients`
 - `is_default` is `false`, `is_active` is `true`, `parent_plan_id` is `null`.
 - `base_price` is `"50"`.
 - **`retention_days` has `overage_rate` `"0"`** even though you sent `9.99` (it is a value, not billed).
+- **`stripe_price_id` looks like `price_...` and is a real Stripe object** — you never sent one. See PLN-15.
 
 Copy the `id`: it is `PLAN_A`.
 
@@ -71,6 +72,7 @@ Each is **`400`**:
 | `"limit_value": 1.5` | must be an integer |
 | no `name` | name is required |
 | `"tenant_id": "x"` | property should not exist |
+| `"stripe_price_id": "string"` | property should not exist — it is created automatically, never sent (see PLN-15) |
 
 Then check no ghost plan was written:
 
@@ -200,6 +202,37 @@ Unknown id → `404`. Invalid features (like PLN-03) → `400`.
 The two demo tenants are on `Demo Starter`. Do **not** version `Demo Starter` unless you want to (it changes the demo data).
 
 If you did: `GET /api/admin/subscriptions` → both tenants still show the **old** `plan_id`. Nothing moves by itself.
+
+---
+
+## Stripe Price — created and archived automatically
+
+See [subscription-plans.md](../subscription-plans.md) § "stripe_price_id is managed by the app". Checking the Stripe side needs the Stripe Dashboard (test mode) or a direct API call — there is no route here that reads from Stripe.
+
+## PLN-15 — Create: a real Stripe Price is minted
+
+Create any plan (e.g. redo PLN-01). **Expected**
+- `stripe_price_id` in the response is a real Stripe Price id (`price_...`), not something you sent — the field is not acceptable in the request body at all (PLN-03).
+- In Stripe: a Product named after the plan, and a Price under it — `currency: eur`, `recurring.interval: month`, `unit_amount` = `base_price` × 100, `active: true`.
+- If Stripe is unreachable (bad `STRIPE_SECRET_KEY`, network down), plan creation itself fails with `502`, `Failed to create the Stripe price for this plan` — **no plan row is written** (check `select name from plans` has nothing new).
+
+## PLN-16 — Version: new Price minted, parent's old Price archived
+
+Create a version of any active plan (e.g. redo PLN-10/PLN-11 style).
+
+**Expected**
+- The new version's `stripe_price_id` is a **different** Stripe Price than the parent's, also `active: true`.
+- The **parent's** `stripe_price_id` (same one as before — the column is not cleared, only the plan row's `is_active` changes) is now `active: false` in Stripe.
+- This also always happens on PLN-12 (default plan version) — check the old default's old Stripe Price is archived too.
+
+## PLN-17 — Deactivate: the Stripe Price is archived
+
+`PATCH /api/admin/plans/:id/deactivate` on any active, non-default plan (e.g. redo PLN-08).
+
+**Expected**
+- `200` as before.
+- In Stripe, that plan's `stripe_price_id` is now `active: false`.
+- This is **best-effort**: if Stripe is unreachable, the plan still deactivates normally (`is_active: false` in the response) — only the Stripe side silently stays out of sync until retried. The route never returns an error for this.
 
 ---
 

@@ -73,6 +73,8 @@ src/
 └── email/              (EmailService.send() wrapping Resend — no public routes)
 ```
 
+`src/stripe/` already exists (webhook receiver, scaffolded ahead of step 14) and gained two handlers 2026-10-05: `handlers/create-plan-price.handler.ts`, `handlers/archive-plan-price.handler.ts`, exposed as `StripeService.createPlanPrice()` / `archivePlanPrice()`. `plans` calls them to manage `stripe_price_id` — placed here rather than in `subscriptions` because `subscriptions` already imports `plans`, and `plans` importing `subscriptions` back would be a circular module dependency. `src/stripe/` has no imports of its own, so both `plans` and `subscriptions` can depend on it safely.
+
 `one-time-codes` and `email` are shared utility modules, same shape as `audit`: a service other modules call, no controller. Added 2026-10-05 for tenant email verification; step 02 reuses both for `password_reset` and the registration `email_verification` flow instead of rebuilding them.
 
 `plans` and `plan_features` are one business domain — one module, one repository. Do not split them.
@@ -132,7 +134,7 @@ Tenant-side feedback submission (`POST /api/feedback`) waits for step 02 — it 
 `code` required, `@IsNumberString()`, `@Length(6, 6)`.
 
 ### `create-plan.dto.ts`
-`name` required. `base_price` `@IsNumberString`. `stripe_price_id` optional. `features` — array of `{ feature_key, limit_value, overage_rate }`, `feature_key` `@IsIn` the 6 keys: `max_workers`, `max_managers`, `max_clients`, `max_subcontractors`, `storage_gb`, `retention_days`.
+`name` required. `base_price` `@IsNumberString`. `features` — array of `{ feature_key, limit_value, overage_rate }`, `feature_key` `@IsIn` the 6 keys: `max_workers`, `max_managers`, `max_clients`, `max_subcontractors`, `storage_gb`, `retention_days`. **All 6 are required, no more, no fewer** — enforced in `plan.helper.ts`, not the DTO (same place as the duplicate-key check). `overage_rate: "0"` means unlimited for that dimension at no extra cost. **No `stripe_price_id` field** — see `subscription-plans.md` § "stripe_price_id is managed by the app".
 
 ### `create-admin-user.dto.ts`
 `email` `@IsEmail` unique. `name` required. `password` `@MinLength(12)`. `role` `@IsIn(['super_admin','staff'])`.
@@ -195,10 +197,10 @@ findMany(where, skip, take)
 | `soft-delete-tenants.handler` / `restore-tenants.handler` | bulk: rows already in the target state are skipped, not refused — returns the count actually changed. One `audit_logs` entry via `@AuditLog`, not per-row |
 | `send-tenant-verification-email.handler` | refuses if already verified. Generates a code via `OneTimeCodesService`, emails it via `EmailService` — does **not** write `audit_logs` (no state changed yet, only an email sent) |
 | `verify-tenant-email.handler` | refuses if already verified, or if the code is wrong/expired/already used. Sets `email_verified_at`, writes `audit_logs` with old (`null`) and new value |
-| `create-plan.handler` | `plans` + `plan_features` in one transaction. A new plan is never `is_default` unless asked |
+| `create-plan.handler` | `plans` + `plan_features` in one transaction. A new plan is never `is_default` unless asked. Calls `StripeService.createPlanPrice()` first — a Stripe failure fails the whole creation, a plan with no real Price can never be billed |
 | `set-default-plan.handler` | clears the old default first, same transaction |
-| `create-plan-version.handler` | never edits a plan in use. Deactivates the old row, creates a new one with `parent_plan_id`. Existing tenants keep the old `plan_id` |
-| `deactivate-plan.handler` | refuses if it is the only `is_default` plan — step 02 registration would break |
+| `create-plan-version.handler` | never edits a plan in use. Deactivates the old row, creates a new one with `parent_plan_id`. Existing tenants keep the old `plan_id`. Mints a new Stripe Price for the new row (blocking — see above) and archives the parent's old one (best-effort — see below) |
+| `deactivate-plan.handler` | refuses if it is the only `is_default` plan — step 02 registration would break. Calls `StripeService.archivePlanPrice()` after — **best-effort**, logged on failure, never blocks the deactivation |
 | `set-pending-plan.handler` | writes `pending_plan_id` + `pending_plan_effective_at`. Never changes `plan_id` now |
 | `snapshot-usage.handler` | copies `limit_value` and `overage_rate` into the snapshot so past invoices never shift |
 
@@ -217,6 +219,7 @@ findMany(where, skip, take)
 - [x] `one-time-codes` module — generate/verify, generic across every `one_time_code_type` (added 2026-10-05)
 - [x] `email` module — `EmailService.send()` wrapping the existing `src/config/resend.config.ts` client (added 2026-10-05)
 - [x] `tenants` email verification: send code + verify code (added 2026-10-05)
+- [x] `plans` auto-manages `stripe_price_id` via `src/stripe/` handlers — create/version mint a Price, deactivate archives it (added 2026-10-05)
 - [x] `admin-users` module
 - [x] `plans` module (plans + plan_features)
 - [x] `subscriptions` module (tenant_subscriptions + billing_usage_snapshots)
@@ -238,6 +241,9 @@ The Prisma client extension for `tenant_id` is **not** built here — no table i
 - [x] Mark plan B default while plan A was default → only B has `is_default = true`
 - [x] Try to deactivate the only default plan → refused with a clear message
 - [x] Create a plan version → old row `is_active = false`, new row has `parent_plan_id`
+- [x] Create a plan → `stripe_price_id` is a real Stripe Price id, not something the caller sent (the field is no longer accepted in the body)
+- [x] Create a plan version → the parent's Stripe Price is archived, the new version has a different, active Stripe Price
+- [x] Deactivate a plan → its Stripe Price is archived (check in the Stripe dashboard/API, `active: false`)
 - [x] Suspend a tenant → status changes, `audit_logs` records old and new value
 - [x] Soft delete a tenant → `deleted_at` set, it disappears from `GET /tenants` and `GET /tenants/:id` (`404`), `status` unchanged
 - [x] Restore it → `deleted_at` cleared, visible again

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsBoolean,
@@ -39,7 +40,7 @@ export class PlanFeatureDto {
 
   @ApiPropertyOptional({
     description:
-      'Price per extra unit, as a string. Ignored for `retention_days`.',
+      '"0" means unlimited for this dimension, at no extra cost. Ignored for `retention_days` (always forced to "0").',
     example: '2.00',
     default: '0',
   })
@@ -61,11 +62,6 @@ export class CreatePlanDto {
   @Matches(MONEY, { message: 'base_price is not a valid amount' })
   base_price: string;
 
-  @ApiPropertyOptional({ description: 'Stripe Price id of this version' })
-  @IsOptional()
-  @IsString()
-  stripe_price_id?: string;
-
   @ApiPropertyOptional({
     description: 'Make this the plan new signups land on',
     default: false,
@@ -74,9 +70,15 @@ export class CreatePlanDto {
   @IsBoolean()
   is_default?: boolean;
 
-  @ApiProperty({ type: [PlanFeatureDto] })
+  @ApiProperty({
+    type: [PlanFeatureDto],
+    description:
+      'Must contain exactly these 6 keys, no more, no fewer: ' +
+      FEATURE_KEYS.join(', '),
+  })
   @IsArray()
-  @ArrayMinSize(1)
+  @ArrayMinSize(6)
+  @ArrayMaxSize(6)
   @ValidateNested({ each: true })
   @Type(() => PlanFeatureDto)
   features: PlanFeatureDto[];

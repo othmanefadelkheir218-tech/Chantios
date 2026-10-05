@@ -86,6 +86,8 @@ src/
 
 `src/config/stripe.config.ts` already exists. The module uses it.
 
+`src/stripe/handlers/create-plan-price.handler.ts` and `archive-plan-price.handler.ts` also already exist (added 2026-10-05, step 01 — `plans` calls them through `StripeService.createPlanPrice()` / `archivePlanPrice()` to manage `stripe_price_id`). Do not recreate this logic here.
+
 ## Routes
 
 | Method | Path | Guard | Notes |

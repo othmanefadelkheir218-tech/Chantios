@@ -9,6 +9,8 @@ jest.mock('../config/env.config', () => ({
 
 import { BadRequestException } from '@nestjs/common';
 import { stripe } from '../config/stripe.config';
+import { ArchivePlanPriceHandler } from './handlers/archive-plan-price.handler';
+import { CreatePlanPriceHandler } from './handlers/create-plan-price.handler';
 import { StripeController } from './stripe.controller';
 import { StripeService } from './stripe.service';
 
@@ -29,7 +31,12 @@ const signedRequest = (secret: string, body = payload) => ({
 });
 
 describe('StripeController (webhook)', () => {
-  const controller = new StripeController(new StripeService());
+  const controller = new StripeController(
+    new StripeService(
+      {} as CreatePlanPriceHandler,
+      {} as ArchivePlanPriceHandler,
+    ),
+  );
 
   it('answers 200 by default (Nest POST is 201 otherwise)', () => {
     const code = Reflect.getMetadata(

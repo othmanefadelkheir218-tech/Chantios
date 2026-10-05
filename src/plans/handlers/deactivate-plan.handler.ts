@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { StripeService } from '../../stripe/stripe.service';
 import { PlanRepository } from '../repositories/plan.repository';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class DeactivatePlanHandler {
     @InjectPinoLogger(DeactivatePlanHandler.name)
     private readonly logger: PinoLogger,
     private readonly plans: PlanRepository,
+    private readonly stripe: StripeService,
   ) {}
 
   /**
@@ -35,6 +37,7 @@ export class DeactivatePlanHandler {
     if (!plan.isActive) return plan;
 
     const updated = await this.plans.deactivate(id);
+    await this.stripe.archivePlanPrice(updated.stripePriceId);
     this.logger.info(`Plan deactivated: ${id}`);
     return updated;
   }

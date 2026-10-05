@@ -140,10 +140,15 @@ A signup always needs a default plan, so the platform guards it:
 | `is_default` | boolean | **The plan a new signup lands on.** Only one row may be true |
 | `parent_plan_id` | integer (nullable) | FK → plans.id — points to the previous version this was created from |
 | `base_price` | decimal | Monthly base price |
-| `stripe_price_id` | varchar | Stripe Price ID for this version |
+| `stripe_price_id` | varchar | Stripe Price ID for this version — **auto-created, never input** (see below) |
 | `created_at` | timestamp |  |
 
 > Plans are **immutable once in use**. Changing a plan (price, limits) = deactivate old row + create new row with `parent_plan_id` pointing to the old one. Existing tenants stay on the old row automatically.
+
+**Decision (2026-10-05): `stripe_price_id` is managed by the app, not typed in by the super-admin.**
+The admin has no reason to know Stripe's object model, so `POST /api/admin/plans` and `POST /api/admin/plans/:id/version` no longer accept `stripe_price_id` as input. On create, the handler calls Stripe to create one Product + one recurring **monthly** Price **in EUR** (the only currency used anywhere else in this app — tenants, invoices, quotes) and stores the returned id. Creating a version mints a **new** Stripe Price the same way (Stripe Prices are immutable too, matching this table's own versioning rule) and archives the parent's old Price. Deactivating a plan (`PATCH /:id/deactivate`) also archives its Stripe Price. "Archive" (`active: false`) is Stripe's equivalent of this table's `is_active` — Stripe has no hard delete for a Price either, and archiving does not affect tenants already subscribed to it, exactly like `is_active` here.
+Archiving is **best-effort**: a Stripe failure here is logged, never blocks the deactivation/version-replace in our own database — it is a sync action, not a data-integrity one. Creating the Price on a brand-new plan is the opposite: if Stripe fails there, the whole plan creation fails, because a plan with no real Price can never actually be billed later.
+The Stripe calls live in `src/stripe/` (`CreatePlanPriceHandler`, `ArchivePlanPriceHandler`), not in `src/subscriptions/`, to avoid a circular module dependency — `subscriptions` already imports `plans`.
 
 ---
 
@@ -161,7 +166,11 @@ A signup always needs a default plan, so the platform guards it:
 
 > `retention_days` has no overage rate — you either have it or not.
 
-> **Open: feature translation** — `feature_key` is a code. Display names and translations (FR/AR/EN) need a separate lookup, not stored here.
+**Decision (2026-10-05): all 6 feature keys are required on every plan, no more, no fewer.** `POST /api/admin/plans` and `POST /api/admin/plans/:id/version` (when `features` is sent — omitting it still copies the parent, which already satisfies this) refuse a list that doesn't contain exactly the 6 fixed keys. Reason: the renewal job bills a plan by looking up `(plan_id, feature_key)` — a plan missing a dimension has no value to bill against, and that gap would only surface at renewal time, in production, months after the plan was created. Enforced in application code (`plan.helper.ts`), not a DB constraint — the existing duplicate-key check already lived at that layer, this is the same kind of rule.
+
+**Decision (2026-10-05): `overage_rate: "0"` means unlimited for that dimension, at no extra cost.** This was already true by the billing formula — `bill = base_price + Σ max(0, actual − allowance) × overage_rate` — a `0` rate contributes nothing no matter how far over the `limit_value` actual usage goes, so a tenant with 5 included workers and 500 actual workers pays the same base price either way. Writing it down so it isn't re-derived from the formula each time; same spirit as the existing `retention_days` carve-out, just explicit now instead of implicit.
+
+**Decision (2026-10-05): no feature-translation table.** `feature_key` stays a plain code on the wire — the API never returns a display label. The 6 keys are fixed and only need 3 locales (`fr`/`en`/`ar`), so this is static UI copy, not data: whichever frontend consumes `GET /api/admin/plans` maps `feature_key` → its own i18n bundle for the label, the same way it would for any other fixed enum. Revisit only if the backend itself ever needs to render the label server-side (a server-rendered billing page, a PDF, an email) — nothing does today.
 
 ---
 
