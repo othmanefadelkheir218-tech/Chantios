@@ -40,6 +40,7 @@ export function buildTenantFilter(
   status?: Tenant['status'],
 ): Prisma.TenantWhereInput {
   return {
+    deletedAt: null,
     ...(status && { status }),
     ...(search && {
       OR: [

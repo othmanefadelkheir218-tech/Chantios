@@ -18,7 +18,7 @@ export class DeactivatePlanHandler {
    * Refuses the default plan: with no default, the next signup
    * (step 02 registration) would fail with a confusing error.
    */
-  async execute(id: string) {
+  async execute(id: number) {
     this.logger.info(`Deactivating plan ${id}`);
 
     const plan = await this.plans.findById(id);

@@ -9,12 +9,12 @@ import {
   ApiOperation,
 } from '@nestjs/swagger';
 import {
+  ApiIntParam,
   ApiPaginatedResponse,
-  ApiUuidParam,
 } from '../../common/swagger/api-paginated.decorator';
 import { AdminUserEntity } from '../entities/admin-user.entity';
 
-const idParam = () => ApiUuidParam('id', 'Admin user id (UUID)');
+const idParam = () => ApiIntParam('id', 'Admin user id');
 
 export const ApiCreateAdminUser = () =>
   applyDecorators(
@@ -45,7 +45,7 @@ export const ApiUpdateAdminUser = () =>
     }),
     idParam(),
     ApiOkResponse({ description: 'Updated', type: AdminUserEntity }),
-    ApiBadRequestResponse({ description: 'Invalid data or invalid UUID' }),
+    ApiBadRequestResponse({ description: 'Invalid data or invalid id' }),
     ApiNotFoundResponse({ description: 'Admin user not found' }),
   );
 
@@ -57,6 +57,6 @@ export const ApiDeactivateAdminUser = () =>
     }),
     idParam(),
     ApiNoContentResponse({ description: 'Deactivated' }),
-    ApiBadRequestResponse({ description: 'The id is not a valid UUID' }),
+    ApiBadRequestResponse({ description: 'The id is not a valid number' }),
     ApiNotFoundResponse({ description: 'Admin user not found' }),
   );

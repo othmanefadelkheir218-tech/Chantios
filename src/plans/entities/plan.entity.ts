@@ -1,11 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class PlanFeatureEntity {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty()
+  id: number;
 
-  @ApiProperty({ format: 'uuid' })
-  plan_id: string;
+  @ApiProperty()
+  plan_id: number;
 
   @ApiProperty({ example: 'max_workers' })
   feature_key: string;
@@ -18,8 +18,8 @@ export class PlanFeatureEntity {
 }
 
 export class PlanEntity {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty()
+  id: number;
 
   @ApiProperty({ example: 'Pro' })
   name: string;
@@ -35,10 +35,9 @@ export class PlanEntity {
 
   @ApiProperty({
     description: 'The version this plan replaced',
-    format: 'uuid',
     nullable: true,
   })
-  parent_plan_id: string | null;
+  parent_plan_id: number | null;
 
   @ApiProperty({ nullable: true })
   stripe_price_id: string | null;

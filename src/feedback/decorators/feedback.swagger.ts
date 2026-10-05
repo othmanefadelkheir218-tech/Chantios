@@ -6,8 +6,8 @@ import {
   ApiOperation,
 } from '@nestjs/swagger';
 import {
+  ApiIntParam,
   ApiPaginatedResponse,
-  ApiUuidParam,
 } from '../../common/swagger/api-paginated.decorator';
 import { FeedbackEntity } from '../entities/feedback.entity';
 
@@ -24,8 +24,8 @@ export const ApiFindFeedback = () =>
 export const ApiUpdateFeedbackStatus = () =>
   applyDecorators(
     ApiOperation({ summary: 'Change the status of a feedback (admin staff)' }),
-    ApiUuidParam('id', 'Feedback id (UUID)'),
+    ApiIntParam('id', 'Feedback id'),
     ApiOkResponse({ description: 'Status changed', type: FeedbackEntity }),
-    ApiBadRequestResponse({ description: 'Invalid status or invalid UUID' }),
+    ApiBadRequestResponse({ description: 'Invalid status or invalid id' }),
     ApiNotFoundResponse({ description: 'Feedback not found' }),
   );

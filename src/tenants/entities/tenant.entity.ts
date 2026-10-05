@@ -3,8 +3,8 @@ import { TenantStatus } from '@prisma/client';
 
 /** Response shape of a company. Keys are snake_case on the wire. */
 export class TenantEntity {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty()
+  id: number;
 
   @ApiProperty({ example: 'Rénovation Dupont' })
   name: string;
@@ -39,8 +39,8 @@ export class TenantEntity {
   @ApiProperty({ nullable: true, example: 'BE' })
   country: string | null;
 
-  @ApiProperty({ format: 'uuid', nullable: true })
-  logo_media_id: string | null;
+  @ApiProperty({ nullable: true })
+  logo_media_id: number | null;
 
   @ApiProperty({ description: 'Money and rates are strings', example: '21.00' })
   default_vat_rate: string;
@@ -62,6 +62,18 @@ export class TenantEntity {
 
   @ApiProperty({ enum: TenantStatus })
   status: TenantStatus;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Soft delete. null = not deleted',
+  })
+  deleted_at: Date | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Not required at creation. null = not verified',
+  })
+  email_verified_at: Date | null;
 
   @ApiProperty()
   created_at: Date;

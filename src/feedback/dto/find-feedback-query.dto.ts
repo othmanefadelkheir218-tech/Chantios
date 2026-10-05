@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { FeedbackStatus, FeedbackType } from '@prisma/client';
-import { IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsEnum, IsInt, IsOptional } from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
 export class FindFeedbackQueryDto extends PaginationQueryDto {
@@ -16,9 +17,9 @@ export class FindFeedbackQueryDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({
     description: 'Only the feedback of this company',
-    format: 'uuid',
   })
+  @Type(() => Number)
   @IsOptional()
-  @IsUUID()
-  tenant_id?: string;
+  @IsInt()
+  tenant_id?: number;
 }

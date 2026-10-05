@@ -7,12 +7,12 @@ import {
   ApiOperation,
 } from '@nestjs/swagger';
 import {
+  ApiIntParam,
   ApiPaginatedResponse,
-  ApiUuidParam,
 } from '../../common/swagger/api-paginated.decorator';
 import { PlanEntity } from '../entities/plan.entity';
 
-const idParam = () => ApiUuidParam('id', 'Plan id (UUID)');
+const idParam = () => ApiIntParam('id', 'Plan id');
 
 export const ApiCreatePlan = () =>
   applyDecorators(
@@ -42,7 +42,7 @@ export const ApiFindPlan = () =>
     ApiOperation({ summary: 'Get one plan with its features (admin staff)' }),
     idParam(),
     ApiOkResponse({ description: 'The plan', type: PlanEntity }),
-    ApiBadRequestResponse({ description: 'The id is not a valid UUID' }),
+    ApiBadRequestResponse({ description: 'The id is not a valid number' }),
     ApiNotFoundResponse({ description: 'Plan not found' }),
   );
 

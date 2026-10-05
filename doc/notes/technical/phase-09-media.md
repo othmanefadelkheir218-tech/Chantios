@@ -55,7 +55,7 @@ SELECT * FROM media WHERE entity_type = 'project' AND entity_id = :id
 | `id` | |
 | `tenant_id` | For isolation |
 | `entity_type` | String: `'user'`, `'project'`, etc. |
-| `entity_id` | UUID of the linked record |
+| `entity_id` | integer of the linked record |
 | `file_name` | Display name (can be renamed) |
 | `file_url` | ImageKit URL |
 | `file_type` | MIME type |

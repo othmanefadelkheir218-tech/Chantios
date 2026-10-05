@@ -2,14 +2,14 @@ import { ApiProperty } from '@nestjs/swagger';
 import { FeedbackStatus, FeedbackType } from '@prisma/client';
 
 export class FeedbackEntity {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty()
+  id: number;
 
-  @ApiProperty({ format: 'uuid' })
-  tenant_id: string;
+  @ApiProperty()
+  tenant_id: number;
 
-  @ApiProperty({ description: 'The tenant user who wrote it', format: 'uuid' })
-  submitted_by: string;
+  @ApiProperty({ description: 'The tenant user who wrote it' })
+  submitted_by: number;
 
   @ApiProperty({ enum: FeedbackType })
   type: FeedbackType;

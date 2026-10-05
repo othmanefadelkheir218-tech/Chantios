@@ -19,7 +19,7 @@ export class UpdateTenantHandler {
     private readonly audit: AuditService,
   ) {}
 
-  async execute(id: string, dto: UpdateTenantDto, actor: RequestActor) {
+  async execute(id: number, dto: UpdateTenantDto, actor: RequestActor) {
     this.logger.info(`Updating tenant ${id}`);
 
     const current = await this.tenants.findById(id);

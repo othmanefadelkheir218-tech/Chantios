@@ -88,7 +88,7 @@ The super-admin from the seed (`admin@chantieros.local`) is in the list too.
 | `{ "email": "x@x.test" }` | `400` — the email cannot change (`property email should not exist`) |
 | `{ "role": "owner" }` | `400` |
 
-Unknown id (`00000000-0000-4000-8000-000000000000`) → `404`, `Admin user not found`. Bad id `abc` → `400`.
+Unknown id (`999999999`) → `404`, `Admin user not found`. Bad id `abc` → `400`, `Validation failed (numeric string is expected)`.
 
 ## ADM-06 — Deactivate
 

@@ -66,18 +66,18 @@ This is the one home for these fields. Nothing else stores a stock quantity.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `id` | uuid | — |
-| `tenant_id` | uuid | Required |
-| `material_id` | uuid | Required — FK → `materials.id` |
-| `project_id` | uuid | **Nullable.** Required on `consumption`, always `NULL` on `purchase` — stock is a shared pool, a purchase belongs to no project |
-| `report_id` | uuid | **Nullable** — FK → `reports.id`, the site report that declared this consumption. Traceability: who said it, and when |
-| `purchase_invoice_id` | uuid | **Nullable** — FK → `purchase_invoices.id`, the supplier bill for a `purchase` row. Either can exist without the other |
+| `id` | integer | — |
+| `tenant_id` | integer | Required |
+| `material_id` | integer | Required — FK → `materials.id` |
+| `project_id` | integer | **Nullable.** Required on `consumption`, always `NULL` on `purchase` — stock is a shared pool, a purchase belongs to no project |
+| `report_id` | integer | **Nullable** — FK → `reports.id`, the site report that declared this consumption. Traceability: who said it, and when |
+| `purchase_invoice_id` | integer | **Nullable** — FK → `purchase_invoices.id`, the supplier bill for a `purchase` row. Either can exist without the other |
 | `type` | enum | `purchase` · `consumption` · `adjustment` |
 | `quantity` | `Decimal(12,3)` | **Signed**: `+` purchase, `−` consumption, either sign for `adjustment`. Never zero |
 | `unit_price` | `Decimal(12,2)` | **Frozen** from `materials.purchase_price` at that moment |
 | `movement_date` | date | The day it happened |
 | `note` | text | Why — mostly used on an `adjustment` |
-| `created_by` | uuid | FK → `users.id` |
+| `created_by` | integer | FK → `users.id` |
 | `created_at` | timestamp | — |
 
 Two DB checks hold the rules:
@@ -91,7 +91,7 @@ type = 'purchase'    → project_id IS NULL     AND quantity > 0
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `tenant_id` / `project_id` / `material_id` | uuid | Required |
+| `tenant_id` / `project_id` / `material_id` | integer | Required |
 | `reserved_quantity` | `Decimal(12,3)` | What the accepted quotes asked for — the original |
 | `remaining_quantity` | `Decimal(12,3)` | What is still being held |
 | `status` | enum | `active` · `released` · `consumed` |

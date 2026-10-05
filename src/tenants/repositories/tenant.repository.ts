@@ -27,7 +27,12 @@ export class TenantRepository {
     ]);
   }
 
-  findById(id: string): Promise<Tenant | null> {
+  findById(id: number): Promise<Tenant | null> {
+    return this.prisma.tenant.findFirst({ where: { id, deletedAt: null } });
+  }
+
+  /** Bypasses the soft-delete filter — restore needs to find an already-deleted row. */
+  findByIdIncludingDeleted(id: number): Promise<Tenant | null> {
     return this.prisma.tenant.findUnique({ where: { id } });
   }
 
@@ -35,11 +40,48 @@ export class TenantRepository {
     return this.prisma.tenant.findUnique({ where: { email } });
   }
 
-  update(id: string, data: Prisma.TenantUpdateInput): Promise<Tenant> {
+  update(id: number, data: Prisma.TenantUpdateInput): Promise<Tenant> {
     return this.prisma.tenant.update({ where: { id }, data });
   }
 
-  setStatus(id: string, status: TenantStatus): Promise<Tenant> {
+  setStatus(id: number, status: TenantStatus): Promise<Tenant> {
     return this.prisma.tenant.update({ where: { id }, data: { status } });
+  }
+
+  softDelete(id: number): Promise<Tenant> {
+    return this.prisma.tenant.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  restore(id: number): Promise<Tenant> {
+    return this.prisma.tenant.update({
+      where: { id },
+      data: { deletedAt: null },
+    });
+  }
+
+  async softDeleteMany(ids: number[]): Promise<number> {
+    const { count } = await this.prisma.tenant.updateMany({
+      where: { id: { in: ids }, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    return count;
+  }
+
+  async restoreMany(ids: number[]): Promise<number> {
+    const { count } = await this.prisma.tenant.updateMany({
+      where: { id: { in: ids }, deletedAt: { not: null } },
+      data: { deletedAt: null },
+    });
+    return count;
+  }
+
+  setEmailVerified(id: number): Promise<Tenant> {
+    return this.prisma.tenant.update({
+      where: { id },
+      data: { emailVerifiedAt: new Date() },
+    });
   }
 }

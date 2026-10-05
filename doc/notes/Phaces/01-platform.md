@@ -68,8 +68,12 @@ src/
 ├── subscriptions/      (tenant_subscriptions + billing_usage_snapshots)
 ├── audit/              (writer service + @AuditLog decorator, no public routes)
 ├── analytics/          (event emitter + list endpoint)
-└── feedback/
+├── feedback/
+├── one-time-codes/     (generate/verify `one_time_codes` rows — no public routes, every type reuses it)
+└── email/              (EmailService.send() wrapping Resend — no public routes)
 ```
+
+`one-time-codes` and `email` are shared utility modules, same shape as `audit`: a service other modules call, no controller. Added 2026-10-05 for tenant email verification; step 02 reuses both for `password_reset` and the registration `email_verification` flow instead of rebuilding them.
 
 `plans` and `plan_features` are one business domain — one module, one repository. Do not split them.
 
@@ -86,6 +90,12 @@ All platform-only. Guards: `AdminAuthGuard` arrives in step 02 — until then ma
 | `GET` | `/api/admin/tenants/:id` | admin staff |
 | `PATCH` | `/api/admin/tenants/:id` | super_admin |
 | `PATCH` | `/api/admin/tenants/:id/status` | super_admin — `active` / `suspended` / `banned` |
+| `DELETE` | `/api/admin/tenants/:id` | super_admin — soft delete, sets `deleted_at` |
+| `DELETE` | `/api/admin/tenants` | super_admin — bulk soft delete, body `{ ids: number[] }` |
+| `PATCH` | `/api/admin/tenants/:id/restore` | super_admin — clears `deleted_at` |
+| `PATCH` | `/api/admin/tenants/restore` | super_admin — bulk restore, body `{ ids: number[] }` |
+| `POST` | `/api/admin/tenants/:id/send-verification-email` | super_admin — emails a 6-digit code |
+| `PATCH` | `/api/admin/tenants/:id/verify-email` | super_admin — body `{ code: string }`, sets `email_verified_at` |
 | `POST` | `/api/admin/admin-users` | super_admin |
 | `GET` | `/api/admin/admin-users` | super_admin |
 | `PATCH` | `/api/admin/admin-users/:id` | super_admin |
@@ -115,6 +125,12 @@ Tenant-side feedback submission (`POST /api/feedback`) waits for step 02 — it 
 ### `set-tenant-status.dto.ts`
 `status` `@IsIn(['active','suspended','banned'])`. `reason` optional string — goes to `audit_logs`.
 
+### `tenant-ids.dto.ts`
+`ids` — array of integers, `@ArrayMinSize(1)`, `@IsInt({ each: true })`. Body shape for the two bulk routes (`DELETE /tenants`, `PATCH /tenants/restore`).
+
+### `verify-tenant-email.dto.ts`
+`code` required, `@IsNumberString()`, `@Length(6, 6)`.
+
 ### `create-plan.dto.ts`
 `name` required. `base_price` `@IsNumberString`. `stripe_price_id` optional. `features` — array of `{ feature_key, limit_value, overage_rate }`, `feature_key` `@IsIn` the 6 keys: `max_workers`, `max_managers`, `max_clients`, `max_subcontractors`, `storage_gb`, `retention_days`.
 
@@ -133,6 +149,18 @@ findById(id): Promise<Tenant | null>
 findByEmail(email): Promise<Tenant | null>
 update(id, data): Promise<Tenant>
 setStatus(id, status): Promise<Tenant>
+softDelete(id): Promise<Tenant>              // sets deleted_at = now()
+softDeleteMany(ids): Promise<number>         // count affected, skips already-deleted rows
+restore(id): Promise<Tenant>                 // clears deleted_at
+restoreMany(ids): Promise<number>            // count affected, skips rows not deleted
+setEmailVerified(id): Promise<Tenant>        // sets email_verified_at = now()
+
+// one-time-code.repository.ts
+create(data): Promise<OneTimeCode>
+findActive(type, scope): Promise<OneTimeCode | null>  // unconsumed, unexpired, latest first
+consumePriorActive(type, scope): Promise<void>        // invalidates any still-active code before a new one is generated
+incrementAttempt(id): Promise<void>
+markConsumed(id): Promise<void>
 
 // plan.repository.ts
 create(data, features): Promise<Plan>        // one transaction
@@ -163,6 +191,10 @@ findMany(where, skip, take)
 |---|---|
 | `create-tenant.handler` | `email` unique app-wide. Writes `audit_logs` |
 | `set-tenant-status.handler` | `suspended`/`banned` must also revoke sessions — the call is added in step 02. Writes `audit_logs` with old and new value |
+| `soft-delete-tenant.handler` / `restore-tenant.handler` | refuses if the tenant is already in the target state (`404`/`409`-style refusal, not a silent no-op). Writes `audit_logs` with old and new `deleted_at` |
+| `soft-delete-tenants.handler` / `restore-tenants.handler` | bulk: rows already in the target state are skipped, not refused — returns the count actually changed. One `audit_logs` entry via `@AuditLog`, not per-row |
+| `send-tenant-verification-email.handler` | refuses if already verified. Generates a code via `OneTimeCodesService`, emails it via `EmailService` — does **not** write `audit_logs` (no state changed yet, only an email sent) |
+| `verify-tenant-email.handler` | refuses if already verified, or if the code is wrong/expired/already used. Sets `email_verified_at`, writes `audit_logs` with old (`null`) and new value |
 | `create-plan.handler` | `plans` + `plan_features` in one transaction. A new plan is never `is_default` unless asked |
 | `set-default-plan.handler` | clears the old default first, same transaction |
 | `create-plan-version.handler` | never edits a plan in use. Deactivates the old row, creates a new one with `parent_plan_id`. Existing tenants keep the old `plan_id` |
@@ -181,6 +213,10 @@ findMany(where, skip, take)
 - [x] Seed file: 7 `roles`, 3 `cost_types` (`tenant_id = NULL`), default `categories` (`tenant_id = NULL`)
 - [x] Raw SQL in the migration for the 3 views — or defer to the step that needs each one
 - [x] `tenants` module
+- [x] `tenants` soft delete / restore, one + bulk (added 2026-10-05, after step 01 was otherwise done)
+- [x] `one-time-codes` module — generate/verify, generic across every `one_time_code_type` (added 2026-10-05)
+- [x] `email` module — `EmailService.send()` wrapping the existing `src/config/resend.config.ts` client (added 2026-10-05)
+- [x] `tenants` email verification: send code + verify code (added 2026-10-05)
 - [x] `admin-users` module
 - [x] `plans` module (plans + plan_features)
 - [x] `subscriptions` module (tenant_subscriptions + billing_usage_snapshots)
@@ -203,6 +239,15 @@ The Prisma client extension for `tenant_id` is **not** built here — no table i
 - [x] Try to deactivate the only default plan → refused with a clear message
 - [x] Create a plan version → old row `is_active = false`, new row has `parent_plan_id`
 - [x] Suspend a tenant → status changes, `audit_logs` records old and new value
+- [x] Soft delete a tenant → `deleted_at` set, it disappears from `GET /tenants` and `GET /tenants/:id` (`404`), `status` unchanged
+- [x] Restore it → `deleted_at` cleared, visible again
+- [x] Bulk soft delete 2 tenants (one already deleted) → count returned is 1, not 2
+- [x] Soft delete the same tenant twice → second call refused, not a silent `200`
+- [x] Send a verification code, verify with the right code → `200`, `email_verified_at` set
+- [x] Verify with a wrong code → `400`, code still usable (attempt counted, not consumed)
+- [x] Verify with the right code twice → second call `400` (code already consumed)
+- [x] Send a new code → the previous unconsumed code stops working
+- [x] Send/verify on an already-verified tenant → `400`
 - [x] `/api/docs` shows tenants, admin-users, plans, subscriptions, analytics, feedback
 - [x] `yarn lint` and `yarn build` pass
 - [x] Update `../WhereIStop/state.md`

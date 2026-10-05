@@ -11,7 +11,7 @@ export class UpdateFeedbackStatusHandler {
     private readonly feedback: FeedbackRepository,
   ) {}
 
-  async execute(id: string, { status }: UpdateFeedbackStatusDto) {
+  async execute(id: number, { status }: UpdateFeedbackStatusDto) {
     this.logger.info(`Setting feedback ${id} to ${status}`);
 
     if (!(await this.feedback.findById(id))) {

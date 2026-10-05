@@ -11,7 +11,7 @@ export class FindTenantHandler {
     private readonly tenants: TenantRepository,
   ) {}
 
-  async execute(id: string) {
+  async execute(id: number) {
     this.logger.debug(`Finding tenant ${id}`);
 
     const tenant = await this.tenants.findById(id);

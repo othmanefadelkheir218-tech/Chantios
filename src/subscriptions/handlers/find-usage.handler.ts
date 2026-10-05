@@ -12,7 +12,7 @@ export class FindUsageHandler {
     private readonly subscriptions: SubscriptionRepository,
   ) {}
 
-  async execute(tenantId: string, { page, limit }: PaginationQueryDto) {
+  async execute(tenantId: number, { page, limit }: PaginationQueryDto) {
     this.logger.debug(`Listing usage snapshots of tenant ${tenantId}`);
 
     const [data, total] = await this.subscriptions.findUsage(

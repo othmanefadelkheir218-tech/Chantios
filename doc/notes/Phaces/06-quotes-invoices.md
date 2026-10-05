@@ -130,10 +130,10 @@ The portal's own accept/refuse routes are step 12. **Both paths call the same ha
 ## DTOs
 
 ### `quote-line.dto.ts`
-`service_id` optional uuid (`null` = free-text line). `description` required. `unit` optional. `quantity` `@IsNumberString`, not zero. `unit_price_excl_vat` `@IsNumberString @Min(0)`. `vat_rate` `@IsNumberString` — **required**, pre-filled by the client from the service or the tenant default. `position` `@IsInt`.
+`service_id` optional integer (`null` = free-text line). `description` required. `unit` optional. `quantity` `@IsNumberString`, not zero. `unit_price_excl_vat` `@IsNumberString @Min(0)`. `vat_rate` `@IsNumberString` — **required**, pre-filled by the client from the service or the tenant default. `position` `@IsInt`.
 
 ### `create-quote.dto.ts`
-`client_id`, `project_id` both `@IsUUID` **required**. `issue_date` optional. `valid_until` optional. `note` optional. `lines` — array of `quote-line.dto`.
+`client_id`, `project_id` both `@IsInt` **required**. `issue_date` optional. `valid_until` optional. `note` optional. `lines` — array of `quote-line.dto`.
 
 ### `create-invoice.dto.ts`
 `client_id`, `project_id` required. `quote_id` optional. `due_date` optional — defaults to `issue_date + tenants.default_payment_days`. `note` optional. `lines`.

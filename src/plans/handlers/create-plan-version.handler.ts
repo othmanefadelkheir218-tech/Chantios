@@ -21,7 +21,7 @@ export class CreatePlanVersionHandler {
    * A plan in use is never edited. The old row is deactivated, a new row is
    * created with `parent_plan_id`. Tenants keep the old `plan_id`.
    */
-  async execute(parentId: string, dto: CreatePlanVersionDto) {
+  async execute(parentId: number, dto: CreatePlanVersionDto) {
     this.logger.info(`Creating a new version of plan ${parentId}`);
 
     const parent = await this.plans.findById(parentId);

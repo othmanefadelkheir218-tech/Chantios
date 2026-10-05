@@ -27,7 +27,7 @@ export class AdminUserRepository {
     ]);
   }
 
-  findById(id: string): Promise<AdminUser | null> {
+  findById(id: number): Promise<AdminUser | null> {
     return this.prisma.adminUser.findUnique({ where: { id } });
   }
 
@@ -35,11 +35,11 @@ export class AdminUserRepository {
     return this.prisma.adminUser.findUnique({ where: { email } });
   }
 
-  update(id: string, data: Prisma.AdminUserUpdateInput): Promise<AdminUser> {
+  update(id: number, data: Prisma.AdminUserUpdateInput): Promise<AdminUser> {
     return this.prisma.adminUser.update({ where: { id }, data });
   }
 
-  deactivate(id: string): Promise<AdminUser> {
+  deactivate(id: number): Promise<AdminUser> {
     return this.prisma.adminUser.update({
       where: { id },
       data: { isActive: false },

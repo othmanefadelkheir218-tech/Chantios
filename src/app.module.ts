@@ -10,8 +10,10 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { AuditModule } from './audit/audit.module';
 import { validateEnv } from './config/env.config';
 import { loggerConfig } from './config/logger.config';
+import { EmailModule } from './email/email.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { HealthModule } from './health/health.module';
+import { OneTimeCodesModule } from './one-time-codes/one-time-codes.module';
 import { PlansModule } from './plans/plans.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { StripeModule } from './stripe/stripe.module';
@@ -41,6 +43,8 @@ import { TenantsModule } from './tenants/tenants.module';
     StripeModule,
     // Step 01 — platform
     AuditModule,
+    EmailModule,
+    OneTimeCodesModule,
     TenantsModule,
     AdminUsersModule,
     PlansModule,

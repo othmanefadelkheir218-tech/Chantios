@@ -19,7 +19,7 @@ export class SetTenantStatusHandler {
     private readonly audit: AuditService,
   ) {}
 
-  async execute(id: string, dto: SetTenantStatusDto, actor: RequestActor) {
+  async execute(id: number, dto: SetTenantStatusDto, actor: RequestActor) {
     this.logger.info(`Setting tenant ${id} to ${dto.status}`);
 
     const current = await this.tenants.findById(id);

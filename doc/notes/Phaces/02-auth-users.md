@@ -19,7 +19,7 @@ DDL in [Schema Proposal.md](../../Schema%20Proposal.md) § 2. Already migrated i
 
 | Table | Purpose |
 |---|---|
-| `roles` | 7 rows, seeded. `SMALLINT` ids 1–7, **not uuid** |
+| `roles` | 7 rows, seeded. `SMALLINT` ids 1–7, a different column type than the auto-increment integer `id` used elsewhere |
 | `users` | all tenant-side users. `email` **UNIQUE app-wide** |
 | `role_permissions` | overrides only, + the `scope` column |
 | `refresh_tokens` | one row per live session, hashed |

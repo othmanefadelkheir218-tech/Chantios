@@ -1,15 +1,16 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsInt, IsOptional, IsString } from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
 export class FindAuditLogsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     description: 'Only the entries about this company',
-    format: 'uuid',
   })
+  @Type(() => Number)
   @IsOptional()
-  @IsUUID()
-  tenant_id?: string;
+  @IsInt()
+  tenant_id?: number;
 
   @ApiPropertyOptional({
     description: 'Only this kind of record',

@@ -6,7 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseUUIDPipe,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -51,7 +51,7 @@ export class AdminUsersController {
   @AuditLog('update', 'admin_user')
   @ApiUpdateAdminUser()
   update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateAdminUserDto,
   ) {
     return this.adminUsersService.update(id, dto);
@@ -61,7 +61,7 @@ export class AdminUsersController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @AuditLog('deactivate', 'admin_user')
   @ApiDeactivateAdminUser()
-  deactivate(@Param('id', ParseUUIDPipe) id: string) {
+  deactivate(@Param('id', ParseIntPipe) id: number) {
     return this.adminUsersService.deactivate(id);
   }
 }

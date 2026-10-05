@@ -50,7 +50,7 @@ export class PlanRepository {
     ]);
   }
 
-  findById(id: string): Promise<PlanWithFeatures | null> {
+  findById(id: number): Promise<PlanWithFeatures | null> {
     return this.prisma.plan.findUnique({
       where: { id },
       include: withFeatures,
@@ -64,7 +64,7 @@ export class PlanRepository {
     });
   }
 
-  deactivate(id: string): Promise<PlanWithFeatures> {
+  deactivate(id: number): Promise<PlanWithFeatures> {
     return this.prisma.plan.update({
       where: { id },
       data: { isActive: false },
@@ -73,7 +73,7 @@ export class PlanRepository {
   }
 
   /** Clears the previous default in the same transaction: `idx_plans_one_default` allows one. */
-  setDefault(id: string): Promise<PlanWithFeatures> {
+  setDefault(id: number): Promise<PlanWithFeatures> {
     return this.prisma.$transaction(async (tx) => {
       await tx.plan.updateMany({
         where: { isDefault: true },
@@ -93,7 +93,7 @@ export class PlanRepository {
    * version takes the flag, so signups never find the default missing.
    */
   createVersion(
-    parentId: string,
+    parentId: number,
     data: Omit<Prisma.PlanUncheckedCreateInput, 'parentPlanId' | 'isDefault'>,
     features: PlanFeatureData[],
     inheritDefault: boolean,

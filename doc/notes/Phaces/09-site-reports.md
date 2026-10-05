@@ -80,10 +80,10 @@ src/reports/
 ## DTOs
 
 ### `create-report.dto.ts`
-`project_id` `@IsUUID` required. `report_date` optional ISO date, defaults to today. `progress_pct` `@IsInt @Min(0) @Max(100)` required. `weather` optional short string. `note` optional.
+`project_id` `@IsInt` required. `report_date` optional ISO date, defaults to today. `progress_pct` `@IsInt @Min(0) @Max(100)` required. `weather` optional short string. `note` optional.
 
 ### `declare-materials.dto.ts`
-`service_id` optional uuid — which service was done, for the audit trail. `items` — array of `{ material_id: uuid, quantity: string }`, each `quantity > 0` (**positive here**; the handler makes it negative in the ledger).
+`service_id` optional integer — which service was done, for the audit trail. `items` — array of `{ material_id: integer, quantity: string }`, each `quantity > 0` (**positive here**; the handler makes it negative in the ledger).
 
 ## Repository methods
 

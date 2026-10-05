@@ -1,16 +1,16 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDate, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsDate, IsInt, IsOptional, IsString } from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
 export class FindAnalyticsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     description: 'Only the events of this company',
-    format: 'uuid',
   })
+  @Type(() => Number)
   @IsOptional()
-  @IsUUID()
-  tenant_id?: string;
+  @IsInt()
+  tenant_id?: number;
 
   @ApiPropertyOptional({ example: 'quote_sent' })
   @IsOptional()

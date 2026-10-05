@@ -10,7 +10,7 @@ export class FindPlanHandler {
     private readonly plans: PlanRepository,
   ) {}
 
-  async execute(id: string) {
+  async execute(id: number) {
     this.logger.debug(`Finding plan ${id}`);
 
     const plan = await this.plans.findById(id);

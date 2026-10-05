@@ -15,7 +15,7 @@ export class SetDefaultPlanHandler {
   ) {}
 
   /** Clears the old default first, in the same transaction. */
-  async execute(id: string) {
+  async execute(id: number) {
     this.logger.info(`Setting plan ${id} as default`);
 
     const plan = await this.plans.findById(id);

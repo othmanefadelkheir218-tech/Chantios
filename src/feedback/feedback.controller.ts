@@ -3,7 +3,7 @@ import {
   Controller,
   Get,
   Param,
-  ParseUUIDPipe,
+  ParseIntPipe,
   Patch,
   Query,
   UseInterceptors,
@@ -35,7 +35,7 @@ export class FeedbackController {
   @Patch(':id/status')
   @ApiUpdateFeedbackStatus()
   updateStatus(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateFeedbackStatusDto,
   ) {
     return this.feedbackService.updateStatus(id, dto);

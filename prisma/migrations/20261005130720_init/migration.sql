@@ -1,6 +1,3 @@
--- CreateSchema
-CREATE SCHEMA IF NOT EXISTS "public";
-
 -- CreateEnum
 CREATE TYPE "tenant_status" AS ENUM ('active', 'suspended', 'banned');
 
@@ -87,7 +84,7 @@ CREATE TYPE "media_entity_type" AS ENUM ('user', 'tenant', 'project', 'report', 
 
 -- CreateTable
 CREATE TABLE "tenants" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
     "legal_name" TEXT,
     "vat_number" TEXT,
@@ -99,7 +96,7 @@ CREATE TABLE "tenants" (
     "postal_code" TEXT,
     "city" TEXT,
     "country" CHAR(2),
-    "logo_media_id" UUID,
+    "logo_media_id" INTEGER,
     "default_vat_rate" DECIMAL(5,2) NOT NULL DEFAULT 21.00,
     "default_payment_days" SMALLINT NOT NULL DEFAULT 30,
     "locale" TEXT NOT NULL DEFAULT 'fr',
@@ -115,7 +112,7 @@ CREATE TABLE "tenants" (
 
 -- CreateTable
 CREATE TABLE "admin_users" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "id" SERIAL NOT NULL,
     "email" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "password_hash" TEXT NOT NULL,
@@ -130,12 +127,12 @@ CREATE TABLE "admin_users" (
 
 -- CreateTable
 CREATE TABLE "plans" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
     "base_price" DECIMAL(12,2) NOT NULL,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "is_default" BOOLEAN NOT NULL DEFAULT false,
-    "parent_plan_id" UUID,
+    "parent_plan_id" INTEGER,
     "stripe_price_id" TEXT,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -144,8 +141,8 @@ CREATE TABLE "plans" (
 
 -- CreateTable
 CREATE TABLE "plan_features" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "plan_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "plan_id" INTEGER NOT NULL,
     "feature_key" TEXT NOT NULL,
     "limit_value" INTEGER NOT NULL,
     "overage_rate" DECIMAL(12,2) NOT NULL DEFAULT 0,
@@ -155,16 +152,16 @@ CREATE TABLE "plan_features" (
 
 -- CreateTable
 CREATE TABLE "tenant_subscriptions" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "plan_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "plan_id" INTEGER NOT NULL,
     "stripe_customer_id" TEXT,
     "stripe_subscription_id" TEXT,
     "stripe_price_id" TEXT,
     "status" "subscription_status" NOT NULL DEFAULT 'trialing',
     "period_start" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "period_end" TIMESTAMPTZ(6) NOT NULL,
-    "pending_plan_id" UUID,
+    "pending_plan_id" INTEGER,
     "pending_plan_effective_at" TIMESTAMPTZ(6),
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -174,8 +171,8 @@ CREATE TABLE "tenant_subscriptions" (
 
 -- CreateTable
 CREATE TABLE "billing_usage_snapshots" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
     "period_start" TIMESTAMPTZ(6) NOT NULL,
     "period_end" TIMESTAMPTZ(6) NOT NULL,
     "snapshot_taken_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -191,7 +188,7 @@ CREATE TABLE "billing_usage_snapshots" (
 
 -- CreateTable
 CREATE TABLE "stripe_events" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "id" SERIAL NOT NULL,
     "stripe_event_id" TEXT NOT NULL,
     "type" TEXT NOT NULL,
     "payload" JSONB NOT NULL,
@@ -204,13 +201,13 @@ CREATE TABLE "stripe_events" (
 
 -- CreateTable
 CREATE TABLE "audit_logs" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID,
-    "admin_user_id" UUID,
-    "user_id" UUID,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER,
+    "admin_user_id" INTEGER,
+    "user_id" INTEGER,
     "action" TEXT NOT NULL,
     "entity_type" TEXT NOT NULL,
-    "entity_id" UUID,
+    "entity_id" INTEGER,
     "old_value" JSONB,
     "new_value" JSONB,
     "ip_address" INET,
@@ -221,9 +218,9 @@ CREATE TABLE "audit_logs" (
 
 -- CreateTable
 CREATE TABLE "analytics_events" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "user_id" UUID,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "user_id" INTEGER,
     "event_name" TEXT NOT NULL,
     "payload" JSONB,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -233,9 +230,9 @@ CREATE TABLE "analytics_events" (
 
 -- CreateTable
 CREATE TABLE "feedback" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "submitted_by" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "submitted_by" INTEGER NOT NULL,
     "type" "feedback_type" NOT NULL,
     "title" TEXT NOT NULL,
     "body" TEXT,
@@ -248,14 +245,14 @@ CREATE TABLE "feedback" (
 
 -- CreateTable
 CREATE TABLE "support_tickets" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "opened_by" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "opened_by" INTEGER NOT NULL,
     "subject" TEXT NOT NULL,
     "category" "ticket_category" NOT NULL DEFAULT 'question',
     "priority" "ticket_priority" NOT NULL DEFAULT 'normal',
     "status" "ticket_status" NOT NULL DEFAULT 'open',
-    "assigned_admin_id" UUID,
+    "assigned_admin_id" INTEGER,
     "closed_at" TIMESTAMPTZ(6),
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -275,8 +272,8 @@ CREATE TABLE "roles" (
 
 -- CreateTable
 CREATE TABLE "users" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
     "role_id" SMALLINT NOT NULL,
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
@@ -295,8 +292,8 @@ CREATE TABLE "users" (
 
 -- CreateTable
 CREATE TABLE "role_permissions" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
     "role_id" SMALLINT NOT NULL,
     "module" "permission_module" NOT NULL,
     "can_view" BOOLEAN NOT NULL DEFAULT false,
@@ -310,9 +307,9 @@ CREATE TABLE "role_permissions" (
 
 -- CreateTable
 CREATE TABLE "refresh_tokens" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "user_id" UUID,
-    "admin_user_id" UUID,
+    "id" SERIAL NOT NULL,
+    "user_id" INTEGER,
+    "admin_user_id" INTEGER,
     "token_hash" TEXT NOT NULL,
     "user_agent" TEXT,
     "ip_address" INET,
@@ -325,13 +322,13 @@ CREATE TABLE "refresh_tokens" (
 
 -- CreateTable
 CREATE TABLE "user_invitations" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
     "email" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "role_id" SMALLINT NOT NULL,
     "token_hash" TEXT NOT NULL,
-    "invited_by" UUID NOT NULL,
+    "invited_by" INTEGER NOT NULL,
     "expires_at" TIMESTAMPTZ(6) NOT NULL,
     "accepted_at" TIMESTAMPTZ(6),
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -341,9 +338,9 @@ CREATE TABLE "user_invitations" (
 
 -- CreateTable
 CREATE TABLE "one_time_codes" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "user_id" UUID,
-    "admin_user_id" UUID,
+    "id" SERIAL NOT NULL,
+    "user_id" INTEGER,
+    "admin_user_id" INTEGER,
     "type" "one_time_code_type" NOT NULL,
     "code_hash" TEXT NOT NULL,
     "expires_at" TIMESTAMPTZ(6) NOT NULL,
@@ -356,8 +353,8 @@ CREATE TABLE "one_time_codes" (
 
 -- CreateTable
 CREATE TABLE "clients" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
     "type" "client_type" NOT NULL DEFAULT 'individual',
     "name" TEXT NOT NULL,
     "contact_name" TEXT,
@@ -380,9 +377,9 @@ CREATE TABLE "clients" (
 
 -- CreateTable
 CREATE TABLE "projects" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "client_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "client_id" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
     "status" "project_status" NOT NULL DEFAULT 'prospect',
@@ -393,8 +390,8 @@ CREATE TABLE "projects" (
     "start_date" DATE,
     "end_date" DATE,
     "actual_end_date" DATE,
-    "manager_id" UUID,
-    "created_by" UUID,
+    "manager_id" INTEGER,
+    "created_by" INTEGER,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -403,13 +400,13 @@ CREATE TABLE "projects" (
 
 -- CreateTable
 CREATE TABLE "project_status_history" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "project_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "project_id" INTEGER NOT NULL,
     "from_status" "project_status",
     "to_status" "project_status" NOT NULL,
     "reason" TEXT,
-    "changed_by" UUID,
+    "changed_by" INTEGER,
     "changed_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "project_status_history_pkey" PRIMARY KEY ("id")
@@ -417,8 +414,8 @@ CREATE TABLE "project_status_history" (
 
 -- CreateTable
 CREATE TABLE "categories" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER,
     "name" TEXT NOT NULL,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -428,9 +425,9 @@ CREATE TABLE "categories" (
 
 -- CreateTable
 CREATE TABLE "services" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "category_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "category_id" INTEGER NOT NULL,
     "description" TEXT NOT NULL,
     "unit" TEXT NOT NULL,
     "price_excl_vat" DECIMAL(12,2) NOT NULL,
@@ -444,8 +441,8 @@ CREATE TABLE "services" (
 
 -- CreateTable
 CREATE TABLE "materials" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
     "description" TEXT NOT NULL,
     "unit" TEXT NOT NULL,
     "purchase_price" DECIMAL(12,2) NOT NULL DEFAULT 0,
@@ -459,10 +456,10 @@ CREATE TABLE "materials" (
 
 -- CreateTable
 CREATE TABLE "service_materials" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "service_id" UUID NOT NULL,
-    "material_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "service_id" INTEGER NOT NULL,
+    "material_id" INTEGER NOT NULL,
     "quantity_per_unit" DECIMAL(12,4) NOT NULL,
 
     CONSTRAINT "service_materials_pkey" PRIMARY KEY ("id")
@@ -470,18 +467,18 @@ CREATE TABLE "service_materials" (
 
 -- CreateTable
 CREATE TABLE "stock_movements" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "material_id" UUID NOT NULL,
-    "project_id" UUID,
-    "report_id" UUID,
-    "purchase_invoice_id" UUID,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "material_id" INTEGER NOT NULL,
+    "project_id" INTEGER,
+    "report_id" INTEGER,
+    "purchase_invoice_id" INTEGER,
     "type" "stock_movement_type" NOT NULL,
     "quantity" DECIMAL(12,3) NOT NULL,
     "unit_price" DECIMAL(12,2) NOT NULL,
     "movement_date" DATE NOT NULL DEFAULT CURRENT_DATE,
     "note" TEXT,
-    "created_by" UUID,
+    "created_by" INTEGER,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "stock_movements_pkey" PRIMARY KEY ("id")
@@ -489,10 +486,10 @@ CREATE TABLE "stock_movements" (
 
 -- CreateTable
 CREATE TABLE "stock_reservations" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "project_id" UUID NOT NULL,
-    "material_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "project_id" INTEGER NOT NULL,
+    "material_id" INTEGER NOT NULL,
     "reserved_quantity" DECIMAL(12,3) NOT NULL,
     "remaining_quantity" DECIMAL(12,3) NOT NULL,
     "status" "reservation_status" NOT NULL DEFAULT 'active',
@@ -504,15 +501,15 @@ CREATE TABLE "stock_reservations" (
 
 -- CreateTable
 CREATE TABLE "tasks" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "project_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "project_id" INTEGER NOT NULL,
     "title" TEXT NOT NULL,
     "type" "task_type" NOT NULL DEFAULT 'work',
     "start_date" DATE NOT NULL,
     "end_date" DATE NOT NULL,
     "status" "task_status" NOT NULL DEFAULT 'planned',
-    "created_by" UUID,
+    "created_by" INTEGER,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -521,26 +518,26 @@ CREATE TABLE "tasks" (
 
 -- CreateTable
 CREATE TABLE "task_assignees" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "task_id" UUID NOT NULL,
-    "user_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "task_id" INTEGER NOT NULL,
+    "user_id" INTEGER NOT NULL,
 
     CONSTRAINT "task_assignees_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "time_entries" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "project_id" UUID NOT NULL,
-    "user_id" UUID NOT NULL,
-    "task_id" UUID,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "project_id" INTEGER NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "task_id" INTEGER,
     "work_date" DATE NOT NULL,
     "hours" DECIMAL(5,2) NOT NULL,
     "hourly_rate" DECIMAL(12,2) NOT NULL,
     "comment" TEXT,
-    "created_by" UUID,
+    "created_by" INTEGER,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -549,14 +546,14 @@ CREATE TABLE "time_entries" (
 
 -- CreateTable
 CREATE TABLE "reports" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "project_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "project_id" INTEGER NOT NULL,
     "report_date" DATE NOT NULL DEFAULT CURRENT_DATE,
     "progress_pct" INTEGER NOT NULL,
     "weather" TEXT,
     "note" TEXT,
-    "created_by" UUID,
+    "created_by" INTEGER,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -565,7 +562,7 @@ CREATE TABLE "reports" (
 
 -- CreateTable
 CREATE TABLE "document_counters" (
-    "tenant_id" UUID NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
     "document_type" "document_type" NOT NULL,
     "year" SMALLINT NOT NULL,
     "last_number" INTEGER NOT NULL DEFAULT 0,
@@ -575,10 +572,10 @@ CREATE TABLE "document_counters" (
 
 -- CreateTable
 CREATE TABLE "quotes" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "client_id" UUID NOT NULL,
-    "project_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "client_id" INTEGER NOT NULL,
+    "project_id" INTEGER NOT NULL,
     "number" TEXT NOT NULL,
     "status" "quote_status" NOT NULL DEFAULT 'draft',
     "issue_date" DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -591,7 +588,7 @@ CREATE TABLE "quotes" (
     "sent_at" TIMESTAMPTZ(6),
     "accepted_at" TIMESTAMPTZ(6),
     "refused_at" TIMESTAMPTZ(6),
-    "created_by" UUID,
+    "created_by" INTEGER,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -600,10 +597,10 @@ CREATE TABLE "quotes" (
 
 -- CreateTable
 CREATE TABLE "quote_lines" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "quote_id" UUID NOT NULL,
-    "service_id" UUID,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "quote_id" INTEGER NOT NULL,
+    "service_id" INTEGER,
     "description" TEXT NOT NULL,
     "unit" TEXT,
     "quantity" DECIMAL(12,3) NOT NULL,
@@ -617,11 +614,11 @@ CREATE TABLE "quote_lines" (
 
 -- CreateTable
 CREATE TABLE "invoices" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "client_id" UUID NOT NULL,
-    "project_id" UUID NOT NULL,
-    "quote_id" UUID,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "client_id" INTEGER NOT NULL,
+    "project_id" INTEGER NOT NULL,
+    "quote_id" INTEGER,
     "number" TEXT NOT NULL,
     "status" "invoice_status" NOT NULL DEFAULT 'draft',
     "issue_date" DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -634,7 +631,7 @@ CREATE TABLE "invoices" (
     "sent_at" TIMESTAMPTZ(6),
     "reminder_count" SMALLINT NOT NULL DEFAULT 0,
     "last_reminder_at" TIMESTAMPTZ(6),
-    "created_by" UUID,
+    "created_by" INTEGER,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -643,10 +640,10 @@ CREATE TABLE "invoices" (
 
 -- CreateTable
 CREATE TABLE "invoice_lines" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "invoice_id" UUID NOT NULL,
-    "service_id" UUID,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "invoice_id" INTEGER NOT NULL,
+    "service_id" INTEGER,
     "description" TEXT NOT NULL,
     "unit" TEXT,
     "quantity" DECIMAL(12,3) NOT NULL,
@@ -660,14 +657,14 @@ CREATE TABLE "invoice_lines" (
 
 -- CreateTable
 CREATE TABLE "payments" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "invoice_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "invoice_id" INTEGER NOT NULL,
     "amount" DECIMAL(12,2) NOT NULL,
     "method" "payment_method" NOT NULL,
     "reference" TEXT,
     "payment_date" DATE NOT NULL DEFAULT CURRENT_DATE,
-    "created_by" UUID,
+    "created_by" INTEGER,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "payments_pkey" PRIMARY KEY ("id")
@@ -675,8 +672,8 @@ CREATE TABLE "payments" (
 
 -- CreateTable
 CREATE TABLE "subcontractors" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
     "company_name" TEXT NOT NULL,
     "trade" TEXT,
     "email" TEXT,
@@ -692,8 +689,8 @@ CREATE TABLE "subcontractors" (
 
 -- CreateTable
 CREATE TABLE "suppliers" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
     "email" TEXT,
     "phone" TEXT,
@@ -708,16 +705,16 @@ CREATE TABLE "suppliers" (
 
 -- CreateTable
 CREATE TABLE "subcontractor_contracts" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "subcontractor_id" UUID NOT NULL,
-    "project_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "subcontractor_id" INTEGER NOT NULL,
+    "project_id" INTEGER NOT NULL,
     "description" TEXT,
     "amount_excl_vat" DECIMAL(12,2) NOT NULL,
     "status" "contract_status" NOT NULL DEFAULT 'in_progress',
     "start_date" DATE,
     "end_date" DATE,
-    "created_by" UUID,
+    "created_by" INTEGER,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -726,8 +723,8 @@ CREATE TABLE "subcontractor_contracts" (
 
 -- CreateTable
 CREATE TABLE "cost_types" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER,
     "name" TEXT NOT NULL,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -737,13 +734,13 @@ CREATE TABLE "cost_types" (
 
 -- CreateTable
 CREATE TABLE "purchase_invoices" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
     "type" "purchase_invoice_type" NOT NULL,
-    "cost_type_id" UUID NOT NULL,
-    "subcontractor_contract_id" UUID,
-    "supplier_id" UUID,
-    "project_id" UUID,
+    "cost_type_id" INTEGER NOT NULL,
+    "subcontractor_contract_id" INTEGER,
+    "supplier_id" INTEGER,
+    "project_id" INTEGER,
     "number" TEXT NOT NULL,
     "external_number" TEXT,
     "amount_excl_vat" DECIMAL(12,2) NOT NULL,
@@ -755,7 +752,7 @@ CREATE TABLE "purchase_invoices" (
     "status" "purchase_invoice_status" NOT NULL DEFAULT 'to_pay',
     "payment_reference" TEXT,
     "paid_at" TIMESTAMPTZ(6),
-    "created_by" UUID,
+    "created_by" INTEGER,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -764,27 +761,27 @@ CREATE TABLE "purchase_invoices" (
 
 -- CreateTable
 CREATE TABLE "project_closure_snapshots" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "project_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "project_id" INTEGER NOT NULL,
     "budget_excl_vat" DECIMAL(12,2) NOT NULL,
     "total_cost" DECIMAL(12,2) NOT NULL,
     "margin_excl_vat" DECIMAL(12,2) NOT NULL,
     "margin_pct" DECIMAL(5,2),
-    "closed_by" UUID,
+    "closed_by" INTEGER,
     "closed_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "voided_at" TIMESTAMPTZ(6),
-    "voided_by" UUID,
+    "voided_by" INTEGER,
 
     CONSTRAINT "project_closure_snapshots_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "project_closure_snapshot_costs" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "snapshot_id" UUID NOT NULL,
-    "cost_type_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "snapshot_id" INTEGER NOT NULL,
+    "cost_type_id" INTEGER NOT NULL,
     "amount" DECIMAL(12,2) NOT NULL,
 
     CONSTRAINT "project_closure_snapshot_costs_pkey" PRIMARY KEY ("id")
@@ -792,8 +789,8 @@ CREATE TABLE "project_closure_snapshot_costs" (
 
 -- CreateTable
 CREATE TABLE "project_margin_alerts" (
-    "tenant_id" UUID NOT NULL,
-    "project_id" UUID NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "project_id" INTEGER NOT NULL,
     "level" "margin_alert_level" NOT NULL,
     "fired_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -802,16 +799,16 @@ CREATE TABLE "project_margin_alerts" (
 
 -- CreateTable
 CREATE TABLE "media" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
     "entity_type" "media_entity_type" NOT NULL,
-    "entity_id" UUID NOT NULL,
+    "entity_id" INTEGER NOT NULL,
     "file_name" TEXT NOT NULL,
     "file_url" TEXT NOT NULL,
     "file_type" TEXT NOT NULL,
     "file_size" BIGINT NOT NULL,
     "is_locked" BOOLEAN NOT NULL DEFAULT false,
-    "uploaded_by" UUID,
+    "uploaded_by" INTEGER,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -820,10 +817,10 @@ CREATE TABLE "media" (
 
 -- CreateTable
 CREATE TABLE "notifications" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID,
-    "user_id" UUID,
-    "admin_user_id" UUID,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER,
+    "user_id" INTEGER,
+    "admin_user_id" INTEGER,
     "type" TEXT NOT NULL,
     "payload" JSONB,
     "is_read" BOOLEAN NOT NULL DEFAULT false,
@@ -834,14 +831,14 @@ CREATE TABLE "notifications" (
 
 -- CreateTable
 CREATE TABLE "portal_tokens" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "client_id" UUID NOT NULL,
-    "project_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "client_id" INTEGER NOT NULL,
+    "project_id" INTEGER NOT NULL,
     "token_hash" TEXT NOT NULL,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "expires_at" TIMESTAMPTZ(6) NOT NULL,
-    "created_by" UUID,
+    "created_by" INTEGER,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "portal_tokens_pkey" PRIMARY KEY ("id")
@@ -849,9 +846,9 @@ CREATE TABLE "portal_tokens" (
 
 -- CreateTable
 CREATE TABLE "portal_tracking" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "portal_token_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "portal_token_id" INTEGER NOT NULL,
     "event_type" "portal_event_type" NOT NULL,
     "ip_address" INET,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -861,11 +858,11 @@ CREATE TABLE "portal_tracking" (
 
 -- CreateTable
 CREATE TABLE "conversations" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
     "type" "conversation_type" NOT NULL,
-    "project_id" UUID,
-    "support_ticket_id" UUID,
+    "project_id" INTEGER,
+    "support_ticket_id" INTEGER,
     "is_archived" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -874,12 +871,12 @@ CREATE TABLE "conversations" (
 
 -- CreateTable
 CREATE TABLE "conversation_members" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "conversation_id" UUID NOT NULL,
-    "user_id" UUID,
-    "client_id" UUID,
-    "admin_user_id" UUID,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "conversation_id" INTEGER NOT NULL,
+    "user_id" INTEGER,
+    "client_id" INTEGER,
+    "admin_user_id" INTEGER,
     "joined_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "conversation_members_pkey" PRIMARY KEY ("id")
@@ -887,11 +884,11 @@ CREATE TABLE "conversation_members" (
 
 -- CreateTable
 CREATE TABLE "messages" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "conversation_id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "conversation_id" INTEGER NOT NULL,
     "sender_type" "sender_type" NOT NULL,
-    "sender_id" UUID NOT NULL,
+    "sender_id" INTEGER NOT NULL,
     "content" TEXT NOT NULL,
     "is_archived" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -901,11 +898,11 @@ CREATE TABLE "messages" (
 
 -- CreateTable
 CREATE TABLE "message_reads" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "tenant_id" UUID NOT NULL,
-    "message_id" UUID NOT NULL,
-    "user_id" UUID,
-    "client_id" UUID,
+    "id" SERIAL NOT NULL,
+    "tenant_id" INTEGER NOT NULL,
+    "message_id" INTEGER NOT NULL,
+    "user_id" INTEGER,
+    "client_id" INTEGER,
     "read_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "message_reads_pkey" PRIMARY KEY ("id")
@@ -1471,8 +1468,6 @@ ALTER TABLE "message_reads" ADD CONSTRAINT "message_reads_user_id_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "message_reads" ADD CONSTRAINT "message_reads_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-
 -- ============================================================================
 -- HAND-WRITTEN BLOCK — doc/Schema Proposal.md
 -- Prisma cannot express CHECK constraints, triggers, partial indexes or views.

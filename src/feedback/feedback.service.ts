@@ -19,7 +19,7 @@ export class FeedbackService {
     return this.findFeedback.execute(query);
   }
 
-  updateStatus(id: string, dto: UpdateFeedbackStatusDto) {
+  updateStatus(id: number, dto: UpdateFeedbackStatusDto) {
     return this.updateFeedbackStatus.execute(id, dto);
   }
 }

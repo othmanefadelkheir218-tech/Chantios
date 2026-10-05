@@ -1,7 +1,7 @@
 /** One product event. Sent by other modules through `AnalyticsService.track()`. */
 export interface TrackEventInput {
-  tenantId: string;
-  userId?: string | null;
+  tenantId: number;
+  userId?: number | null;
   /** snake_case verb phrase, e.g. `quote_sent`. */
   eventName: string;
   payload?: Record<string, unknown>;

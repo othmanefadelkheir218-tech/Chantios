@@ -3,7 +3,7 @@ import {
   Controller,
   Get,
   Param,
-  ParseUUIDPipe,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -48,21 +48,21 @@ export class PlansController {
 
   @Get(':id')
   @ApiFindPlan()
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(@Param('id', ParseIntPipe) id: number) {
     return this.plansService.findOne(id);
   }
 
   @Patch(':id/deactivate')
   @AuditLog('deactivate', 'plan')
   @ApiDeactivatePlan()
-  deactivate(@Param('id', ParseUUIDPipe) id: string) {
+  deactivate(@Param('id', ParseIntPipe) id: number) {
     return this.plansService.deactivate(id);
   }
 
   @Patch(':id/default')
   @AuditLog('set_default', 'plan')
   @ApiSetDefaultPlan()
-  setDefault(@Param('id', ParseUUIDPipe) id: string) {
+  setDefault(@Param('id', ParseIntPipe) id: number) {
     return this.plansService.setDefault(id);
   }
 
@@ -70,7 +70,7 @@ export class PlansController {
   @AuditLog('create_version', 'plan')
   @ApiCreatePlanVersion()
   createVersion(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: CreatePlanVersionDto,
   ) {
     return this.plansService.createVersion(id, dto);

@@ -14,7 +14,7 @@ const features = [
   { featureKey: 'max_workers', limitValue: 5, overageRate: '2.00' },
 ];
 const plan = (over: Record<string, unknown> = {}) => ({
-  id: 'p1',
+  id: 1,
   name: 'Pro',
   basePrice: '50.00',
   isActive: true,
@@ -117,7 +117,7 @@ describe('Plans handlers', () => {
   describe('DeactivatePlanHandler', () => {
     it('refuses the default plan', async () => {
       repo.findById.mockResolvedValue(plan({ isDefault: true }));
-      await expect(deactivate.execute('p1')).rejects.toBeInstanceOf(
+      await expect(deactivate.execute(1)).rejects.toBeInstanceOf(
         BadRequestException,
       );
       expect(repo.deactivate).not.toHaveBeenCalled();
@@ -126,14 +126,14 @@ describe('Plans handlers', () => {
     it('deactivates a normal plan', async () => {
       repo.findById.mockResolvedValue(plan());
       repo.deactivate.mockResolvedValue(plan({ isActive: false }));
-      await expect(deactivate.execute('p1')).resolves.toMatchObject({
+      await expect(deactivate.execute(1)).resolves.toMatchObject({
         isActive: false,
       });
     });
 
     it('404 when the plan does not exist', async () => {
       repo.findById.mockResolvedValue(null);
-      await expect(deactivate.execute('x')).rejects.toBeInstanceOf(
+      await expect(deactivate.execute(999)).rejects.toBeInstanceOf(
         NotFoundException,
       );
     });
@@ -142,7 +142,7 @@ describe('Plans handlers', () => {
   describe('SetDefaultPlanHandler', () => {
     it('refuses an inactive plan', async () => {
       repo.findById.mockResolvedValue(plan({ isActive: false }));
-      await expect(setDefault.execute('p1')).rejects.toBeInstanceOf(
+      await expect(setDefault.execute(1)).rejects.toBeInstanceOf(
         BadRequestException,
       );
       expect(repo.setDefault).not.toHaveBeenCalled();
@@ -151,7 +151,7 @@ describe('Plans handlers', () => {
     it('moves the default', async () => {
       repo.findById.mockResolvedValue(plan());
       repo.setDefault.mockResolvedValue(plan({ isDefault: true }));
-      await expect(setDefault.execute('p1')).resolves.toMatchObject({
+      await expect(setDefault.execute(1)).resolves.toMatchObject({
         isDefault: true,
       });
     });
@@ -160,18 +160,18 @@ describe('Plans handlers', () => {
   describe('CreatePlanVersionHandler', () => {
     it('copies what the request leaves out and passes the default flag on', async () => {
       repo.findById.mockResolvedValue(plan({ isDefault: true }));
-      repo.createVersion.mockResolvedValue(plan({ id: 'p2' }));
+      repo.createVersion.mockResolvedValue(plan({ id: 2 }));
 
-      await createVersion.execute('p1', { base_price: '60.00' });
+      await createVersion.execute(1, { base_price: '60.00' });
 
       const [parentId, data, rows, inheritDefault] = repo.createVersion.mock
         .calls[0] as [
-        string,
+        number,
         Record<string, unknown>,
         { featureKey: string }[],
         boolean,
       ];
-      expect(parentId).toBe('p1');
+      expect(parentId).toBe(1);
       expect(data).toMatchObject({ name: 'Pro', basePrice: '60.00' });
       expect(rows).toHaveLength(1);
       expect(inheritDefault).toBe(true);
@@ -179,7 +179,7 @@ describe('Plans handlers', () => {
 
     it('refuses a plan that is already replaced', async () => {
       repo.findById.mockResolvedValue(plan({ isActive: false }));
-      await expect(createVersion.execute('p1', {})).rejects.toBeInstanceOf(
+      await expect(createVersion.execute(1, {})).rejects.toBeInstanceOf(
         BadRequestException,
       );
     });

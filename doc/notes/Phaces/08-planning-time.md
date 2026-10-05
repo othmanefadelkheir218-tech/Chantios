@@ -99,13 +99,13 @@ src/
 ## DTOs
 
 ### `create-task.dto.ts`
-`project_id` `@IsUUID` required. `title` required. `type` `@IsIn(['meeting','work'])`. `start_date`, `end_date` required ISO dates — **end not before start**. `assignee_ids` — array of uuid, optional at creation.
+`project_id` `@IsInt` required. `title` required. `type` `@IsIn(['meeting','work'])`. `start_date`, `end_date` required ISO dates — **end not before start**. `assignee_ids` — array of integer, optional at creation.
 
 ### `set-assignees.dto.ts`
-`user_ids` — array of uuid, `@ArrayMinSize(1)`. Each must be an **active** user of this tenant.
+`user_ids` — array of integer, `@ArrayMinSize(1)`. Each must be an **active** user of this tenant.
 
 ### `create-time-entry.dto.ts`
-`project_id` `@IsUUID` required. `user_id` optional uuid — a manager logging for someone else; defaults to the caller. `task_id` optional uuid. `work_date` required ISO **date** (no time part). `hours` `@IsNumberString`, `> 0` and `<= 24`. `comment` optional.
+`project_id` `@IsInt` required. `user_id` optional integer — a manager logging for someone else; defaults to the caller. `task_id` optional integer. `work_date` required ISO **date** (no time part). `hours` `@IsNumberString`, `> 0` and `<= 24`. `comment` optional.
 
 ## Repository methods
 

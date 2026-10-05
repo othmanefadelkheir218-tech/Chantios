@@ -32,15 +32,15 @@ export class SubscriptionsService {
     return this.findSubscriptions.execute(query);
   }
 
-  findByTenant(tenantId: string) {
+  findByTenant(tenantId: number) {
     return this.findSubscription.execute(tenantId);
   }
 
-  changePlan(tenantId: string, dto: SetPendingPlanDto) {
+  changePlan(tenantId: number, dto: SetPendingPlanDto) {
     return this.setPendingPlan.execute(tenantId, dto);
   }
 
-  usage(tenantId: string, query: PaginationQueryDto) {
+  usage(tenantId: number, query: PaginationQueryDto) {
     return this.findUsage.execute(tenantId, query);
   }
 

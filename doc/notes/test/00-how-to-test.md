@@ -49,7 +49,7 @@ curl -s -X POST http://localhost:5300/api/admin/tenants -H "content-type: applic
 - **Lists** answer `{ data, total, page, limit, total_pages }`. Query: `?page=1&limit=20`. `limit` is 1–100.
 - **Errors** look like `{ "message": ..., "error": "Bad Request", "statusCode": 400 }`. For a bad body, `message` is a list.
 - **Unknown fields are refused.** Sending a field the route does not know gives `400`.
-- **A path id must be a UUID.** `/admin/tenants/abc` gives `400`. A valid UUID that does not exist gives `404`.
+- **A path id must be an integer.** `/admin/tenants/abc` gives `400`. A valid integer that does not exist gives `404`.
 - **Names:** every record you create in these tests starts with `TEST`, so you can find it and clean it (§ 5).
 
 ## 4. Seed data you start with

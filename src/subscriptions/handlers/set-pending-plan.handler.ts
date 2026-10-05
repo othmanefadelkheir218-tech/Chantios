@@ -21,7 +21,7 @@ export class SetPendingPlanHandler {
    * Writes `pending_plan_id` and `pending_plan_effective_at` (the next
    * renewal). Never changes `plan_id` now: the current period is already paid.
    */
-  async execute(tenantId: string, { plan_id }: SetPendingPlanDto) {
+  async execute(tenantId: number, { plan_id }: SetPendingPlanDto) {
     this.logger.info(`Planning a plan change for tenant ${tenantId}`);
 
     const subscription = await this.subscriptions.findByTenant(tenantId);

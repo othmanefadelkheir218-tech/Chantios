@@ -6,15 +6,15 @@ import {
   ApiOperation,
 } from '@nestjs/swagger';
 import {
+  ApiIntParam,
   ApiPaginatedResponse,
-  ApiUuidParam,
 } from '../../common/swagger/api-paginated.decorator';
 import {
   SubscriptionEntity,
   UsageSnapshotEntity,
 } from '../entities/subscription.entity';
 
-const tenantParam = () => ApiUuidParam('tenantId', 'Tenant id (UUID)');
+const tenantParam = () => ApiIntParam('tenantId', 'Tenant id');
 
 export const ApiFindSubscriptions = () =>
   applyDecorators(
@@ -34,7 +34,7 @@ export const ApiFindSubscription = () =>
       description: 'The subscription',
       type: SubscriptionEntity,
     }),
-    ApiBadRequestResponse({ description: 'The id is not a valid UUID' }),
+    ApiBadRequestResponse({ description: 'The id is not a valid number' }),
     ApiNotFoundResponse({ description: 'No subscription for this tenant' }),
   );
 

@@ -2,7 +2,9 @@
 
 > Status: v1 (working draft). The field list for the tables the other notes talk about but never spell out. Names follow [[naming-conventions]].
 
-Every table below also has `id` (uuid), `created_at` and `updated_at`.
+Every table below also has `id` (integer, auto-increment), `created_at` and `updated_at`.
+
+> **Decision (2026-10-05):** ids were UUID in the original design; switched to plain auto-increment integers at the user's request. This trades away the non-enumerability UUIDs gave across tenants in a multi-tenant app — a sequential id lets one tenant guess the row count / existence of another tenant's records. Accepted knowingly; no further mitigation built for it.
 
 Every **business** table has `tenant_id NOT NULL`. The platform tables have none, because they are shared by everyone or belong to no company: `tenants`, `admin_users`, `plans`, `plan_features`, `stripe_events`, `roles`, `refresh_tokens`, `one_time_codes`. `categories` and `cost_types` have a **nullable** `tenant_id` — `NULL` means a shared default row.
 
@@ -31,8 +33,14 @@ Every **business** table has `tenant_id NOT NULL`. The platform tables have none
 | `timezone` | e.g. `Europe/Brussels` |
 | `end_of_day_reminder_time` | When the hours reminder fires — default `18:00` |
 | `status` | `active` / `suspended` / `banned` |
+| `deleted_at` | **Nullable.** Soft delete — set when a tenant is deleted, cleared on restore. `NULL` = not deleted. Independent of `status`: a deleted tenant keeps whatever status it had |
+| `email_verified_at` | **Nullable.** Not required at creation — `NULL` = not verified. Set when the tenant confirms a code sent to `email`. See `one_time_codes` in [auth-tokens.md](auth-tokens.md) |
 
 `default_vat_rate` is what makes the VAT rate owner-configurable. Each quote and invoice copies it at creation as its own `default_vat_rate`, so changing it later never shifts an existing document. The rate that actually counts sits on each **line** — see § VAT below.
+
+**Decision (2026-10-05):** soft delete added at the user's request. `deleted_at` is a separate column from `status` — deleting a tenant is not the same action as banning it, and a banned tenant can still be un-banned without touching `deleted_at`. A deleted tenant (`deleted_at IS NOT NULL`) is excluded from normal list/find queries. `DELETE /api/admin/tenants/:id` and bulk `DELETE /api/admin/tenants` (body `{ ids }`) set it; `PATCH /api/admin/tenants/:id/restore` and bulk `PATCH /api/admin/tenants/restore` (body `{ ids }`) clear it. See [Phaces/01-platform.md](Phaces/01-platform.md) for the routes.
+
+**Decision (2026-10-05):** tenant email verification added at the user's request, independent of the (unbuilt) `users.email_verified_at` from step 02 — this one is for the tenant's own contact `email`, reachable before any `users` row exists. Flow: `POST /api/admin/tenants/:id/send-verification-email` generates a 6-digit code (`one_time_codes`, type `email_verification`, `tenant_id` set, 24h lifetime, no attempt limit — same rules as the step 02 table), emails it via the new `src/email/` module (Resend), and `PATCH /api/admin/tenants/:id/verify-email` (body `{ code }`) consumes it and sets `email_verified_at`. Generating a new code consumes any still-active one for that tenant first, so only the latest code works. Nothing in the app currently *requires* a verified email — this only records the fact.
 
 ---
 

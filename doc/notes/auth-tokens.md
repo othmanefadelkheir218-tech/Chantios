@@ -24,7 +24,7 @@ The access token (15 min) is stateless — it is never stored. The refresh token
 
 | Field | Meaning |
 |---|---|
-| `id` | UUID |
+| `id` | integer |
 | `user_id` | FK → `users.id` — nullable |
 | `admin_user_id` | FK → `admin_users.id` — nullable |
 | `token_hash` | sha256 of the token — the raw value lives only in the cookie |
@@ -55,7 +55,7 @@ An employee never registers. The admin invites them.
 
 | Field | Meaning |
 |---|---|
-| `id` | UUID |
+| `id` | integer |
 | `tenant_id` | Which company |
 | `email` | Who is invited |
 | `name` | Their name, pre-filled by the admin |
@@ -82,7 +82,8 @@ One table for every short-lived code, separated by `type`. The fields are identi
 
 | Field | Meaning |
 |---|---|
-| `id` | UUID |
+| `id` | integer |
+| `tenant_id` | FK → `tenants.id` — nullable. Set for a tenant-level code (e.g. the tenant's own contact email) |
 | `user_id` | FK → `users.id` — nullable |
 | `admin_user_id` | FK → `admin_users.id` — nullable |
 | `type` | `password_reset` / `email_verification` / `admin_2fa` |
@@ -91,6 +92,8 @@ One table for every short-lived code, separated by `type`. The fields are identi
 | `consumed_at` | Set on successful use — nullable |
 | `attempt_count` | Wrong tries so far |
 | `created_at` | — |
+
+**Decision (2026-10-05):** `tenant_id` added so `email_verification` can target a tenant's own contact email, created via the super-admin route with no `users` row yet (that case is step 02). Exactly one of `tenant_id` / `user_id` / `admin_user_id` is set per row — same pattern as `refresh_tokens`, extended to three columns.
 
 ### Lifetime and limits per type
 

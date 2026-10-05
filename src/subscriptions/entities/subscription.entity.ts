@@ -2,17 +2,16 @@ import { ApiProperty } from '@nestjs/swagger';
 import { SubscriptionStatus } from '@prisma/client';
 
 export class SubscriptionEntity {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty()
+  id: number;
 
-  @ApiProperty({ format: 'uuid' })
-  tenant_id: string;
+  @ApiProperty()
+  tenant_id: number;
 
   @ApiProperty({
     description: 'The exact plan version the tenant is locked to',
-    format: 'uuid',
   })
-  plan_id: string;
+  plan_id: number;
 
   @ApiProperty({ nullable: true })
   stripe_customer_id: string | null;
@@ -34,10 +33,9 @@ export class SubscriptionEntity {
 
   @ApiProperty({
     description: 'Plan applied at the next renewal',
-    format: 'uuid',
     nullable: true,
   })
-  pending_plan_id: string | null;
+  pending_plan_id: number | null;
 
   @ApiProperty({ nullable: true })
   pending_plan_effective_at: Date | null;
@@ -50,11 +48,11 @@ export class SubscriptionEntity {
 }
 
 export class UsageSnapshotEntity {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty()
+  id: number;
 
-  @ApiProperty({ format: 'uuid' })
-  tenant_id: string;
+  @ApiProperty()
+  tenant_id: number;
 
   @ApiProperty()
   period_start: Date;

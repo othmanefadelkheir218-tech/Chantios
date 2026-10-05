@@ -95,10 +95,10 @@ One Socket.io room per conversation. Use the **Redis adapter** so it still works
 ## DTOs
 
 ### `create-conversation.dto.ts`
-`type` `@IsIn(['internal'])` — only internal is created from the API. `project_id` optional uuid. `member_user_ids` array of uuid, `@ArrayMinSize(1)`.
+`type` `@IsIn(['internal'])` — only internal is created from the API. `project_id` optional integer. `member_user_ids` array of integer, `@ArrayMinSize(1)`.
 
 ### `send-message.dto.ts`
-`content` `@IsNotEmpty @MaxLength(5000)`. `media_ids` optional array of uuid — already uploaded through step 03.
+`content` `@IsNotEmpty @MaxLength(5000)`. `media_ids` optional array of integer — already uploaded through step 03.
 
 ## Repository methods
 

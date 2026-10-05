@@ -12,7 +12,7 @@ One `media` table handles **all files** in the system — invoice documents, sit
 
 | Field | Meaning |
 |---|---|
-| `id` | UUID |
+| `id` | integer |
 | `tenant_id` | Which company (required) |
 | `uploaded_by` | FK → `users.id` — who uploaded it |
 | `file_name` | Display name — renameable by staff |

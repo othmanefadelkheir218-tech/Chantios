@@ -1,4 +1,4 @@
-import { asUuidOrNull, redactSecrets } from './audit.helper';
+import { asIdOrNull, redactSecrets } from './audit.helper';
 
 describe('redactSecrets', () => {
   it('hides secret-looking keys at every depth', () => {
@@ -35,12 +35,29 @@ describe('redactSecrets', () => {
   });
 });
 
-describe('asUuidOrNull', () => {
-  it('keeps a uuid and drops anything else', () => {
-    expect(asUuidOrNull('3f8a1c52-9d2e-4b7a-8f61-2c5e7a9b0d14')).toBe(
-      '3f8a1c52-9d2e-4b7a-8f61-2c5e7a9b0d14',
-    );
-    expect(asUuidOrNull('not-a-uuid')).toBeNull();
-    expect(asUuidOrNull(undefined)).toBeNull();
+describe('asIdOrNull', () => {
+  it('keeps a positive integer, already a number', () => {
+    expect(asIdOrNull(42)).toBe(42);
+  });
+
+  it('parses a numeric string, as route params arrive before ParseIntPipe', () => {
+    expect(asIdOrNull('42')).toBe(42);
+  });
+
+  it('drops zero and negative numbers', () => {
+    expect(asIdOrNull(0)).toBeNull();
+    expect(asIdOrNull(-5)).toBeNull();
+    expect(asIdOrNull('-5')).toBeNull();
+  });
+
+  it('drops a non-integer number', () => {
+    expect(asIdOrNull(1.5)).toBeNull();
+    expect(asIdOrNull('1.5')).toBeNull();
+  });
+
+  it('drops anything that is not a valid integer', () => {
+    expect(asIdOrNull('abc')).toBeNull();
+    expect(asIdOrNull(undefined)).toBeNull();
+    expect(asIdOrNull(null)).toBeNull();
   });
 });

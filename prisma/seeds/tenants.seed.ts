@@ -64,13 +64,55 @@ const TENANTS: DemoTenant[] = [
     locale: 'fr',
     // One user per role, so every permission level can be tried.
     users: [
-      { roleId: 1, name: 'Marc Dupont', email: 'admin@dupont.test', phone: '+32 470 11 11 11', hourlyRate: '45.00' },
-      { roleId: 2, name: 'Sophie Martin', email: 'manager@dupont.test', phone: '+32 470 22 22 22', hourlyRate: '38.00' },
-      { roleId: 3, name: 'Luc Peeters', email: 'supervisor@dupont.test', phone: '+32 470 33 33 33', hourlyRate: '32.00' },
-      { roleId: 4, name: 'Karim Benali', email: 'leader@dupont.test', phone: '+32 470 44 44 44', hourlyRate: '28.00' },
-      { roleId: 5, name: 'Youssef Amrani', email: 'worker@dupont.test', phone: '+32 470 55 55 55', hourlyRate: '20.00' },
-      { roleId: 6, name: 'Emma Janssens', email: 'sales@dupont.test', phone: '+32 470 66 66 66', hourlyRate: '30.00' },
-      { roleId: 7, name: 'Nadia Claes', email: 'accountant@dupont.test', phone: '+32 470 77 77 77', hourlyRate: '35.00' },
+      {
+        roleId: 1,
+        name: 'Marc Dupont',
+        email: 'admin@dupont.test',
+        phone: '+32 470 11 11 11',
+        hourlyRate: '45.00',
+      },
+      {
+        roleId: 2,
+        name: 'Sophie Martin',
+        email: 'manager@dupont.test',
+        phone: '+32 470 22 22 22',
+        hourlyRate: '38.00',
+      },
+      {
+        roleId: 3,
+        name: 'Luc Peeters',
+        email: 'supervisor@dupont.test',
+        phone: '+32 470 33 33 33',
+        hourlyRate: '32.00',
+      },
+      {
+        roleId: 4,
+        name: 'Karim Benali',
+        email: 'leader@dupont.test',
+        phone: '+32 470 44 44 44',
+        hourlyRate: '28.00',
+      },
+      {
+        roleId: 5,
+        name: 'Youssef Amrani',
+        email: 'worker@dupont.test',
+        phone: '+32 470 55 55 55',
+        hourlyRate: '20.00',
+      },
+      {
+        roleId: 6,
+        name: 'Emma Janssens',
+        email: 'sales@dupont.test',
+        phone: '+32 470 66 66 66',
+        hourlyRate: '30.00',
+      },
+      {
+        roleId: 7,
+        name: 'Nadia Claes',
+        email: 'accountant@dupont.test',
+        phone: '+32 470 77 77 77',
+        hourlyRate: '35.00',
+      },
     ],
   },
   {
@@ -86,14 +128,32 @@ const TENANTS: DemoTenant[] = [
     country: 'BE',
     locale: 'en',
     users: [
-      { roleId: 1, name: 'Jan Verhelst', email: 'admin@verhelst.test', phone: '+32 480 11 11 11', hourlyRate: '50.00' },
-      { roleId: 2, name: 'Lotte Maes', email: 'manager@verhelst.test', phone: '+32 480 22 22 22', hourlyRate: '36.00' },
-      { roleId: 5, name: 'Ahmed Haddad', email: 'worker@verhelst.test', phone: '+32 480 55 55 55', hourlyRate: '18.00' },
+      {
+        roleId: 1,
+        name: 'Jan Verhelst',
+        email: 'admin@verhelst.test',
+        phone: '+32 480 11 11 11',
+        hourlyRate: '50.00',
+      },
+      {
+        roleId: 2,
+        name: 'Lotte Maes',
+        email: 'manager@verhelst.test',
+        phone: '+32 480 22 22 22',
+        hourlyRate: '36.00',
+      },
+      {
+        roleId: 5,
+        name: 'Ahmed Haddad',
+        email: 'worker@verhelst.test',
+        phone: '+32 480 55 55 55',
+        hourlyRate: '18.00',
+      },
     ],
   },
 ];
 
-async function seedDemoPlan(): Promise<string> {
+async function seedDemoPlan(): Promise<number> {
   const existing = await prisma.plan.findFirst({
     where: { name: DEMO_PLAN_NAME },
   });
@@ -102,7 +162,8 @@ async function seedDemoPlan(): Promise<string> {
     return existing.id;
   }
 
-  const hasDefault = (await prisma.plan.count({ where: { isDefault: true } })) > 0;
+  const hasDefault =
+    (await prisma.plan.count({ where: { isDefault: true } })) > 0;
   const plan = await prisma.plan.create({
     data: {
       name: DEMO_PLAN_NAME,
@@ -117,7 +178,7 @@ async function seedDemoPlan(): Promise<string> {
   return plan.id;
 }
 
-async function seedTenant(data: DemoTenant, planId: string, hashes: Hashes) {
+async function seedTenant(data: DemoTenant, planId: number, hashes: Hashes) {
   const { users, ...tenantFields } = data;
 
   let tenant = await prisma.tenant.findUnique({

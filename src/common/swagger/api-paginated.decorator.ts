@@ -29,6 +29,6 @@ export const ApiPaginatedResponse = <T extends Type<unknown>>(
     ApiBadRequestResponse({ description: 'Invalid query parameters' }),
   );
 
-/** `:id` / `:tenantId` path parameter documented as a UUID. */
-export const ApiUuidParam = (name: string, description: string) =>
-  ApiParam({ name, description, format: 'uuid' });
+/** `:id` / `:tenantId` path parameter documented as an integer. */
+export const ApiIntParam = (name: string, description: string) =>
+  ApiParam({ name, description, type: Number });

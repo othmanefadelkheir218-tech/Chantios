@@ -1,26 +1,24 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class AuditLogEntity {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty()
+  id: number;
 
   @ApiProperty({
     description: 'The company concerned — null for a platform-only action',
-    format: 'uuid',
     nullable: true,
   })
-  tenant_id: string | null;
+  tenant_id: number | null;
 
   @ApiProperty({
     description:
       'The platform admin who acted — null until step 02 brings the login',
-    format: 'uuid',
     nullable: true,
   })
-  admin_user_id: string | null;
+  admin_user_id: number | null;
 
-  @ApiProperty({ format: 'uuid', nullable: true })
-  user_id: string | null;
+  @ApiProperty({ nullable: true })
+  user_id: number | null;
 
   @ApiProperty({ example: 'set_status' })
   action: string;
@@ -28,8 +26,8 @@ export class AuditLogEntity {
   @ApiProperty({ example: 'tenant' })
   entity_type: string;
 
-  @ApiProperty({ format: 'uuid', nullable: true })
-  entity_id: string | null;
+  @ApiProperty({ nullable: true })
+  entity_id: number | null;
 
   @ApiProperty({
     description: 'Value before the change (secrets are redacted)',

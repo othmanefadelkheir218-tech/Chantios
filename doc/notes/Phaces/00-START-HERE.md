@@ -150,7 +150,7 @@ From [technical/build-order.md](../technical/build-order.md). Phase numbers are 
 | Mobile | `/api/mobile/...` |
 | Client portal | `/api/portal/:token/...` — no JWT |
 | Webhooks | `/api/webhooks/...` — `@Public()`, raw body |
-| IDs in paths | `:id` as uuid, validated with `ParseUUIDPipe` |
+| IDs in paths | `:id` as integer, validated with `ParseIntPipe` |
 | List response | `{ data, total, page, limit }` — reuse `toPaginated()` from `src/common/helpers/pagination.helper.ts` |
 | List query | `?page=1&limit=20&search=` via `find-x-query.dto.ts`, which extends `PaginationQueryDto` (`src/common/dto/`) |
 | JSON keys | **snake_case** in and out. DTO fields are snake_case; each controller carries `@UseInterceptors(SnakeCaseInterceptor)`; a handler turns DTO keys into Prisma keys with `toCamelKeys()` |

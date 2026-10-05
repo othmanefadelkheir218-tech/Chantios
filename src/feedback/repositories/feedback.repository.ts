@@ -23,11 +23,11 @@ export class FeedbackRepository {
     ]);
   }
 
-  findById(id: string): Promise<Feedback | null> {
+  findById(id: number): Promise<Feedback | null> {
     return this.prisma.feedback.findUnique({ where: { id } });
   }
 
-  updateStatus(id: string, status: FeedbackStatus): Promise<Feedback> {
+  updateStatus(id: number, status: FeedbackStatus): Promise<Feedback> {
     return this.prisma.feedback.update({ where: { id }, data: { status } });
   }
 }

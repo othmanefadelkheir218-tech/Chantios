@@ -120,10 +120,10 @@ The received PDF is attached through step 03's media endpoint with `entity_type 
 `company_name` required. `trade`, `email` `@IsEmail`, `phone` `@Matches` the format, `vat_number`, `hourly_rate` `@IsNumberString` all optional.
 
 ### `create-contract.dto.ts`
-`subcontractor_id` `@IsUUID` **required**. `project_id` `@IsUUID` **required**. `description` optional. `amount_excl_vat` `@IsNumberString @Min(0)`. `start_date`, `end_date` optional — **end not before start**.
+`subcontractor_id` `@IsInt` **required**. `project_id` `@IsInt` **required**. `description` optional. `amount_excl_vat` `@IsNumberString @Min(0)`. `start_date`, `end_date` optional — **end not before start**.
 
 ### `create-purchase-invoice.dto.ts`
-`type` `@IsIn(['subcontractor','supplier'])`. `cost_type_id` `@IsUUID` **required**. `subcontractor_contract_id` optional uuid. `supplier_id` optional uuid. `project_id` optional uuid. `external_number` optional. `amount_excl_vat` `@IsNumberString @Min(0)`. `vat_rate` `@IsNumberString`. `issue_date` **required** ISO date. `due_date` optional. `payment_reference` optional.
+`type` `@IsIn(['subcontractor','supplier'])`. `cost_type_id` `@IsInt` **required**. `subcontractor_contract_id` optional integer. `supplier_id` optional integer. `project_id` optional integer. `external_number` optional. `amount_excl_vat` `@IsNumberString @Min(0)`. `vat_rate` `@IsNumberString`. `issue_date` **required** ISO date. `due_date` optional. `payment_reference` optional.
 
 Validate the source pairing in the DTO with a custom validator **and** rely on the DB check. Two layers — the DTO gives a clear message, the constraint makes it impossible.
 

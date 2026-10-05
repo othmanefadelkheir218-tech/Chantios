@@ -13,7 +13,7 @@ export class UpdateAdminUserHandler {
     private readonly admins: AdminUserRepository,
   ) {}
 
-  async execute(id: string, { password, name, role }: UpdateAdminUserDto) {
+  async execute(id: number, { password, name, role }: UpdateAdminUserDto) {
     this.logger.info(`Updating admin user ${id}`);
 
     if (!(await this.admins.findById(id))) {

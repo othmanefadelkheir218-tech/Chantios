@@ -134,11 +134,11 @@ A signup always needs a default plan, so the platform guards it:
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | uuid | PK |
+| `id` | integer | PK |
 | `name` | varchar | "Pro", "Starter"… |
 | `is_active` | boolean | false = no new signups allowed |
 | `is_default` | boolean | **The plan a new signup lands on.** Only one row may be true |
-| `parent_plan_id` | uuid (nullable) | FK → plans.id — points to the previous version this was created from |
+| `parent_plan_id` | integer (nullable) | FK → plans.id — points to the previous version this was created from |
 | `base_price` | decimal | Monthly base price |
 | `stripe_price_id` | varchar | Stripe Price ID for this version |
 | `created_at` | timestamp |  |
@@ -153,8 +153,8 @@ A signup always needs a default plan, so the platform guards it:
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | uuid | PK |
-| `plan_id` | uuid | FK → plans.id |
+| `id` | integer | PK |
+| `plan_id` | integer | FK → plans.id |
 | `feature_key` | varchar | One of the fixed keys listed above — `"max_workers"`, `"max_clients"`, `"storage_gb"`… |
 | `limit_value` | int | Included allowance (e.g. 5 employees) |
 | `overage_rate` | decimal | Price per extra unit beyond the limit |
@@ -171,15 +171,15 @@ A signup always needs a default plan, so the platform guards it:
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | uuid | PK |
-| `tenant_id` | uuid | FK → tenants.id |
-| `plan_id` | uuid | FK → plans.id — the exact row the tenant is locked to |
+| `id` | integer | PK |
+| `tenant_id` | integer | FK → tenants.id |
+| `plan_id` | integer | FK → plans.id — the exact row the tenant is locked to |
 | `stripe_subscription_id` | varchar | Stripe Subscription ID |
 | `stripe_price_id` | varchar | The Stripe Price at time of signup — may differ from `plans.stripe_price_id` after a plan version change |
 | `status` | enum | `trialing` · `active` · `past_due` · `cancelled` |
 | `period_start` | timestamp | Current billing period start |
 | `period_end` | timestamp | Current billing period end / next renewal |
-| `pending_plan_id` | uuid (nullable) | FK → plans.id — new plan to apply at next renewal |
+| `pending_plan_id` | integer (nullable) | FK → plans.id — new plan to apply at next renewal |
 | `pending_plan_effective_at` | timestamp (nullable) | When the pending change takes effect |
 
 ---
@@ -190,8 +190,8 @@ A signup always needs a default plan, so the platform guards it:
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | uuid | PK |
-| `tenant_id` | uuid | FK → tenants.id |
+| `id` | integer | PK |
+| `tenant_id` | integer | FK → tenants.id |
 | `period_start` | timestamp |  |
 | `period_end` | timestamp |  |
 | `snapshot_taken_at` | timestamp |  |
@@ -214,10 +214,10 @@ Example: counting workers
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | uuid | PK |
-| `tenant_id` | uuid | FK → tenants.id |
+| `id` | integer | PK |
+| `tenant_id` | integer | FK → tenants.id |
 | `name` | varchar |  |
-| `role_id` | smallint | FK → roles.id — the 7 seeded roles are 1-7, not uuids |
+| `role_id` | smallint | FK → roles.id — the 7 seeded roles are fixed 1-7, a different column type than the auto-increment integer `id` used elsewhere |
 | `is_active` | boolean | Only active rows are counted at renewal |
 
 ```sql

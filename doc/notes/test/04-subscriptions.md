@@ -44,7 +44,7 @@ You need two plans for these tests. Create them with the bodies in [03-plans.md]
 | Request | Expected |
 |---|---|
 | `/api/admin/subscriptions/abc` | `400` |
-| `/api/admin/subscriptions/00000000-0000-4000-8000-000000000000` | `404`, `Subscription not found for this tenant` |
+| `/api/admin/subscriptions/999999999` | `404`, `Subscription not found for this tenant` |
 | The id of a `TEST` tenant (created through the API) | `404` — it has no subscription (known limit) |
 
 ---
@@ -79,9 +79,9 @@ Send SUB-03 again with another active plan.
 |---|---|
 | `plan_id` of an **inactive** plan | `This plan is closed to new customers` |
 | `plan_id` = the plan the tenant is **already on** | `The tenant is already on this plan` |
-| `plan_id` = `"abc"` | `plan_id must be a UUID` |
-| no `plan_id` | `plan_id must be a UUID` |
-| `plan_id` of a plan that does not exist (valid UUID) | **`404`** `Plan not found` |
+| `plan_id` = `"abc"` | `plan_id must be an integer number` |
+| no `plan_id` | `plan_id must be an integer number` |
+| `plan_id` of a plan that does not exist (valid integer) | **`404`** `Plan not found` |
 | unknown tenant id in the path | **`404`** `Subscription not found for this tenant` |
 | extra field `"status": "active"` | `property status should not exist` |
 

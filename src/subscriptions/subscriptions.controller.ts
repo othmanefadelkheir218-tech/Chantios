@@ -3,7 +3,7 @@ import {
   Controller,
   Get,
   Param,
-  ParseUUIDPipe,
+  ParseIntPipe,
   Patch,
   Query,
   UseInterceptors,
@@ -38,7 +38,7 @@ export class SubscriptionsController {
 
   @Get(':tenantId')
   @ApiFindSubscription()
-  findOne(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
+  findOne(@Param('tenantId', ParseIntPipe) tenantId: number) {
     return this.subscriptionsService.findByTenant(tenantId);
   }
 
@@ -46,7 +46,7 @@ export class SubscriptionsController {
   @AuditLog('set_pending_plan', 'subscription')
   @ApiChangePlan()
   changePlan(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Param('tenantId', ParseIntPipe) tenantId: number,
     @Body() dto: SetPendingPlanDto,
   ) {
     return this.subscriptionsService.changePlan(tenantId, dto);
@@ -55,7 +55,7 @@ export class SubscriptionsController {
   @Get(':tenantId/usage')
   @ApiFindUsage()
   usage(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Param('tenantId', ParseIntPipe) tenantId: number,
     @Query() query: PaginationQueryDto,
   ) {
     return this.subscriptionsService.usage(tenantId, query);

@@ -29,7 +29,7 @@ export class PlansService {
     return this.findPlans.execute(query);
   }
 
-  findOne(id: string) {
+  findOne(id: number) {
     return this.findPlan.execute(id);
   }
 
@@ -38,15 +38,15 @@ export class PlansService {
     return this.findPlan.executeDefault();
   }
 
-  deactivate(id: string) {
+  deactivate(id: number) {
     return this.deactivatePlan.execute(id);
   }
 
-  setDefault(id: string) {
+  setDefault(id: number) {
     return this.setDefaultPlan.execute(id);
   }
 
-  createVersion(id: string, dto: CreatePlanVersionDto) {
+  createVersion(id: number, dto: CreatePlanVersionDto) {
     return this.createPlanVersion.execute(id, dto);
   }
 }

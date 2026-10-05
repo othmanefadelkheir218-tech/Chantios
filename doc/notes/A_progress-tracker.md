@@ -118,7 +118,7 @@
 
 - [x] **10 MB file limit** — confirmed, stays as a DB check on `media.file_size`.
 
-- [x] **Prisma migration + seed built** — `prisma/schema.prisma` (52 tables), one `init` migration with the hand-written block (34 CHECKs, 3 triggers, 5 partial unique indexes, 3 composite FKs, 3 views), `prisma/seed.ts`. Every `id` has a DB default `gen_random_uuid()` and every `updated_at` defaults to `now()`, so raw SQL inserts work. Line totals are set by a trigger. See `prisma/migrations/`.
+- [x] **Prisma migration + seed built** — `prisma/schema.prisma` (52 tables), one `init` migration with the hand-written block (34 CHECKs, 3 triggers, 5 partial unique indexes, 3 composite FKs, 3 views), `prisma/seed.ts`. Every `id` is a `SERIAL` (auto-increment integer, changed from UUID on 2026-10-05) and every `updated_at` defaults to `now()`, so raw SQL inserts work. Line totals are set by a trigger. See `prisma/migrations/`.
 
 - [x] **First super-admin comes from the seed** — `admin_users` has no public endpoint, so without a seed nobody could create one. Plans are still never seeded.
 

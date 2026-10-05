@@ -82,7 +82,7 @@ Status changes get their own route on purpose. A generic `PATCH` that accepts `s
 `type` `@IsIn(['individual','professional','property_manager'])`. `name` required. `email` **required** `@IsEmail`. `phone` **required**, `@Matches` the format. `vat_number` **required when `type = 'professional'`** — use a custom validator or check it in the handler. `contact_name`, `phone_secondary`, address fields, `country` `@Length(2,2)`, `note` optional.
 
 ### `create-project.dto.ts`
-`client_id` `@IsUUID` required. `name` required. `description`, address fields optional. `start_date`, `end_date` optional ISO dates — **`end_date` not before `start_date`**. `manager_id` optional uuid.
+`client_id` `@IsInt` required. `name` required. `description`, address fields optional. `start_date`, `end_date` optional ISO dates — **`end_date` not before `start_date`**. `manager_id` optional integer.
 
 ### `change-status.dto.ts`
 `status` `@IsIn(['prospect','in_progress','completed','cancelled'])`. `reason` optional — stored on the history row.

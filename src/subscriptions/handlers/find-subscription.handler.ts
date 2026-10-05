@@ -10,7 +10,7 @@ export class FindSubscriptionHandler {
     private readonly subscriptions: SubscriptionRepository,
   ) {}
 
-  async execute(tenantId: string) {
+  async execute(tenantId: number) {
     this.logger.debug(`Finding subscription of tenant ${tenantId}`);
 
     const subscription = await this.subscriptions.findByTenant(tenantId);

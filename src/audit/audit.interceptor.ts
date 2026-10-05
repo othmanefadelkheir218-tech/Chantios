@@ -11,7 +11,7 @@ import { Observable, tap } from 'rxjs';
 import { getRequestActor } from '../common/decorators/actor.decorator';
 import { AuditService } from './audit.service';
 import { AUDIT_LOG_KEY, AuditLogMeta } from './decorators/audit-log.decorator';
-import { asUuidOrNull } from './helpers/audit.helper';
+import { asIdOrNull } from './helpers/audit.helper';
 
 /**
  * Writes one `audit_logs` row after a successful route marked `@AuditLog()`.
@@ -43,11 +43,11 @@ export class AuditInterceptor implements NestInterceptor {
         const actor = getRequestActor(req);
         this.audit
           .write({
-            tenantId: asUuidOrNull(params.tenantId),
+            tenantId: asIdOrNull(params.tenantId),
             adminUserId: actor.adminUserId,
             action: meta.action,
             entityType: meta.entityType,
-            entityId: asUuidOrNull(params.id ?? params.tenantId ?? resultId),
+            entityId: asIdOrNull(params.id ?? params.tenantId ?? resultId),
             newValue: req.body as unknown,
             ipAddress: actor.ip,
           })

@@ -1,14 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class AnalyticsEventEntity {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty()
+  id: number;
 
-  @ApiProperty({ format: 'uuid' })
-  tenant_id: string;
+  @ApiProperty()
+  tenant_id: number;
 
-  @ApiProperty({ format: 'uuid', nullable: true })
-  user_id: string | null;
+  @ApiProperty({ nullable: true })
+  user_id: number | null;
 
   @ApiProperty({ example: 'quote_sent' })
   event_name: string;

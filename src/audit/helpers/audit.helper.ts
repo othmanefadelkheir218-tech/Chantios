@@ -2,22 +2,30 @@ import { Prisma } from '@prisma/client';
 
 /** One line of `audit_logs`, as the callers describe it. */
 export interface AuditEntry {
-  tenantId?: string | null;
-  adminUserId?: string | null;
+  tenantId?: number | null;
+  adminUserId?: number | null;
   action: string;
   entityType: string;
-  entityId?: string | null;
+  entityId?: number | null;
   oldValue?: unknown;
   newValue?: unknown;
   ipAddress?: string | null;
 }
 
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** `entity_id` is a uuid column: anything else is stored as NULL. */
-export function asUuidOrNull(value: unknown): string | null {
-  return typeof value === 'string' && UUID_REGEX.test(value) ? value : null;
+/**
+ * `tenant_id` / `entity_id` are integer columns: anything that is not a
+ * positive integer (already a number, or a numeric string straight off a
+ * route param) is stored as NULL.
+ */
+export function asIdOrNull(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isInteger(value) && value > 0 ? value : null;
+  }
+  if (typeof value === 'string' && /^\d+$/.test(value)) {
+    const parsed = Number.parseInt(value, 10);
+    return parsed > 0 ? parsed : null;
+  }
+  return null;
 }
 
 /**

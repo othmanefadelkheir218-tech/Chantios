@@ -18,7 +18,7 @@ export class SubscriptionRepository {
     return this.prisma.tenantSubscription.create({ data });
   }
 
-  findByTenant(tenantId: string): Promise<TenantSubscription | null> {
+  findByTenant(tenantId: number): Promise<TenantSubscription | null> {
     return this.prisma.tenantSubscription.findUnique({ where: { tenantId } });
   }
 
@@ -40,8 +40,8 @@ export class SubscriptionRepository {
 
   /** Never touches `plan_id`: the change waits for the next renewal. */
   setPendingPlan(
-    tenantId: string,
-    planId: string,
+    tenantId: number,
+    planId: number,
     effectiveAt: Date,
   ): Promise<TenantSubscription> {
     return this.prisma.tenantSubscription.update({
@@ -62,7 +62,7 @@ export class SubscriptionRepository {
   }
 
   async findUsage(
-    tenantId: string,
+    tenantId: number,
     skip: number,
     take: number,
   ): Promise<[BillingUsageSnapshot[], number]> {

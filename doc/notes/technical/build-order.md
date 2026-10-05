@@ -301,7 +301,6 @@ Alerts are not guards — they are **side effects** fired after a successful act
 |---|---|
 | `@nestjs/throttler` | Rate limiting |
 | `helmet` | HTTP security headers |
-| `uuid` | UUID generation |
 
 ---
 

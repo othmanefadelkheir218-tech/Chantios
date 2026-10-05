@@ -20,7 +20,7 @@ DDL in [Schema Proposal.md](../../Schema%20Proposal.md) § 9.
 |---|---|
 | `media` | one row per file, polymorphic, no FK |
 
-`entity_type` is a fixed enum: `user` · `tenant` · `project` · `report` · `purchase_invoice` · `quote` · `invoice` · `message`. `entity_id` is the target row's uuid, with **no** database foreign key — the link is by convention.
+`entity_type` is a fixed enum: `user` · `tenant` · `project` · `report` · `purchase_invoice` · `quote` · `invoice` · `message`. `entity_id` is the target row's integer, with **no** database foreign key — the link is by convention.
 
 `is_locked` is the important column: `true` means the frozen PDF copy of a **sent** quote or invoice. The delete endpoint refuses those rows, so the client's legal copy cannot be deleted like an ordinary photo.
 
@@ -57,13 +57,13 @@ src/media/
 ## DTOs
 
 ### `upload-media.dto.ts`
-`entity_type` `@IsEnum`, `entity_id` `@IsUUID`. The file comes through `FileInterceptor`, not the DTO.
+`entity_type` `@IsEnum`, `entity_id` `@IsInt`. The file comes through `FileInterceptor`, not the DTO.
 
 ### `rename-media.dto.ts`
 `file_name` `@IsNotEmpty @MaxLength(255)`. Nothing else is editable.
 
 ### `find-media-query.dto.ts`
-`entity_type` optional, `entity_id` optional uuid, plus `page` / `limit`.
+`entity_type` optional, `entity_id` optional integer, plus `page` / `limit`.
 
 ## Repository methods
 

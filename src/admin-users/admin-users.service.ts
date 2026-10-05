@@ -25,11 +25,11 @@ export class AdminUsersService {
     return this.findAdminUsers.execute(query);
   }
 
-  update(id: string, dto: UpdateAdminUserDto) {
+  update(id: number, dto: UpdateAdminUserDto) {
     return this.updateAdminUser.execute(id, dto);
   }
 
-  deactivate(id: string) {
+  deactivate(id: number) {
     return this.deactivateAdminUser.execute(id);
   }
 }

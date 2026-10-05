@@ -91,7 +91,7 @@ Then check no ghost plan was written:
 | `GET /api/admin/plans?is_active=maybe` | `400` |
 | `GET /api/admin/plans/PLAN_A` | `200`, with 6 features |
 | `GET /api/admin/plans/abc` | `400` |
-| `GET /api/admin/plans/00000000-0000-4000-8000-000000000000` | `404`, `Plan not found` |
+| `GET /api/admin/plans/999999999` | `404`, `Plan not found` |
 
 ---
 

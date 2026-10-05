@@ -103,16 +103,16 @@ src/
 ## DTOs
 
 ### `create-service.dto.ts`
-`category_id` `@IsUUID`. `description` required. `unit` required (`m2`, `ml`, `h`, `piece`). `price_excl_vat` `@IsNumberString`. `default_vat_rate` optional `@IsNumberString` — `null` falls back to `tenants.default_vat_rate`. For Belgian labour services set `6.00` here, so the quote line pre-fills correctly in step 06.
+`category_id` `@IsInt`. `description` required. `unit` required (`m2`, `ml`, `h`, `piece`). `price_excl_vat` `@IsNumberString`. `default_vat_rate` optional `@IsNumberString` — `null` falls back to `tenants.default_vat_rate`. For Belgian labour services set `6.00` here, so the quote line pre-fills correctly in step 06.
 
 ### `set-recipe.dto.ts`
-`items` — array of `{ material_id: uuid, quantity_per_unit: string }`, `quantity_per_unit > 0`. Replaces the whole recipe.
+`items` — array of `{ material_id: integer, quantity_per_unit: string }`, `quantity_per_unit > 0`. Replaces the whole recipe.
 
 ### `create-material.dto.ts`
 `description` required. `unit` required. `purchase_price` `@IsNumberString @Min(0)`. `minimum_stock` `@IsNumberString @Min(0)`.
 
 ### `create-movement.dto.ts` (purchase)
-`material_id` `@IsUUID`. `quantity` `@IsNumberString`, **positive**. `unit_price` optional — defaults to `materials.purchase_price`. `movement_date` optional. `purchase_invoice_id` optional uuid. `note` optional. **No `project_id`** — the DTO must not accept one.
+`material_id` `@IsInt`. `quantity` `@IsNumberString`, **positive**. `unit_price` optional — defaults to `materials.purchase_price`. `movement_date` optional. `purchase_invoice_id` optional integer. `note` optional. **No `project_id`** — the DTO must not accept one.
 
 ### `adjust-stock.dto.ts`
 `material_id`, `quantity` (either sign, not zero), `note` **required** — an adjustment without a reason is unauditable. `project_id` optional.

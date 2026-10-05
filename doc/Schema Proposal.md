@@ -14,13 +14,13 @@
 6. **Nothing secret is stored readable.** Every token is `token_hash` / `code_hash` (sha256); passwords and PINs are argon2id.
 7. **Numeric types are fixed**: money `NUMERIC(12,2)`, quantity `NUMERIC(12,3)`, recipe `NUMERIC(12,4)`, hours `NUMERIC(5,2)`, rate `NUMERIC(5,2)`, `progress_pct` `INTEGER`.
 8. **Indexes on `(tenant_id, …)`** for every table expected to grow.
+9. **`id` is `SERIAL` (auto-increment integer), not UUID.** Decided 2026-10-05 — see `doc/notes/entity-fields.md`. Trade-off accepted: a sequential id is enumerable across tenants, unlike a UUID.
 
 ---
 
 ## 0. Extensions & enum types
 
 ```sql
-CREATE EXTENSION IF NOT EXISTS pgcrypto;  -- gen_random_uuid()
 
 CREATE TYPE tenant_status            AS ENUM ('active','suspended','banned');
 CREATE TYPE subscription_status      AS ENUM ('trialing','active','past_due','cancelled');
@@ -67,7 +67,7 @@ CREATE TYPE media_entity_type AS ENUM (
 
 ```sql
 CREATE TABLE tenants (
-  id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id                       SERIAL PRIMARY KEY,
   name                     TEXT NOT NULL,
   legal_name               TEXT,
   vat_number               TEXT,
@@ -79,7 +79,7 @@ CREATE TABLE tenants (
   postal_code              TEXT,
   city                     TEXT,
   country                  CHAR(2),
-  logo_media_id            UUID,                 -- → media.id, no FK (media is polymorphic)
+  logo_media_id            INTEGER,                 -- → media.id, no FK (media is polymorphic)
   default_vat_rate         NUMERIC(5,2) NOT NULL DEFAULT 21.00,
   default_payment_days     SMALLINT NOT NULL DEFAULT 30,   -- how long a client has to pay
   locale                   TEXT NOT NULL DEFAULT 'fr',
@@ -87,12 +87,13 @@ CREATE TABLE tenants (
   timezone                 TEXT NOT NULL DEFAULT 'Europe/Brussels',
   end_of_day_reminder_time TIME NOT NULL DEFAULT '18:00',
   status                   tenant_status NOT NULL DEFAULT 'active',
+  deleted_at               TIMESTAMPTZ,              -- soft delete. NULL = not deleted. Independent of status
   created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at               TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE admin_users (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id            SERIAL PRIMARY KEY,
   email         TEXT NOT NULL UNIQUE,
   name          TEXT NOT NULL,
   password_hash TEXT NOT NULL,                   -- argon2id
@@ -110,12 +111,12 @@ CREATE TABLE admin_users (
 
 ```sql
 CREATE TABLE plans (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id              SERIAL PRIMARY KEY,
   name            TEXT NOT NULL,
   base_price      NUMERIC(12,2) NOT NULL CHECK (base_price >= 0),
   is_active       BOOLEAN NOT NULL DEFAULT true,  -- false = no new signups
   is_default      BOOLEAN NOT NULL DEFAULT false, -- the plan a new signup lands on
-  parent_plan_id  UUID REFERENCES plans(id),      -- the version this replaces
+  parent_plan_id  INTEGER REFERENCES plans(id),      -- the version this replaces
   stripe_price_id TEXT,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -124,8 +125,8 @@ CREATE TABLE plans (
 CREATE UNIQUE INDEX idx_plans_one_default ON plans (is_default) WHERE is_default = true;
 
 CREATE TABLE plan_features (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  plan_id      UUID NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+  id           SERIAL PRIMARY KEY,
+  plan_id      INTEGER NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
   feature_key  TEXT NOT NULL,                     -- max_workers | max_managers | max_clients
                                                   -- max_subcontractors | storage_gb | retention_days
   limit_value  INTEGER NOT NULL,
@@ -142,16 +143,16 @@ A plan is **immutable once in use**. A price or limit change deactivates the old
 
 ```sql
 CREATE TABLE tenant_subscriptions (
-  id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id                 UUID NOT NULL UNIQUE REFERENCES tenants(id) ON DELETE CASCADE,
-  plan_id                   UUID NOT NULL REFERENCES plans(id),
+  id                        SERIAL PRIMARY KEY,
+  tenant_id                 INTEGER NOT NULL UNIQUE REFERENCES tenants(id) ON DELETE CASCADE,
+  plan_id                   INTEGER NOT NULL REFERENCES plans(id),
   stripe_customer_id        TEXT,
   stripe_subscription_id    TEXT,
   stripe_price_id           TEXT,
   status                    subscription_status NOT NULL DEFAULT 'trialing',
   period_start              TIMESTAMPTZ NOT NULL DEFAULT now(),
   period_end                TIMESTAMPTZ NOT NULL,
-  pending_plan_id           UUID REFERENCES plans(id),
+  pending_plan_id           INTEGER REFERENCES plans(id),
   pending_plan_effective_at TIMESTAMPTZ,
   created_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at                TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -166,8 +167,8 @@ One row per tenant — **there is no `subscriptions` table.**
 
 ```sql
 CREATE TABLE billing_usage_snapshots (
-  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id          UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  id                 SERIAL PRIMARY KEY,
+  tenant_id          INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   period_start       TIMESTAMPTZ NOT NULL,
   period_end         TIMESTAMPTZ NOT NULL,
   snapshot_taken_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -181,7 +182,7 @@ CREATE TABLE billing_usage_snapshots (
 );
 
 CREATE TABLE stripe_events (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id              SERIAL PRIMARY KEY,
   stripe_event_id TEXT NOT NULL UNIQUE,           -- never process the same event twice
   type            TEXT NOT NULL,
   payload         JSONB NOT NULL,
@@ -195,13 +196,13 @@ CREATE TABLE stripe_events (
 
 ```sql
 CREATE TABLE audit_logs (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id     UUID REFERENCES tenants(id) ON DELETE SET NULL,
-  admin_user_id UUID REFERENCES admin_users(id) ON DELETE SET NULL,
-  user_id       UUID,                             -- tenant-side actor; no FK, history outlives the user
+  id            SERIAL PRIMARY KEY,
+  tenant_id     INTEGER REFERENCES tenants(id) ON DELETE SET NULL,
+  admin_user_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
+  user_id       INTEGER,                             -- tenant-side actor; no FK, history outlives the user
   action        TEXT NOT NULL,                    -- 'update' | 'delete' | 'impersonate_enter' | …
   entity_type   TEXT NOT NULL,
-  entity_id     UUID,
+  entity_id     INTEGER,
   old_value     JSONB,
   new_value     JSONB,
   ip_address    INET,
@@ -210,9 +211,9 @@ CREATE TABLE audit_logs (
 CREATE INDEX idx_audit_logs_tenant_date ON audit_logs (tenant_id, created_at);
 
 CREATE TABLE analytics_events (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  user_id    UUID,                   -- → users.id, FK added in section 11 (forward reference)
+  id         SERIAL PRIMARY KEY,
+  tenant_id  INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  user_id    INTEGER,                   -- → users.id, FK added in section 11 (forward reference)
   event_name TEXT NOT NULL,
   payload    JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -220,9 +221,9 @@ CREATE TABLE analytics_events (
 CREATE INDEX idx_analytics_tenant_date ON analytics_events (tenant_id, created_at);
 
 CREATE TABLE feedback (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id    UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  submitted_by UUID NOT NULL,        -- → users.id, FK added in section 11 (forward reference)
+  id           SERIAL PRIMARY KEY,
+  tenant_id    INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  submitted_by INTEGER NOT NULL,        -- → users.id, FK added in section 11 (forward reference)
   type         feedback_type NOT NULL,
   title        TEXT NOT NULL,
   body         TEXT,
@@ -232,14 +233,14 @@ CREATE TABLE feedback (
 );
 
 CREATE TABLE support_tickets (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id         UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  opened_by         UUID NOT NULL,   -- → users.id (role 'admin'), FK added in section 11
+  id                SERIAL PRIMARY KEY,
+  tenant_id         INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  opened_by         INTEGER NOT NULL,   -- → users.id (role 'admin'), FK added in section 11
   subject           TEXT NOT NULL,
   category          ticket_category NOT NULL DEFAULT 'question',
   priority          ticket_priority NOT NULL DEFAULT 'normal',
   status            ticket_status NOT NULL DEFAULT 'open',
-  assigned_admin_id UUID REFERENCES admin_users(id) ON DELETE SET NULL,
+  assigned_admin_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
   closed_at         TIMESTAMPTZ,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -263,8 +264,8 @@ CREATE TABLE roles (
 );
 
 CREATE TABLE users (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  id              SERIAL PRIMARY KEY,
+  tenant_id       INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   role_id         SMALLINT NOT NULL REFERENCES roles(id),
   name            TEXT NOT NULL,
   email           TEXT NOT NULL UNIQUE,           -- UNIQUE across the WHOLE app, not per tenant
@@ -287,8 +288,8 @@ CREATE INDEX idx_users_tenant ON users (tenant_id);
 
 ```sql
 CREATE TABLE role_permissions (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  id         SERIAL PRIMARY KEY,
+  tenant_id  INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   role_id    SMALLINT NOT NULL REFERENCES roles(id),
   module     permission_module NOT NULL,
   can_view   BOOLEAN NOT NULL DEFAULT false,
@@ -308,9 +309,9 @@ This table stores **only overrides**. The default matrix lives in code — nothi
 
 ```sql
 CREATE TABLE refresh_tokens (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id       UUID REFERENCES users(id) ON DELETE CASCADE,
-  admin_user_id UUID REFERENCES admin_users(id) ON DELETE CASCADE,
+  id            SERIAL PRIMARY KEY,
+  user_id       INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  admin_user_id INTEGER REFERENCES admin_users(id) ON DELETE CASCADE,
   token_hash    TEXT NOT NULL UNIQUE,             -- sha256; raw value lives only in the cookie
   user_agent    TEXT,
   ip_address    INET,
@@ -322,13 +323,13 @@ CREATE TABLE refresh_tokens (
 CREATE INDEX idx_refresh_tokens_user ON refresh_tokens (user_id) WHERE revoked_at IS NULL;
 
 CREATE TABLE user_invitations (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  id          SERIAL PRIMARY KEY,
+  tenant_id   INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   email       TEXT NOT NULL,
   name        TEXT NOT NULL,
   role_id     SMALLINT NOT NULL REFERENCES roles(id),
   token_hash  TEXT NOT NULL UNIQUE,
-  invited_by  UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  invited_by  INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   expires_at  TIMESTAMPTZ NOT NULL,               -- created + 7 days
   accepted_at TIMESTAMPTZ,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -337,16 +338,17 @@ CREATE TABLE user_invitations (
 CREATE UNIQUE INDEX idx_invitations_open_email ON user_invitations (email) WHERE accepted_at IS NULL;
 
 CREATE TABLE one_time_codes (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id       UUID REFERENCES users(id) ON DELETE CASCADE,
-  admin_user_id UUID REFERENCES admin_users(id) ON DELETE CASCADE,
+  id            SERIAL PRIMARY KEY,
+  tenant_id     INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
+  user_id       INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  admin_user_id INTEGER REFERENCES admin_users(id) ON DELETE CASCADE,
   type          one_time_code_type NOT NULL,
   code_hash     TEXT NOT NULL,
   expires_at    TIMESTAMPTZ NOT NULL,
   consumed_at   TIMESTAMPTZ,
   attempt_count SMALLINT NOT NULL DEFAULT 0,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CHECK (num_nonnulls(user_id, admin_user_id) = 1)
+  CHECK (num_nonnulls(tenant_id, user_id, admin_user_id) = 1)
 );
 ```
 
@@ -364,8 +366,8 @@ argon2id settings: `memoryCost: 19456`, `timeCost: 2`, `parallelism: 1`. bcrypt 
 
 ```sql
 CREATE TABLE clients (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  id              SERIAL PRIMARY KEY,
+  tenant_id       INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   type            client_type NOT NULL DEFAULT 'individual',
   name            TEXT NOT NULL,
   contact_name    TEXT,
@@ -393,9 +395,9 @@ CREATE INDEX idx_clients_tenant ON clients (tenant_id);
 
 ```sql
 CREATE TABLE projects (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  client_id       UUID NOT NULL REFERENCES clients(id) ON DELETE RESTRICT,
+  id              SERIAL PRIMARY KEY,
+  tenant_id       INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  client_id       INTEGER NOT NULL REFERENCES clients(id) ON DELETE RESTRICT,
   name            TEXT NOT NULL,
   description     TEXT,
   status          project_status NOT NULL DEFAULT 'prospect',
@@ -406,8 +408,8 @@ CREATE TABLE projects (
   start_date      DATE,
   end_date        DATE,
   actual_end_date DATE,                            -- set when status becomes 'completed'
-  manager_id      UUID REFERENCES users(id) ON DELETE SET NULL,
-  created_by      UUID REFERENCES users(id) ON DELETE SET NULL,
+  manager_id      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT chk_project_dates
@@ -420,13 +422,13 @@ CREATE INDEX idx_projects_tenant_status ON projects (tenant_id, status);
 
 ```sql
 CREATE TABLE project_status_history (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  project_id  UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  id          SERIAL PRIMARY KEY,
+  tenant_id   INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   from_status project_status,                      -- NULL on creation
   to_status   project_status NOT NULL,
   reason      TEXT,
-  changed_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  changed_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
   changed_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_project_status_history_project ON project_status_history (project_id, changed_at);
@@ -449,17 +451,17 @@ cancelled    → nothing       (final)
 
 ```sql
 CREATE TABLE categories (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id  UUID REFERENCES tenants(id) ON DELETE CASCADE,  -- NULL = shared default, seeded
+  id         SERIAL PRIMARY KEY,
+  tenant_id  INTEGER REFERENCES tenants(id) ON DELETE CASCADE,  -- NULL = shared default, seeded
   name       TEXT NOT NULL,
   is_active  BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE services (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  category_id     UUID NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
+  id              SERIAL PRIMARY KEY,
+  tenant_id       INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  category_id     INTEGER NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
   description     TEXT NOT NULL,
   unit            TEXT NOT NULL,                   -- m2 | ml | h | piece
   price_excl_vat  NUMERIC(12,2) NOT NULL CHECK (price_excl_vat >= 0),
@@ -471,8 +473,8 @@ CREATE TABLE services (
 CREATE INDEX idx_services_tenant ON services (tenant_id);
 
 CREATE TABLE materials (
-  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id      UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  id             SERIAL PRIMARY KEY,
+  tenant_id      INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   description    TEXT NOT NULL,
   unit           TEXT NOT NULL,
   purchase_price NUMERIC(12,2) NOT NULL DEFAULT 0, -- today's price; the frozen one is on the movement
@@ -489,10 +491,10 @@ CREATE INDEX idx_materials_tenant ON materials (tenant_id);
 ```sql
 -- The recipe: what one unit of a service consumes
 CREATE TABLE service_materials (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id         UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  service_id        UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,
-  material_id       UUID NOT NULL REFERENCES materials(id) ON DELETE RESTRICT,
+  id                SERIAL PRIMARY KEY,
+  tenant_id         INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  service_id        INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+  material_id       INTEGER NOT NULL REFERENCES materials(id) ON DELETE RESTRICT,
   quantity_per_unit NUMERIC(12,4) NOT NULL CHECK (quantity_per_unit > 0),
   UNIQUE (service_id, material_id)
 );
@@ -502,18 +504,18 @@ CREATE TABLE service_materials (
 
 ```sql
 CREATE TABLE stock_movements (
-  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id           UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  material_id         UUID NOT NULL REFERENCES materials(id) ON DELETE RESTRICT,
-  project_id          UUID REFERENCES projects(id) ON DELETE RESTRICT,
-  report_id           UUID,          -- → reports.id, FK added in section 11 (forward reference)
-  purchase_invoice_id UUID,          -- → purchase_invoices.id, FK added in section 11
+  id                  SERIAL PRIMARY KEY,
+  tenant_id           INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  material_id         INTEGER NOT NULL REFERENCES materials(id) ON DELETE RESTRICT,
+  project_id          INTEGER REFERENCES projects(id) ON DELETE RESTRICT,
+  report_id           INTEGER,          -- → reports.id, FK added in section 11 (forward reference)
+  purchase_invoice_id INTEGER,          -- → purchase_invoices.id, FK added in section 11
   type                stock_movement_type NOT NULL,
   quantity            NUMERIC(12,3) NOT NULL CHECK (quantity <> 0),  -- SIGNED
   unit_price          NUMERIC(12,2) NOT NULL,      -- FROZEN at the moment of the movement
   movement_date       DATE NOT NULL DEFAULT CURRENT_DATE,
   note                TEXT,
-  created_by          UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_by          INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
 
   -- a consumption must say which project it was for, and must be negative
@@ -539,10 +541,10 @@ The ledger is **append-only**. A mistake is corrected with a new `adjustment` ro
 
 ```sql
 CREATE TABLE stock_reservations (
-  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id          UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  project_id         UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  material_id        UUID NOT NULL REFERENCES materials(id) ON DELETE RESTRICT,
+  id                 SERIAL PRIMARY KEY,
+  tenant_id          INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  project_id         INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  material_id        INTEGER NOT NULL REFERENCES materials(id) ON DELETE RESTRICT,
   reserved_quantity  NUMERIC(12,3) NOT NULL CHECK (reserved_quantity >= 0),  -- original
   remaining_quantity NUMERIC(12,3) NOT NULL CHECK (remaining_quantity >= 0), -- what is still held
   status             reservation_status NOT NULL DEFAULT 'active',
@@ -572,15 +574,15 @@ Only `active` rows count in `material_stock_live.reserved`.
 
 ```sql
 CREATE TABLE tasks (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  id         SERIAL PRIMARY KEY,
+  tenant_id  INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   title      TEXT NOT NULL,
   type       task_type NOT NULL DEFAULT 'work',
   start_date DATE NOT NULL,
   end_date   DATE NOT NULL,
   status     task_status NOT NULL DEFAULT 'planned',
-  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT chk_task_dates CHECK (end_date >= start_date),
@@ -590,10 +592,10 @@ CREATE INDEX idx_tasks_project ON tasks (project_id);
 
 -- Many workers, ONE task = one bar on the Gantt chart
 CREATE TABLE task_assignees (
-  id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  task_id   UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  user_id   UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,  -- a real account, never a typed name
+  id        SERIAL PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  task_id   INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,  -- a real account, never a typed name
   UNIQUE (task_id, user_id),
   FOREIGN KEY (tenant_id, task_id) REFERENCES tasks(tenant_id, id) ON DELETE CASCADE
 );
@@ -604,16 +606,16 @@ A task needs at least one assignee before its status can leave `planned` — che
 
 ```sql
 CREATE TABLE time_entries (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  project_id  UUID NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
-  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-  task_id     UUID REFERENCES tasks(id) ON DELETE SET NULL,
+  id          SERIAL PRIMARY KEY,
+  tenant_id   INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  task_id     INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
   work_date   DATE NOT NULL,
   hours       NUMERIC(5,2) NOT NULL CHECK (hours > 0 AND hours <= 24),
   hourly_rate NUMERIC(12,2) NOT NULL,              -- FROZEN from users.hourly_rate at write time
   comment     TEXT,
-  created_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, project_id, work_date)
@@ -636,14 +638,14 @@ Runs on insert **and** update, excluding the row being edited. Add a DB trigger 
 
 ```sql
 CREATE TABLE reports (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id    UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  project_id   UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  id           SERIAL PRIMARY KEY,
+  tenant_id    INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  project_id   INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   report_date  DATE NOT NULL DEFAULT CURRENT_DATE,
   progress_pct INTEGER NOT NULL CHECK (progress_pct BETWEEN 0 AND 100),
   weather      TEXT,
   note         TEXT,
-  created_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, project_id, report_date)
@@ -676,7 +678,7 @@ VAT is rounded **once per rate group**, never per line. The per-rate breakdown t
 
 ```sql
 CREATE TABLE document_counters (
-  tenant_id     UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id     INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   document_type document_type NOT NULL,
   year          SMALLINT NOT NULL,
   last_number   INTEGER NOT NULL DEFAULT 0,
@@ -684,10 +686,10 @@ CREATE TABLE document_counters (
 );
 
 CREATE TABLE quotes (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id        UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  client_id        UUID NOT NULL REFERENCES clients(id) ON DELETE RESTRICT,
-  project_id       UUID NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+  id               SERIAL PRIMARY KEY,
+  tenant_id        INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  client_id        INTEGER NOT NULL REFERENCES clients(id) ON DELETE RESTRICT,
+  project_id       INTEGER NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
   number           TEXT NOT NULL,                  -- QUO-2026-0001
   status           quote_status NOT NULL DEFAULT 'draft',
   issue_date       DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -700,7 +702,7 @@ CREATE TABLE quotes (
   sent_at          TIMESTAMPTZ,
   accepted_at      TIMESTAMPTZ,
   refused_at       TIMESTAMPTZ,
-  created_by       UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_by       INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, number),
@@ -709,10 +711,10 @@ CREATE TABLE quotes (
 CREATE INDEX idx_quotes_project_status ON quotes (project_id, status);
 
 CREATE TABLE quote_lines (
-  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id           UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  quote_id            UUID NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
-  service_id          UUID REFERENCES services(id) ON DELETE SET NULL,  -- NULL = free-text line
+  id                  SERIAL PRIMARY KEY,
+  tenant_id           INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  quote_id            INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+  service_id          INTEGER REFERENCES services(id) ON DELETE SET NULL,  -- NULL = free-text line
   description         TEXT NOT NULL,
   unit                TEXT,
   quantity            NUMERIC(12,3) NOT NULL CHECK (quantity <> 0),
@@ -743,11 +745,11 @@ END $$ LANGUAGE plpgsql;
 
 ```sql
 CREATE TABLE invoices (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id        UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  client_id        UUID NOT NULL REFERENCES clients(id) ON DELETE RESTRICT,
-  project_id       UUID NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
-  quote_id         UUID REFERENCES quotes(id) ON DELETE SET NULL,
+  id               SERIAL PRIMARY KEY,
+  tenant_id        INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  client_id        INTEGER NOT NULL REFERENCES clients(id) ON DELETE RESTRICT,
+  project_id       INTEGER NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+  quote_id         INTEGER REFERENCES quotes(id) ON DELETE SET NULL,
   number           TEXT NOT NULL,                  -- INV-2026-0042
   status           invoice_status NOT NULL DEFAULT 'draft',
   issue_date       DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -760,7 +762,7 @@ CREATE TABLE invoices (
   sent_at          TIMESTAMPTZ,
   reminder_count   SMALLINT NOT NULL DEFAULT 0,
   last_reminder_at TIMESTAMPTZ,
-  created_by       UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_by       INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, number),
@@ -770,10 +772,10 @@ CREATE INDEX idx_invoices_project ON invoices (project_id);
 CREATE INDEX idx_invoices_due ON invoices (tenant_id, due_date) WHERE status IN ('sent','partially_paid');
 
 CREATE TABLE invoice_lines (
-  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id           UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  invoice_id          UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
-  service_id          UUID REFERENCES services(id) ON DELETE SET NULL,
+  id                  SERIAL PRIMARY KEY,
+  tenant_id           INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  invoice_id          INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+  service_id          INTEGER REFERENCES services(id) ON DELETE SET NULL,
   description         TEXT NOT NULL,
   unit                TEXT,
   quantity            NUMERIC(12,3) NOT NULL CHECK (quantity <> 0),
@@ -786,14 +788,14 @@ CREATE TABLE invoice_lines (
 CREATE INDEX idx_invoice_lines_invoice ON invoice_lines (invoice_id, position);
 
 CREATE TABLE payments (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id    UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  invoice_id   UUID NOT NULL REFERENCES invoices(id) ON DELETE RESTRICT,
+  id           SERIAL PRIMARY KEY,
+  tenant_id    INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  invoice_id   INTEGER NOT NULL REFERENCES invoices(id) ON DELETE RESTRICT,
   amount       NUMERIC(12,2) NOT NULL CHECK (amount > 0),
   method       payment_method NOT NULL,
   reference    TEXT,
   payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
-  created_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_payments_invoice ON payments (invoice_id);
@@ -809,8 +811,8 @@ A cancelled document keeps its number and leaves a gap. That gap is normal and e
 
 ```sql
 CREATE TABLE subcontractors (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id    UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  id           SERIAL PRIMARY KEY,
+  tenant_id    INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   company_name TEXT NOT NULL,
   trade        TEXT,
   email        TEXT,
@@ -824,8 +826,8 @@ CREATE TABLE subcontractors (
 CREATE INDEX idx_subcontractors_tenant ON subcontractors (tenant_id);
 
 CREATE TABLE suppliers (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  id         SERIAL PRIMARY KEY,
+  tenant_id  INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   name       TEXT NOT NULL,
   email      TEXT,
   phone      TEXT CHECK (phone IS NULL OR phone ~ '^\+?[0-9 ().-]{6,20}$'),
@@ -837,16 +839,16 @@ CREATE TABLE suppliers (
 );
 
 CREATE TABLE subcontractor_contracts (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id        UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  subcontractor_id UUID NOT NULL REFERENCES subcontractors(id) ON DELETE RESTRICT,
-  project_id       UUID NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+  id               SERIAL PRIMARY KEY,
+  tenant_id        INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  subcontractor_id INTEGER NOT NULL REFERENCES subcontractors(id) ON DELETE RESTRICT,
+  project_id       INTEGER NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
   description      TEXT,
   amount_excl_vat  NUMERIC(12,2) NOT NULL CHECK (amount_excl_vat >= 0),
   status           contract_status NOT NULL DEFAULT 'in_progress',
   start_date       DATE,
   end_date         DATE,
-  created_by       UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_by       INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT chk_contract_dates
@@ -855,21 +857,21 @@ CREATE TABLE subcontractor_contracts (
 CREATE INDEX idx_contracts_project ON subcontractor_contracts (project_id);
 
 CREATE TABLE cost_types (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id  UUID REFERENCES tenants(id) ON DELETE CASCADE,  -- NULL = shared default, seeded
+  id         SERIAL PRIMARY KEY,
+  tenant_id  INTEGER REFERENCES tenants(id) ON DELETE CASCADE,  -- NULL = shared default, seeded
   name       TEXT NOT NULL,      -- material | subcontractor | labor | + whatever a tenant adds
   is_active  BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE purchase_invoices (
-  id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id                 UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  id                        SERIAL PRIMARY KEY,
+  tenant_id                 INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   type                      purchase_invoice_type NOT NULL,  -- WHO sent us the paper
-  cost_type_id              UUID NOT NULL REFERENCES cost_types(id) ON DELETE RESTRICT, -- WHAT kind of cost
-  subcontractor_contract_id UUID REFERENCES subcontractor_contracts(id) ON DELETE RESTRICT,
-  supplier_id               UUID REFERENCES suppliers(id) ON DELETE RESTRICT,
-  project_id                UUID REFERENCES projects(id) ON DELETE RESTRICT,
+  cost_type_id              INTEGER NOT NULL REFERENCES cost_types(id) ON DELETE RESTRICT, -- WHAT kind of cost
+  subcontractor_contract_id INTEGER REFERENCES subcontractor_contracts(id) ON DELETE RESTRICT,
+  supplier_id               INTEGER REFERENCES suppliers(id) ON DELETE RESTRICT,
+  project_id                INTEGER REFERENCES projects(id) ON DELETE RESTRICT,
   number                    TEXT NOT NULL,                  -- our number, PUR-2026-0007
   external_number           TEXT,                           -- their number, as printed
   amount_excl_vat           NUMERIC(12,2) NOT NULL CHECK (amount_excl_vat >= 0),
@@ -881,7 +883,7 @@ CREATE TABLE purchase_invoices (
   status                    purchase_invoice_status NOT NULL DEFAULT 'to_pay',
   payment_reference         TEXT,
   paid_at                   TIMESTAMPTZ,
-  created_by                UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_by                INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, number),
@@ -928,17 +930,17 @@ CREATE TRIGGER trg_material_bill_no_project
 
 ```sql
 CREATE TABLE project_closure_snapshots (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  project_id      UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  id              SERIAL PRIMARY KEY,
+  tenant_id       INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  project_id      INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   budget_excl_vat NUMERIC(12,2) NOT NULL,
   total_cost      NUMERIC(12,2) NOT NULL,
   margin_excl_vat NUMERIC(12,2) NOT NULL,
   margin_pct      NUMERIC(5,2),
-  closed_by       UUID REFERENCES users(id) ON DELETE SET NULL,
+  closed_by       INTEGER REFERENCES users(id) ON DELETE SET NULL,
   closed_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   voided_at       TIMESTAMPTZ,                     -- set if an admin reopens the project
-  voided_by       UUID REFERENCES users(id) ON DELETE SET NULL
+  voided_by       INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
 -- only one LIVE snapshot per project; a voided one stays as history
 CREATE UNIQUE INDEX idx_closure_one_live ON project_closure_snapshots (project_id)
@@ -947,18 +949,18 @@ CREATE UNIQUE INDEX idx_closure_one_live ON project_closure_snapshots (project_i
 -- No fixed material_cost / labor_cost columns: a tenant can add cost types, so the
 -- breakdown is rows, not columns. A new cost type needs no migration.
 CREATE TABLE project_closure_snapshot_costs (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id    UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  snapshot_id  UUID NOT NULL REFERENCES project_closure_snapshots(id) ON DELETE CASCADE,
-  cost_type_id UUID NOT NULL REFERENCES cost_types(id) ON DELETE RESTRICT,
+  id           SERIAL PRIMARY KEY,
+  tenant_id    INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  snapshot_id  INTEGER NOT NULL REFERENCES project_closure_snapshots(id) ON DELETE CASCADE,
+  cost_type_id INTEGER NOT NULL REFERENCES cost_types(id) ON DELETE RESTRICT,
   amount       NUMERIC(12,2) NOT NULL,
   UNIQUE (snapshot_id, cost_type_id)
 );
 
 -- One row per project per level: each alert level fires ONCE
 CREATE TABLE project_margin_alerts (
-  tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  tenant_id  INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   level      margin_alert_level NOT NULL,
   fired_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (project_id, level)
@@ -973,16 +975,16 @@ Reopening a `completed` project sets `voided_at` — it does **not** delete the 
 
 ```sql
 CREATE TABLE media (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  id          SERIAL PRIMARY KEY,
+  tenant_id   INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   entity_type media_entity_type NOT NULL,
-  entity_id   UUID NOT NULL,                       -- polymorphic: no FK by design
+  entity_id   INTEGER NOT NULL,                       -- polymorphic: no FK by design
   file_name   TEXT NOT NULL,
   file_url    TEXT NOT NULL,                       -- ImageKit URL, never changes
   file_type   TEXT NOT NULL,                       -- MIME
   file_size   BIGINT NOT NULL CHECK (file_size > 0 AND file_size <= 10485760),  -- 10 MB
   is_locked   BOOLEAN NOT NULL DEFAULT false,      -- true = the frozen copy of a sent document
-  uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -994,10 +996,10 @@ CREATE INDEX idx_media_tenant ON media (tenant_id);
 
 ```sql
 CREATE TABLE notifications (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id     UUID REFERENCES tenants(id) ON DELETE CASCADE,   -- NULL for platform alerts
-  user_id       UUID REFERENCES users(id) ON DELETE CASCADE,
-  admin_user_id UUID REFERENCES admin_users(id) ON DELETE CASCADE,
+  id            SERIAL PRIMARY KEY,
+  tenant_id     INTEGER REFERENCES tenants(id) ON DELETE CASCADE,   -- NULL for platform alerts
+  user_id       INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  admin_user_id INTEGER REFERENCES admin_users(id) ON DELETE CASCADE,
   type          TEXT NOT NULL,        -- low_stock | late_invoice | margin_warning | …
   payload       JSONB,
   is_read       BOOLEAN NOT NULL DEFAULT false,
@@ -1012,23 +1014,23 @@ CREATE INDEX idx_notifications_admin ON notifications (admin_user_id) WHERE is_r
 
 ```sql
 CREATE TABLE portal_tokens (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  client_id  UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  id         SERIAL PRIMARY KEY,
+  tenant_id  INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  client_id  INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   token_hash TEXT NOT NULL UNIQUE,                 -- sha256; the raw token is never stored
   is_active  BOOLEAN NOT NULL DEFAULT true,
   expires_at TIMESTAMPTZ NOT NULL,                 -- now() + 90 days, a column not a constant
-  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 -- one ACTIVE link per project
 CREATE UNIQUE INDEX idx_portal_one_active ON portal_tokens (project_id) WHERE is_active = true;
 
 CREATE TABLE portal_tracking (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  portal_token_id UUID NOT NULL REFERENCES portal_tokens(id) ON DELETE CASCADE,
+  id              SERIAL PRIMARY KEY,
+  tenant_id       INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  portal_token_id INTEGER NOT NULL REFERENCES portal_tokens(id) ON DELETE CASCADE,
   event_type      portal_event_type NOT NULL,
   ip_address      INET,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -1039,11 +1041,11 @@ The portal routes skip `AuthGuard` and `TenantGuard`. The token row is what supp
 
 ```sql
 CREATE TABLE conversations (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id         UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  id                SERIAL PRIMARY KEY,
+  tenant_id         INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   type              conversation_type NOT NULL,
-  project_id        UUID REFERENCES projects(id) ON DELETE CASCADE,
-  support_ticket_id UUID REFERENCES support_tickets(id) ON DELETE CASCADE,
+  project_id        INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+  support_ticket_id INTEGER REFERENCES support_tickets(id) ON DELETE CASCADE,
   is_archived       BOOLEAN NOT NULL DEFAULT false,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT chk_project_client_has_project
@@ -1057,22 +1059,22 @@ CREATE UNIQUE INDEX idx_one_client_conversation ON conversations (project_id)
   WHERE type = 'project_client';
 
 CREATE TABLE conversation_members (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  user_id         UUID REFERENCES users(id) ON DELETE CASCADE,
-  client_id       UUID REFERENCES clients(id) ON DELETE CASCADE,
-  admin_user_id   UUID REFERENCES admin_users(id) ON DELETE CASCADE,
+  id              SERIAL PRIMARY KEY,
+  tenant_id       INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  user_id         INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  client_id       INTEGER REFERENCES clients(id) ON DELETE CASCADE,
+  admin_user_id   INTEGER REFERENCES admin_users(id) ON DELETE CASCADE,
   joined_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   CHECK (num_nonnulls(user_id, client_id, admin_user_id) = 1)
 );
 
 CREATE TABLE messages (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,  -- denormalized on purpose
+  id              SERIAL PRIMARY KEY,
+  conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  tenant_id       INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,  -- denormalized on purpose
   sender_type     sender_type NOT NULL,
-  sender_id       UUID NOT NULL,     -- users.id | clients.id | admin_users.id, per sender_type
+  sender_id       INTEGER NOT NULL,     -- users.id | clients.id | admin_users.id, per sender_type
   content         TEXT NOT NULL,
   is_archived     BOOLEAN NOT NULL DEFAULT false,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -1080,11 +1082,11 @@ CREATE TABLE messages (
 CREATE INDEX idx_messages_conversation ON messages (conversation_id, created_at);
 
 CREATE TABLE message_reads (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
-  user_id    UUID REFERENCES users(id) ON DELETE CASCADE,
-  client_id  UUID REFERENCES clients(id) ON DELETE CASCADE,
+  id         SERIAL PRIMARY KEY,
+  tenant_id  INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  client_id  INTEGER REFERENCES clients(id) ON DELETE CASCADE,
   read_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   CHECK (num_nonnulls(user_id, client_id) = 1),
   UNIQUE (message_id, user_id, client_id)

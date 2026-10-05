@@ -11,7 +11,7 @@ export class DeactivateAdminUserHandler {
   ) {}
 
   /** Never a hard delete: the row stays, `is_active` goes to false. */
-  async execute(id: string): Promise<void> {
+  async execute(id: number): Promise<void> {
     this.logger.info(`Deactivating admin user ${id}`);
 
     if (!(await this.admins.findById(id))) {

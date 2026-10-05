@@ -3,7 +3,7 @@ import type { Request } from 'express';
 
 /** Who is doing the request — written into `audit_logs`. */
 export interface RequestActor {
-  adminUserId: string | null;
+  adminUserId: number | null;
   ip: string | null;
 }
 
@@ -13,7 +13,7 @@ export interface RequestActor {
  * admin id is always null.
  */
 export function getRequestActor(req: Request): RequestActor {
-  const user = (req as { user?: { id?: string } }).user;
+  const user = (req as { user?: { id?: number } }).user;
   return { adminUserId: user?.id ?? null, ip: req.ip ?? null };
 }
 

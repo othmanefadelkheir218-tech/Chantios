@@ -282,81 +282,86 @@ enum MediaEntityType {
 // ============================================================================
 
 model Tenant {
-  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                  String
-  legalName             String?  @map("legal_name")
-  vatNumber             String?  @map("vat_number")
-  registrationNumber    String?  @map("registration_number")
-  email                 String   @unique
-  phone                 String?
-  addressLine1          String?  @map("address_line1")
-  addressLine2          String?  @map("address_line2")
-  postalCode            String?  @map("postal_code")
-  city                  String?
-  country               String?  @db.Char(2)
+  id                   Int          @id @default(autoincrement())
+  name                 String
+  legalName            String?      @map("legal_name")
+  vatNumber            String?      @map("vat_number")
+  registrationNumber   String?      @map("registration_number")
+  email                String       @unique
+  phone                String?
+  addressLine1         String?      @map("address_line1")
+  addressLine2         String?      @map("address_line2")
+  postalCode           String?      @map("postal_code")
+  city                 String?
+  country              String?      @db.Char(2)
   /// → media.id. No FK: media is polymorphic.
-  logoMediaId           String?  @map("logo_media_id") @db.Uuid
-  defaultVatRate        Decimal  @default(21.00) @map("default_vat_rate") @db.Decimal(5, 2)
+  logoMediaId          Int?         @map("logo_media_id")
+  defaultVatRate       Decimal      @default(21.00) @map("default_vat_rate") @db.Decimal(5, 2)
   /// Fills invoices.due_date as issue_date + this many days.
-  defaultPaymentDays    Int      @default(30) @map("default_payment_days") @db.SmallInt
-  locale                String   @default("fr")
-  currency              String   @default("EUR") @db.Char(3)
-  timezone              String   @default("Europe/Brussels")
-  endOfDayReminderTime  DateTime @default(dbgenerated("'18:00:00'::time without time zone")) @map("end_of_day_reminder_time") @db.Time(6)
-  status                TenantStatus @default(active)
-  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  defaultPaymentDays   Int          @default(30) @map("default_payment_days") @db.SmallInt
+  locale               String       @default("fr")
+  currency             String       @default("EUR") @db.Char(3)
+  timezone             String       @default("Europe/Brussels")
+  endOfDayReminderTime DateTime     @default(dbgenerated("'18:00:00'::time without time zone")) @map("end_of_day_reminder_time") @db.Time(6)
+  status               TenantStatus @default(active)
+  /// Soft delete. NULL = not deleted. Independent of `status`.
+  deletedAt            DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  /// NULL = not verified. Not required at creation.
+  emailVerifiedAt      DateTime?    @map("email_verified_at") @db.Timestamptz(6)
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  users                 User[]
-  rolePermissions       RolePermission[]
-  invitations           UserInvitation[]
-  subscription          TenantSubscription?
-  usageSnapshots        BillingUsageSnapshot[]
-  auditLogs             AuditLog[]
-  analyticsEvents       AnalyticsEvent[]
-  feedback              Feedback[]
-  supportTickets        SupportTicket[]
-  clients               Client[]
-  projects              Project[]
-  projectStatusHistory  ProjectStatusHistory[]
-  categories            Category[]
-  services              Service[]
-  materials             Material[]
-  serviceMaterials      ServiceMaterial[]
-  stockMovements        StockMovement[]
-  stockReservations     StockReservation[]
-  tasks                 Task[]
-  taskAssignees         TaskAssignee[]
-  timeEntries           TimeEntry[]
-  reports               Report[]
-  documentCounters      DocumentCounter[]
-  quotes                Quote[]
-  quoteLines            QuoteLine[]
-  invoices              Invoice[]
-  invoiceLines          InvoiceLine[]
-  payments              Payment[]
-  subcontractors        Subcontractor[]
-  suppliers             Supplier[]
-  contracts             SubcontractorContract[]
-  costTypes             CostType[]
-  purchaseInvoices      PurchaseInvoice[]
-  closureSnapshots      ProjectClosureSnapshot[]
-  closureSnapshotCosts  ProjectClosureSnapshotCost[]
-  marginAlerts          ProjectMarginAlert[]
-  media                 Media[]
-  notifications         Notification[]
-  portalTokens          PortalToken[]
-  portalTracking        PortalTracking[]
-  conversations         Conversation[]
-  conversationMembers   ConversationMember[]
-  messages              Message[]
-  messageReads          MessageRead[]
+  users                User[]
+  rolePermissions      RolePermission[]
+  invitations          UserInvitation[]
+  oneTimeCodes         OneTimeCode[]
+  subscription         TenantSubscription?
+  usageSnapshots       BillingUsageSnapshot[]
+  auditLogs            AuditLog[]
+  analyticsEvents      AnalyticsEvent[]
+  feedback             Feedback[]
+  supportTickets       SupportTicket[]
+  clients              Client[]
+  projects             Project[]
+  projectStatusHistory ProjectStatusHistory[]
+  categories           Category[]
+  services             Service[]
+  materials            Material[]
+  serviceMaterials     ServiceMaterial[]
+  stockMovements       StockMovement[]
+  stockReservations    StockReservation[]
+  tasks                Task[]
+  taskAssignees        TaskAssignee[]
+  timeEntries          TimeEntry[]
+  reports              Report[]
+  documentCounters     DocumentCounter[]
+  quotes               Quote[]
+  quoteLines           QuoteLine[]
+  invoices             Invoice[]
+  invoiceLines         InvoiceLine[]
+  payments             Payment[]
+  subcontractors       Subcontractor[]
+  suppliers            Supplier[]
+  contracts            SubcontractorContract[]
+  costTypes            CostType[]
+  purchaseInvoices     PurchaseInvoice[]
+  closureSnapshots     ProjectClosureSnapshot[]
+  closureSnapshotCosts ProjectClosureSnapshotCost[]
+  marginAlerts         ProjectMarginAlert[]
+  media                Media[]
+  notifications        Notification[]
+  portalTokens         PortalToken[]
+  portalTracking       PortalTracking[]
+  conversations        Conversation[]
+  conversationMembers  ConversationMember[]
+  messages             Message[]
+  messageReads         MessageRead[]
 
   @@map("tenants")
 }
 
 model AdminUser {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id           Int      @id @default(autoincrement())
   email        String   @unique
   name         String
   /// argon2id
@@ -384,18 +389,18 @@ model AdminUser {
 /// Plans are NEVER seeded — the super-admin creates them as data, and one must
 /// carry isDefault = true before a company can register.
 model Plan {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id            Int      @id @default(autoincrement())
   name          String
   basePrice     Decimal  @map("base_price") @db.Decimal(12, 2)
   isActive      Boolean  @default(true) @map("is_active")
   /// The plan a new signup lands on. A partial unique index allows only one.
   isDefault     Boolean  @default(false) @map("is_default")
-  parentPlanId  String?  @map("parent_plan_id") @db.Uuid
+  parentPlanId  Int?     @map("parent_plan_id")
   stripePriceId String?  @map("stripe_price_id")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  parentPlan    Plan?    @relation("PlanVersions", fields: [parentPlanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  versions      Plan[]   @relation("PlanVersions")
+  parentPlan    Plan?                @relation("PlanVersions", fields: [parentPlanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  versions      Plan[]               @relation("PlanVersions")
   features      PlanFeature[]
   subscriptions TenantSubscription[] @relation("CurrentPlan")
   pendingFor    TenantSubscription[] @relation("PendingPlan")
@@ -404,15 +409,15 @@ model Plan {
 }
 
 model PlanFeature {
-  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  planId       String  @map("plan_id") @db.Uuid
+  id          Int     @id @default(autoincrement())
+  planId      Int     @map("plan_id")
   /// max_workers | max_managers | max_clients | max_subcontractors | storage_gb | retention_days
-  featureKey   String  @map("feature_key")
-  limitValue   Int     @map("limit_value")
+  featureKey  String  @map("feature_key")
+  limitValue  Int     @map("limit_value")
   /// retention_days has no overage
-  overageRate  Decimal @default(0) @map("overage_rate") @db.Decimal(12, 2)
+  overageRate Decimal @default(0) @map("overage_rate") @db.Decimal(12, 2)
 
-  plan         Plan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
 
   @@unique([planId, featureKey])
   @@map("plan_features")
@@ -424,23 +429,23 @@ model PlanFeature {
 /// SubscriptionGuard allows trialing/active/past_due, blocks cancelled.
 /// It never counts resources — overage is billed, never blocked.
 model TenantSubscription {
-  id                     String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId               String             @unique @map("tenant_id") @db.Uuid
-  planId                 String             @map("plan_id") @db.Uuid
+  id                     Int                @id @default(autoincrement())
+  tenantId               Int                @unique @map("tenant_id")
+  planId                 Int                @map("plan_id")
   stripeCustomerId       String?            @map("stripe_customer_id")
   stripeSubscriptionId   String?            @map("stripe_subscription_id")
   stripePriceId          String?            @map("stripe_price_id")
   status                 SubscriptionStatus @default(trialing)
   periodStart            DateTime           @default(now()) @map("period_start") @db.Timestamptz(6)
   periodEnd              DateTime           @map("period_end") @db.Timestamptz(6)
-  pendingPlanId          String?            @map("pending_plan_id") @db.Uuid
+  pendingPlanId          Int?               @map("pending_plan_id")
   pendingPlanEffectiveAt DateTime?          @map("pending_plan_effective_at") @db.Timestamptz(6)
   createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                 Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  plan                   Plan               @relation("CurrentPlan", fields: [planId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  pendingPlan            Plan?              @relation("PendingPlan", fields: [pendingPlanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan        Plan   @relation("CurrentPlan", fields: [planId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  pendingPlan Plan?  @relation("PendingPlan", fields: [pendingPlanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("tenant_subscriptions")
 }
@@ -448,8 +453,8 @@ model TenantSubscription {
 /// Limits and rates are COPIED here at snapshot time, so a later plan change
 /// never shifts a historical invoice.
 model BillingUsageSnapshot {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId          String   @map("tenant_id") @db.Uuid
+  id                Int      @id @default(autoincrement())
+  tenantId          Int      @map("tenant_id")
   periodStart       DateTime @map("period_start") @db.Timestamptz(6)
   periodEnd         DateTime @map("period_end") @db.Timestamptz(6)
   snapshotTakenAt   DateTime @default(now()) @map("snapshot_taken_at") @db.Timestamptz(6)
@@ -461,7 +466,7 @@ model BillingUsageSnapshot {
   overageAmount     Decimal  @map("overage_amount") @db.Decimal(12, 2)
   stripeInvoiceId   String?  @map("stripe_invoice_id")
 
-  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, periodStart, featureKey])
   @@map("billing_usage_snapshots")
@@ -469,7 +474,7 @@ model BillingUsageSnapshot {
 
 /// Never process a webhook with the same stripeEventId twice.
 model StripeEvent {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id            Int       @id @default(autoincrement())
   stripeEventId String    @unique @map("stripe_event_id")
   type          String
   payload       Json
@@ -481,22 +486,22 @@ model StripeEvent {
 }
 
 model AuditLog {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId    String?  @map("tenant_id") @db.Uuid
-  adminUserId String?  @map("admin_user_id") @db.Uuid
+  id          Int      @id @default(autoincrement())
+  tenantId    Int?     @map("tenant_id")
+  adminUserId Int?     @map("admin_user_id")
   /// Tenant-side actor. No FK: history outlives the user row.
-  userId      String?  @map("user_id") @db.Uuid
+  userId      Int?     @map("user_id")
   /// 'update' | 'delete' | 'impersonate_enter' | 'impersonate_exit' | ...
   action      String
   entityType  String   @map("entity_type")
-  entityId    String?  @map("entity_id") @db.Uuid
+  entityId    Int?     @map("entity_id")
   oldValue    Json?    @map("old_value")
   newValue    Json?    @map("new_value")
   ipAddress   String?  @map("ip_address") @db.Inet
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant      Tenant?    @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  adminUser   AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+  tenant    Tenant?    @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  adminUser AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
   @@map("audit_logs")
@@ -505,15 +510,15 @@ model AuditLog {
 /// Append-only. Written as a side effect through BullMQ, never blocking a request.
 /// retention_days deletes rows here — and read notifications — and nothing else.
 model AnalyticsEvent {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId  String   @map("tenant_id") @db.Uuid
-  userId    String?  @map("user_id") @db.Uuid
+  id        Int      @id @default(autoincrement())
+  tenantId  Int      @map("tenant_id")
+  userId    Int?     @map("user_id")
   eventName String   @map("event_name")
   payload   Json?
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
   @@map("analytics_events")
@@ -521,9 +526,9 @@ model AnalyticsEvent {
 
 /// One-way: the tenant posts, the platform changes the status. Not a conversation.
 model Feedback {
-  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId    String         @map("tenant_id") @db.Uuid
-  submittedBy String         @map("submitted_by") @db.Uuid
+  id          Int            @id @default(autoincrement())
+  tenantId    Int            @map("tenant_id")
+  submittedBy Int            @map("submitted_by")
   type        FeedbackType
   title       String
   body        String?
@@ -531,31 +536,31 @@ model Feedback {
   createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  submitter   User           @relation(fields: [submittedBy], references: [id], onDelete: Restrict)
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submitter User   @relation(fields: [submittedBy], references: [id], onDelete: Restrict)
 
   @@map("feedback")
 }
 
 /// A container. All the talking happens in a `support` Conversation.
 model SupportTicket {
-  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId        String         @map("tenant_id") @db.Uuid
+  id              Int            @id @default(autoincrement())
+  tenantId        Int            @map("tenant_id")
   /// Must hold the `admin` role — checked in the handler.
-  openedBy        String         @map("opened_by") @db.Uuid
+  openedBy        Int            @map("opened_by")
   subject         String
   category        TicketCategory @default(question)
   priority        TicketPriority @default(normal)
   status          TicketStatus   @default(open)
-  assignedAdminId String?        @map("assigned_admin_id") @db.Uuid
+  assignedAdminId Int?           @map("assigned_admin_id")
   closedAt        DateTime?      @map("closed_at") @db.Timestamptz(6)
   createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  opener          User           @relation(fields: [openedBy], references: [id], onDelete: Restrict)
-  assignedAdmin   AdminUser?     @relation(fields: [assignedAdminId], references: [id], onDelete: SetNull)
-  conversations   Conversation[]
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  opener        User           @relation(fields: [openedBy], references: [id], onDelete: Restrict)
+  assignedAdmin AdminUser?     @relation(fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  conversations Conversation[]
 
   @@index([tenantId, status])
   @@map("support_tickets")
@@ -582,8 +587,8 @@ model Role {
 /// email is UNIQUE ACROSS THE WHOLE APP, not per tenant, because login is
 /// email + password with no company field. One email belongs to one company.
 model User {
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId        String    @map("tenant_id") @db.Uuid
+  id              Int       @id @default(autoincrement())
+  tenantId        Int       @map("tenant_id")
   roleId          Int       @map("role_id") @db.SmallInt
   name            String
   email           String    @unique
@@ -601,36 +606,36 @@ model User {
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  role            Role      @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  refreshTokens        RefreshToken[]
-  oneTimeCodes         OneTimeCode[]
-  sentInvitations      UserInvitation[]       @relation("InvitedBy")
-  analyticsEvents      AnalyticsEvent[]
-  feedback             Feedback[]
-  openedTickets        SupportTicket[]
-  managedProjects      Project[]              @relation("ProjectManager")
-  createdProjects      Project[]              @relation("ProjectCreatedBy")
-  statusChanges        ProjectStatusHistory[]
-  stockMovements       StockMovement[]
-  createdTasks         Task[]
-  taskAssignees        TaskAssignee[]
-  timeEntries          TimeEntry[]            @relation("TimeEntryUser")
-  createdTimeEntries   TimeEntry[]            @relation("TimeEntryCreatedBy")
-  reports              Report[]
-  createdQuotes        Quote[]
-  createdInvoices      Invoice[]
-  createdPayments      Payment[]
-  createdContracts     SubcontractorContract[]
-  createdPurchaseInv   PurchaseInvoice[]
-  closedSnapshots      ProjectClosureSnapshot[] @relation("SnapshotClosedBy")
-  voidedSnapshots      ProjectClosureSnapshot[] @relation("SnapshotVoidedBy")
-  uploadedMedia        Media[]
-  notifications        Notification[]
-  createdPortalTokens  PortalToken[]
-  conversationMembers  ConversationMember[]
-  messageReads         MessageRead[]
+  refreshTokens       RefreshToken[]
+  oneTimeCodes        OneTimeCode[]
+  sentInvitations     UserInvitation[]         @relation("InvitedBy")
+  analyticsEvents     AnalyticsEvent[]
+  feedback            Feedback[]
+  openedTickets       SupportTicket[]
+  managedProjects     Project[]                @relation("ProjectManager")
+  createdProjects     Project[]                @relation("ProjectCreatedBy")
+  statusChanges       ProjectStatusHistory[]
+  stockMovements      StockMovement[]
+  createdTasks        Task[]
+  taskAssignees       TaskAssignee[]
+  timeEntries         TimeEntry[]              @relation("TimeEntryUser")
+  createdTimeEntries  TimeEntry[]              @relation("TimeEntryCreatedBy")
+  reports             Report[]
+  createdQuotes       Quote[]
+  createdInvoices     Invoice[]
+  createdPayments     Payment[]
+  createdContracts    SubcontractorContract[]
+  createdPurchaseInv  PurchaseInvoice[]
+  closedSnapshots     ProjectClosureSnapshot[] @relation("SnapshotClosedBy")
+  voidedSnapshots     ProjectClosureSnapshot[] @relation("SnapshotVoidedBy")
+  uploadedMedia       Media[]
+  notifications       Notification[]
+  createdPortalTokens PortalToken[]
+  conversationMembers ConversationMember[]
+  messageReads        MessageRead[]
 
   @@index([tenantId])
   @@map("users")
@@ -644,8 +649,8 @@ model User {
 /// rows" — a worker sees their own tasks and hours. Four booleans cannot say
 /// that. On scope = own, PermissionGuard adds WHERE user_id = :current.
 model RolePermission {
-  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId  String           @map("tenant_id") @db.Uuid
+  id        Int              @id @default(autoincrement())
+  tenantId  Int              @map("tenant_id")
   roleId    Int              @map("role_id") @db.SmallInt
   module    PermissionModule
   canView   Boolean          @default(false) @map("can_view")
@@ -654,8 +659,8 @@ model RolePermission {
   canDelete Boolean          @default(false) @map("can_delete")
   scope     PermissionScope  @default(all)
 
-  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  role      Role             @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([tenantId, roleId, module])
   @@map("role_permissions")
@@ -667,9 +672,9 @@ model RolePermission {
 /// Every refresh rotates: new row, old revoked. A revoked token used again
 /// means it was stolen — revoke every row for that user.
 model RefreshToken {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId      String?   @map("user_id") @db.Uuid
-  adminUserId String?   @map("admin_user_id") @db.Uuid
+  id          Int       @id @default(autoincrement())
+  userId      Int?      @map("user_id")
+  adminUserId Int?      @map("admin_user_id")
   /// sha256. The raw value lives only in the cookie.
   tokenHash   String    @unique @map("token_hash")
   userAgent   String?   @map("user_agent")
@@ -678,8 +683,8 @@ model RefreshToken {
   revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(6)
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user        User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  adminUser   AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adminUser AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("refresh_tokens")
@@ -689,21 +694,21 @@ model RefreshToken {
 /// created when the invitation is ACCEPTED, not when it is sent.
 /// One open invitation per email app-wide, same reason as users.email.
 model UserInvitation {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId   String    @map("tenant_id") @db.Uuid
+  id         Int       @id @default(autoincrement())
+  tenantId   Int       @map("tenant_id")
   email      String
   name       String
   roleId     Int       @map("role_id") @db.SmallInt
   /// sha256. The raw token is only in the email link.
   tokenHash  String    @unique @map("token_hash")
-  invitedBy  String    @map("invited_by") @db.Uuid
+  invitedBy  Int       @map("invited_by")
   expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
   acceptedAt DateTime? @map("accepted_at") @db.Timestamptz(6)
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  role       Role      @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  inviter    User      @relation("InvitedBy", fields: [invitedBy], references: [id], onDelete: Restrict)
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role    Role   @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inviter User   @relation("InvitedBy", fields: [invitedBy], references: [id], onDelete: Restrict)
 
   @@map("user_invitations")
 }
@@ -714,9 +719,11 @@ model UserInvitation {
 ///   email_verification 24 hours  —
 ///   admin_2fa          5 minutes max 3 attempts
 model OneTimeCode {
-  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId       String?         @map("user_id") @db.Uuid
-  adminUserId  String?         @map("admin_user_id") @db.Uuid
+  id           Int             @id @default(autoincrement())
+  /// Exactly one of tenantId / userId / adminUserId is set per row.
+  tenantId     Int?            @map("tenant_id")
+  userId       Int?            @map("user_id")
+  adminUserId  Int?            @map("admin_user_id")
   type         OneTimeCodeType
   /// sha256
   codeHash     String          @map("code_hash")
@@ -725,8 +732,9 @@ model OneTimeCode {
   attemptCount Int             @default(0) @map("attempt_count") @db.SmallInt
   createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user         User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  adminUser    AdminUser?      @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  tenant    Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adminUser AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
 
   @@map("one_time_codes")
 }
@@ -739,8 +747,8 @@ model OneTimeCode {
 /// sent, late reminder, portal link). UNIQUE per tenant — one card per person,
 /// so a client's whole project history stays on one row.
 model Client {
-  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId       String     @map("tenant_id") @db.Uuid
+  id             Int        @id @default(autoincrement())
+  tenantId       Int        @map("tenant_id")
   type           ClientType @default(individual)
   name           String
   contactName    String?    @map("contact_name")
@@ -760,13 +768,13 @@ model Client {
   createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant         Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  projects       Project[]
-  quotes         Quote[]
-  invoices       Invoice[]
-  portalTokens   PortalToken[]
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projects            Project[]
+  quotes              Quote[]
+  invoices            Invoice[]
+  portalTokens        PortalToken[]
   conversationMembers ConversationMember[]
-  messageReads   MessageRead[]
+  messageReads        MessageRead[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -782,9 +790,9 @@ model Client {
 ///   completed   -> in_progress  (admin only — VOIDS the closure snapshot)
 ///   cancelled   -> nothing      (final)
 model Project {
-  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId      String        @map("tenant_id") @db.Uuid
-  clientId      String        @map("client_id") @db.Uuid
+  id            Int           @id @default(autoincrement())
+  tenantId      Int           @map("tenant_id")
+  clientId      Int           @map("client_id")
   name          String
   description   String?
   status        ProjectStatus @default(prospect)
@@ -797,49 +805,49 @@ model Project {
   endDate       DateTime?     @map("end_date") @db.Date
   /// Set when status becomes completed.
   actualEndDate DateTime?     @map("actual_end_date") @db.Date
-  managerId     String?       @map("manager_id") @db.Uuid
-  createdBy     String?       @map("created_by") @db.Uuid
+  managerId     Int?          @map("manager_id")
+  createdBy     Int?          @map("created_by")
   createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  client        Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  manager       User?         @relation("ProjectManager", fields: [managerId], references: [id], onDelete: SetNull)
-  creator       User?         @relation("ProjectCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client  Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  manager User?  @relation("ProjectManager", fields: [managerId], references: [id], onDelete: SetNull)
+  creator User?  @relation("ProjectCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
 
-  statusHistory      ProjectStatusHistory[]
-  stockMovements     StockMovement[]
-  stockReservations  StockReservation[]
-  tasks              Task[]
-  timeEntries        TimeEntry[]
-  reports            Report[]
-  quotes             Quote[]
-  invoices           Invoice[]
-  contracts          SubcontractorContract[]
-  purchaseInvoices   PurchaseInvoice[]
-  closureSnapshots   ProjectClosureSnapshot[]
-  marginAlerts       ProjectMarginAlert[]
-  portalTokens       PortalToken[]
-  conversations      Conversation[]
+  statusHistory     ProjectStatusHistory[]
+  stockMovements    StockMovement[]
+  stockReservations StockReservation[]
+  tasks             Task[]
+  timeEntries       TimeEntry[]
+  reports           Report[]
+  quotes            Quote[]
+  invoices          Invoice[]
+  contracts         SubcontractorContract[]
+  purchaseInvoices  PurchaseInvoice[]
+  closureSnapshots  ProjectClosureSnapshot[]
+  marginAlerts      ProjectMarginAlert[]
+  portalTokens      PortalToken[]
+  conversations     Conversation[]
 
   @@index([tenantId, status])
   @@map("projects")
 }
 
 model ProjectStatusHistory {
-  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId   String         @map("tenant_id") @db.Uuid
-  projectId  String         @map("project_id") @db.Uuid
+  id         Int            @id @default(autoincrement())
+  tenantId   Int            @map("tenant_id")
+  projectId  Int            @map("project_id")
   /// NULL on creation
   fromStatus ProjectStatus? @map("from_status")
   toStatus   ProjectStatus  @map("to_status")
   reason     String?
-  changedBy  String?        @map("changed_by") @db.Uuid
+  changedBy  Int?           @map("changed_by")
   changedAt  DateTime       @default(now()) @map("changed_at") @db.Timestamptz(6)
 
-  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  project    Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  changer    User?          @relation(fields: [changedBy], references: [id], onDelete: SetNull)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  changer User?   @relation(fields: [changedBy], references: [id], onDelete: SetNull)
 
   @@index([projectId, changedAt])
   @@map("project_status_history")
@@ -854,38 +862,38 @@ model ProjectStatusHistory {
 /// MUST be read with: WHERE tenant_id IS NULL OR tenant_id = :current
 /// through a dedicated method, never the generic tenant filter.
 model Category {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId  String?   @map("tenant_id") @db.Uuid
+  id        Int      @id @default(autoincrement())
+  tenantId  Int?     @map("tenant_id")
   name      String
-  isActive  Boolean   @default(true) @map("is_active")
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant    Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  services  Service[]
+  tenant   Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  services Service[]
 
   @@map("categories")
 }
 
 model Service {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId        String   @map("tenant_id") @db.Uuid
-  categoryId      String   @map("category_id") @db.Uuid
-  description     String
+  id             Int      @id @default(autoincrement())
+  tenantId       Int      @map("tenant_id")
+  categoryId     Int      @map("category_id")
+  description    String
   /// m2 | ml | h | piece
-  unit            String
-  priceExclVat    Decimal  @map("price_excl_vat") @db.Decimal(12, 2)
+  unit           String
+  priceExclVat   Decimal  @map("price_excl_vat") @db.Decimal(12, 2)
   /// NULL falls back to tenants.default_vat_rate. Set 6.00 on Belgian labour
   /// services so the quote line pre-fills the right rate by itself.
-  defaultVatRate  Decimal? @map("default_vat_rate") @db.Decimal(5, 2)
-  isActive        Boolean  @default(true) @map("is_active")
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  defaultVatRate Decimal? @map("default_vat_rate") @db.Decimal(5, 2)
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category        Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  recipe          ServiceMaterial[]
-  quoteLines      QuoteLine[]
-  invoiceLines    InvoiceLine[]
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category     Category          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  recipe       ServiceMaterial[]
+  quoteLines   QuoteLine[]
+  invoiceLines InvoiceLine[]
 
   @@index([tenantId])
   @@map("services")
@@ -894,8 +902,8 @@ model Service {
 /// Has NO quantity column. The quantity in stock is never stored — it is
 /// always summed from the stock_movements ledger via material_stock_live.
 model Material {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId      String   @map("tenant_id") @db.Uuid
+  id            Int      @id @default(autoincrement())
+  tenantId      Int      @map("tenant_id")
   description   String
   unit          String
   /// Today's price. The frozen one sits on each movement.
@@ -905,10 +913,10 @@ model Material {
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  recipeRows    ServiceMaterial[]
-  movements     StockMovement[]
-  reservations  StockReservation[]
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipeRows   ServiceMaterial[]
+  movements    StockMovement[]
+  reservations StockReservation[]
 
   @@index([tenantId])
   @@map("materials")
@@ -916,15 +924,15 @@ model Material {
 
 /// The recipe: how much of a material one unit of a service consumes.
 model ServiceMaterial {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId        String   @map("tenant_id") @db.Uuid
-  serviceId       String   @map("service_id") @db.Uuid
-  materialId      String   @map("material_id") @db.Uuid
-  quantityPerUnit Decimal  @map("quantity_per_unit") @db.Decimal(12, 4)
+  id              Int     @id @default(autoincrement())
+  tenantId        Int     @map("tenant_id")
+  serviceId       Int     @map("service_id")
+  materialId      Int     @map("material_id")
+  quantityPerUnit Decimal @map("quantity_per_unit") @db.Decimal(12, 4)
 
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  service         Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  material        Material @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  service  Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  material Material @relation(fields: [materialId], references: [id], onDelete: Restrict)
 
   @@unique([serviceId, materialId])
   @@map("service_materials")
@@ -937,15 +945,15 @@ model ServiceMaterial {
 ///   consumption -> projectId NOT NULL AND quantity < 0
 ///   purchase    -> projectId IS NULL   AND quantity > 0
 model StockMovement {
-  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId          String            @map("tenant_id") @db.Uuid
-  materialId        String            @map("material_id") @db.Uuid
+  id                Int               @id @default(autoincrement())
+  tenantId          Int               @map("tenant_id")
+  materialId        Int               @map("material_id")
   /// Required on consumption, always NULL on purchase — stock is a shared pool.
-  projectId         String?           @map("project_id") @db.Uuid
+  projectId         Int?              @map("project_id")
   /// The site report that declared this consumption. Traceability.
-  reportId          String?           @map("report_id") @db.Uuid
+  reportId          Int?              @map("report_id")
   /// The supplier bill, when both exist. Either can exist alone.
-  purchaseInvoiceId String?           @map("purchase_invoice_id") @db.Uuid
+  purchaseInvoiceId Int?              @map("purchase_invoice_id")
   type              StockMovementType
   /// SIGNED: + purchase, - consumption, either sign for adjustment. Never zero.
   quantity          Decimal           @db.Decimal(12, 3)
@@ -955,15 +963,15 @@ model StockMovement {
   movementDate      DateTime          @default(dbgenerated("CURRENT_DATE")) @map("movement_date") @db.Date
   /// Why. Required on an adjustment.
   note              String?
-  createdBy         String?           @map("created_by") @db.Uuid
+  createdBy         Int?              @map("created_by")
   createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  material          Material          @relation(fields: [materialId], references: [id], onDelete: Restrict)
-  project           Project?          @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  report            Report?           @relation(fields: [reportId], references: [id], onDelete: SetNull)
-  purchaseInvoice   PurchaseInvoice?  @relation(fields: [purchaseInvoiceId], references: [id], onDelete: SetNull)
-  creator           User?             @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  material        Material         @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  report          Report?          @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  purchaseInvoice PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id], onDelete: SetNull)
+  creator         User?            @relation(fields: [createdBy], references: [id], onDelete: SetNull)
 
   @@index([tenantId, materialId])
   @@index([projectId])
@@ -976,19 +984,19 @@ model StockMovement {
 /// UNIQUE(projectId, materialId): a second accepted quote ADDS to this row.
 /// Only `active` rows count in material_stock_live.reserved.
 model StockReservation {
-  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId          String            @map("tenant_id") @db.Uuid
-  projectId         String            @map("project_id") @db.Uuid
-  materialId        String            @map("material_id") @db.Uuid
+  id                Int               @id @default(autoincrement())
+  tenantId          Int               @map("tenant_id")
+  projectId         Int               @map("project_id")
+  materialId        Int               @map("material_id")
   reservedQuantity  Decimal           @map("reserved_quantity") @db.Decimal(12, 3)
   remainingQuantity Decimal           @map("remaining_quantity") @db.Decimal(12, 3)
   status            ReservationStatus @default(active)
   createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  material          Material          @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  material Material @relation(fields: [materialId], references: [id], onDelete: Restrict)
 
   @@unique([projectId, materialId])
   @@map("stock_reservations")
@@ -999,23 +1007,23 @@ model StockReservation {
 // ============================================================================
 
 model Task {
-  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId  String     @map("tenant_id") @db.Uuid
-  projectId String     @map("project_id") @db.Uuid
+  id        Int        @id @default(autoincrement())
+  tenantId  Int        @map("tenant_id")
+  projectId Int        @map("project_id")
   title     String
   type      TaskType   @default(work)
   startDate DateTime   @map("start_date") @db.Date
   /// CHECK: not before startDate
   endDate   DateTime   @map("end_date") @db.Date
   status    TaskStatus @default(planned)
-  createdBy String?    @map("created_by") @db.Uuid
+  createdBy Int?       @map("created_by")
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  creator   User?      @relation(fields: [createdBy], references: [id], onDelete: SetNull)
-  assignees TaskAssignee[]
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator     User?          @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  assignees   TaskAssignee[]
   timeEntries TimeEntry[]
 
   @@unique([tenantId, id])
@@ -1028,15 +1036,15 @@ model Task {
 /// userId is a REAL account, never a typed name, because that account logs the
 /// hours later. A task needs >= 1 assignee before leaving `planned`.
 model TaskAssignee {
-  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId String @map("tenant_id") @db.Uuid
-  taskId   String @map("task_id") @db.Uuid
-  userId   String @map("user_id") @db.Uuid
+  id       Int @id @default(autoincrement())
+  tenantId Int @map("tenant_id")
+  taskId   Int @map("task_id")
+  userId   Int @map("user_id")
 
-  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   /// Composite FK: the assignee row and its task MUST belong to the same company.
-  task     Task   @relation(fields: [tenantId, taskId], references: [tenantId, id], onDelete: Cascade)
-  user     User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  task   Task   @relation(fields: [tenantId, taskId], references: [tenantId, id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@unique([taskId, userId])
   @@index([userId])
@@ -1050,26 +1058,26 @@ model TaskAssignee {
 /// across EVERY project.  <=12h saved · >12h saved + alert · >24h REJECTED.
 /// A per-row check is not enough: 20h on A + 20h on B both pass it.
 model TimeEntry {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId   String   @map("tenant_id") @db.Uuid
-  projectId  String   @map("project_id") @db.Uuid
-  userId     String   @map("user_id") @db.Uuid
-  taskId     String?  @map("task_id") @db.Uuid
+  id         Int      @id @default(autoincrement())
+  tenantId   Int      @map("tenant_id")
+  projectId  Int      @map("project_id")
+  userId     Int      @map("user_id")
+  taskId     Int?     @map("task_id")
   workDate   DateTime @map("work_date") @db.Date
   /// CHECK: > 0 AND <= 24
   hours      Decimal  @db.Decimal(5, 2)
   /// FROZEN from users.hourly_rate at write time, so past margins never shift.
   hourlyRate Decimal  @map("hourly_rate") @db.Decimal(12, 2)
   comment    String?
-  createdBy  String?  @map("created_by") @db.Uuid
+  createdBy  Int?     @map("created_by")
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  project    Project  @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  user       User     @relation("TimeEntryUser", fields: [userId], references: [id], onDelete: Restrict)
-  task       Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  creator    User?    @relation("TimeEntryCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  user    User    @relation("TimeEntryUser", fields: [userId], references: [id], onDelete: Restrict)
+  task    Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  creator User?   @relation("TimeEntryCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
 
   @@unique([userId, projectId, workDate])
   @@index([userId, workDate])
@@ -1081,22 +1089,22 @@ model TimeEntry {
 /// Feeds three things: the portal progress %, the stock consumption rows,
 /// and the report photos (media, entity_type = report).
 model Report {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId    String   @map("tenant_id") @db.Uuid
-  projectId   String   @map("project_id") @db.Uuid
+  id          Int      @id @default(autoincrement())
+  tenantId    Int      @map("tenant_id")
+  projectId   Int      @map("project_id")
   reportDate  DateTime @default(dbgenerated("CURRENT_DATE")) @map("report_date") @db.Date
   /// CHECK: 0..100
   progressPct Int      @map("progress_pct")
   weather     String?
   note        String?
-  createdBy   String?  @map("created_by") @db.Uuid
+  createdBy   Int?     @map("created_by")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  creator     User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
-  movements   StockMovement[]
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator   User?           @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  movements StockMovement[]
 
   @@unique([tenantId, projectId, reportDate])
   @@map("reports")
@@ -1111,12 +1119,12 @@ model Report {
 ///   INSERT ... ON CONFLICT DO UPDATE SET last_number = last_number + 1 RETURNING
 /// inside the document's OWN transaction. Never COUNT(*) + 1.
 model DocumentCounter {
-  tenantId     String       @map("tenant_id") @db.Uuid
+  tenantId     Int          @map("tenant_id")
   documentType DocumentType @map("document_type")
   year         Int          @db.SmallInt
   lastNumber   Int          @default(0) @map("last_number")
 
-  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@id([tenantId, documentType, year])
   @@map("document_counters")
@@ -1133,34 +1141,34 @@ model DocumentCounter {
 /// acceptedAt is what makes budget history free: the accepted quotes with
 /// their dates ARE the history. No project_budget_history table.
 model Quote {
-  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId        String      @map("tenant_id") @db.Uuid
-  clientId        String      @map("client_id") @db.Uuid
-  projectId       String      @map("project_id") @db.Uuid
+  id             Int         @id @default(autoincrement())
+  tenantId       Int         @map("tenant_id")
+  clientId       Int         @map("client_id")
+  projectId      Int         @map("project_id")
   /// QUO-2026-0001
-  number          String
-  status          QuoteStatus @default(draft)
-  issueDate       DateTime    @default(dbgenerated("CURRENT_DATE")) @map("issue_date") @db.Date
-  validUntil      DateTime?   @map("valid_until") @db.Date
+  number         String
+  status         QuoteStatus @default(draft)
+  issueDate      DateTime    @default(dbgenerated("CURRENT_DATE")) @map("issue_date") @db.Date
+  validUntil     DateTime?   @map("valid_until") @db.Date
   /// Pre-fill for new lines, copied from tenants.default_vat_rate.
-  defaultVatRate  Decimal     @map("default_vat_rate") @db.Decimal(5, 2)
-  amountExclVat   Decimal     @default(0) @map("amount_excl_vat") @db.Decimal(12, 2)
-  vatAmount       Decimal     @default(0) @map("vat_amount") @db.Decimal(12, 2)
-  amountInclVat   Decimal     @default(0) @map("amount_incl_vat") @db.Decimal(12, 2)
-  note            String?
-  sentAt          DateTime?   @map("sent_at") @db.Timestamptz(6)
-  acceptedAt      DateTime?   @map("accepted_at") @db.Timestamptz(6)
-  refusedAt       DateTime?   @map("refused_at") @db.Timestamptz(6)
-  createdBy       String?     @map("created_by") @db.Uuid
-  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  defaultVatRate Decimal     @map("default_vat_rate") @db.Decimal(5, 2)
+  amountExclVat  Decimal     @default(0) @map("amount_excl_vat") @db.Decimal(12, 2)
+  vatAmount      Decimal     @default(0) @map("vat_amount") @db.Decimal(12, 2)
+  amountInclVat  Decimal     @default(0) @map("amount_incl_vat") @db.Decimal(12, 2)
+  note           String?
+  sentAt         DateTime?   @map("sent_at") @db.Timestamptz(6)
+  acceptedAt     DateTime?   @map("accepted_at") @db.Timestamptz(6)
+  refusedAt      DateTime?   @map("refused_at") @db.Timestamptz(6)
+  createdBy      Int?        @map("created_by")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  client          Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  project         Project     @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  creator         User?       @relation(fields: [createdBy], references: [id], onDelete: SetNull)
-  lines           QuoteLine[]
-  invoices        Invoice[]
+  tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client   Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project  Project     @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  creator  User?       @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  lines    QuoteLine[]
+  invoices Invoice[]
 
   @@unique([tenantId, number])
   @@unique([tenantId, id])
@@ -1174,10 +1182,10 @@ model Quote {
 /// totalExclVat is DB-COMPUTED — that is what fixes the NaN total bug.
 /// The composite FK (tenantId, quoteId) makes a cross-tenant line impossible.
 model QuoteLine {
-  id               String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId         String  @map("tenant_id") @db.Uuid
-  quoteId          String  @map("quote_id") @db.Uuid
-  serviceId        String? @map("service_id") @db.Uuid
+  id               Int     @id @default(autoincrement())
+  tenantId         Int     @map("tenant_id")
+  quoteId          Int     @map("quote_id")
+  serviceId        Int?    @map("service_id")
   description      String
   unit             String?
   /// CHECK: not zero
@@ -1190,10 +1198,10 @@ model QuoteLine {
   totalExclVat     Decimal @default(0) @map("total_excl_vat") @db.Decimal(12, 2)
   position         Int     @default(0) @db.SmallInt
 
-  tenant           Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   /// Composite FK: the line and its quote MUST belong to the same company.
-  quote            Quote   @relation(fields: [tenantId, quoteId], references: [tenantId, id], onDelete: Cascade)
-  service          Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  quote   Quote    @relation(fields: [tenantId, quoteId], references: [tenantId, id], onDelete: Cascade)
+  service Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
 
   @@index([quoteId, position])
   @@map("quote_lines")
@@ -1203,35 +1211,35 @@ model QuoteLine {
 /// could never be chased. Pre-filled as issueDate + tenants.defaultPaymentDays.
 /// There is NO `overdue` status — see InvoiceStatus.
 model Invoice {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId        String        @map("tenant_id") @db.Uuid
-  clientId        String        @map("client_id") @db.Uuid
-  projectId       String        @map("project_id") @db.Uuid
-  quoteId         String?       @map("quote_id") @db.Uuid
+  id             Int           @id @default(autoincrement())
+  tenantId       Int           @map("tenant_id")
+  clientId       Int           @map("client_id")
+  projectId      Int           @map("project_id")
+  quoteId        Int?          @map("quote_id")
   /// INV-2026-0042
-  number          String
-  status          InvoiceStatus @default(draft)
-  issueDate       DateTime      @default(dbgenerated("CURRENT_DATE")) @map("issue_date") @db.Date
-  dueDate         DateTime      @map("due_date") @db.Date
-  defaultVatRate  Decimal       @map("default_vat_rate") @db.Decimal(5, 2)
-  amountExclVat   Decimal       @default(0) @map("amount_excl_vat") @db.Decimal(12, 2)
-  vatAmount       Decimal       @default(0) @map("vat_amount") @db.Decimal(12, 2)
-  amountInclVat   Decimal       @default(0) @map("amount_incl_vat") @db.Decimal(12, 2)
-  note            String?
-  sentAt          DateTime?     @map("sent_at") @db.Timestamptz(6)
-  reminderCount   Int           @default(0) @map("reminder_count") @db.SmallInt
-  lastReminderAt  DateTime?     @map("last_reminder_at") @db.Timestamptz(6)
-  createdBy       String?       @map("created_by") @db.Uuid
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  number         String
+  status         InvoiceStatus @default(draft)
+  issueDate      DateTime      @default(dbgenerated("CURRENT_DATE")) @map("issue_date") @db.Date
+  dueDate        DateTime      @map("due_date") @db.Date
+  defaultVatRate Decimal       @map("default_vat_rate") @db.Decimal(5, 2)
+  amountExclVat  Decimal       @default(0) @map("amount_excl_vat") @db.Decimal(12, 2)
+  vatAmount      Decimal       @default(0) @map("vat_amount") @db.Decimal(12, 2)
+  amountInclVat  Decimal       @default(0) @map("amount_incl_vat") @db.Decimal(12, 2)
+  note           String?
+  sentAt         DateTime?     @map("sent_at") @db.Timestamptz(6)
+  reminderCount  Int           @default(0) @map("reminder_count") @db.SmallInt
+  lastReminderAt DateTime?     @map("last_reminder_at") @db.Timestamptz(6)
+  createdBy      Int?          @map("created_by")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  client          Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  project         Project       @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  quote           Quote?        @relation(fields: [quoteId], references: [id], onDelete: SetNull)
-  creator         User?         @relation(fields: [createdBy], references: [id], onDelete: SetNull)
-  lines           InvoiceLine[]
-  payments        Payment[]
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client   Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project  Project       @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  quote    Quote?        @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  creator  User?         @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  lines    InvoiceLine[]
+  payments Payment[]
 
   @@unique([tenantId, number])
   @@unique([tenantId, id])
@@ -1241,10 +1249,10 @@ model Invoice {
 }
 
 model InvoiceLine {
-  id               String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId         String  @map("tenant_id") @db.Uuid
-  invoiceId        String  @map("invoice_id") @db.Uuid
-  serviceId        String? @map("service_id") @db.Uuid
+  id               Int     @id @default(autoincrement())
+  tenantId         Int     @map("tenant_id")
+  invoiceId        Int     @map("invoice_id")
+  serviceId        Int?    @map("service_id")
   description      String
   unit             String?
   quantity         Decimal @db.Decimal(12, 3)
@@ -1256,10 +1264,10 @@ model InvoiceLine {
   totalExclVat     Decimal @default(0) @map("total_excl_vat") @db.Decimal(12, 2)
   position         Int     @default(0) @db.SmallInt
 
-  tenant           Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   /// Composite FK: the line and its invoice MUST belong to the same company.
-  invoice          Invoice @relation(fields: [tenantId, invoiceId], references: [tenantId, id], onDelete: Cascade)
-  service          Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  invoice Invoice  @relation(fields: [tenantId, invoiceId], references: [tenantId, id], onDelete: Cascade)
+  service Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
 
   @@index([invoiceId, position])
   @@map("invoice_lines")
@@ -1268,20 +1276,20 @@ model InvoiceLine {
 /// The ledger. One row per payment received, never a running total.
 /// invoice_balance reads the STORED amountInclVat minus SUM(payments).
 model Payment {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId    String        @map("tenant_id") @db.Uuid
-  invoiceId   String        @map("invoice_id") @db.Uuid
+  id          Int           @id @default(autoincrement())
+  tenantId    Int           @map("tenant_id")
+  invoiceId   Int           @map("invoice_id")
   /// CHECK: > 0
   amount      Decimal       @db.Decimal(12, 2)
   method      PaymentMethod
   reference   String?
   paymentDate DateTime      @default(dbgenerated("CURRENT_DATE")) @map("payment_date") @db.Date
-  createdBy   String?       @map("created_by") @db.Uuid
+  createdBy   Int?          @map("created_by")
   createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invoice     Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
-  creator     User?         @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  creator User?   @relation(fields: [createdBy], references: [id], onDelete: SetNull)
 
   @@index([invoiceId])
   @@map("payments")
@@ -1293,8 +1301,8 @@ model Payment {
 
 /// The directory — created once, reused on every project.
 model Subcontractor {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId    String   @map("tenant_id") @db.Uuid
+  id          Int      @id @default(autoincrement())
+  tenantId    Int      @map("tenant_id")
   companyName String   @map("company_name")
   trade       String?
   email       String?
@@ -1305,26 +1313,26 @@ model Subcontractor {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  contracts   SubcontractorContract[]
+  tenant    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contracts SubcontractorContract[]
 
   @@index([tenantId])
   @@map("subcontractors")
 }
 
 model Supplier {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId   String   @map("tenant_id") @db.Uuid
-  name       String
-  email      String?
-  phone      String?
-  address    String?
-  vatNumber  String?  @map("vat_number")
-  isActive   Boolean  @default(true) @map("is_active")
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id        Int      @id @default(autoincrement())
+  tenantId  Int      @map("tenant_id")
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  vatNumber String?  @map("vat_number")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   purchaseInvoices PurchaseInvoice[]
 
   @@map("suppliers")
@@ -1334,24 +1342,24 @@ model Supplier {
 /// project. Purely internal: never shown to the client.
 /// One contract can produce several bills (progress payment, final payment).
 model SubcontractorContract {
-  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId         String         @map("tenant_id") @db.Uuid
-  subcontractorId  String         @map("subcontractor_id") @db.Uuid
-  projectId        String         @map("project_id") @db.Uuid
-  description      String?
-  amountExclVat    Decimal        @map("amount_excl_vat") @db.Decimal(12, 2)
-  status           ContractStatus @default(in_progress)
-  startDate        DateTime?      @map("start_date") @db.Date
+  id              Int            @id @default(autoincrement())
+  tenantId        Int            @map("tenant_id")
+  subcontractorId Int            @map("subcontractor_id")
+  projectId       Int            @map("project_id")
+  description     String?
+  amountExclVat   Decimal        @map("amount_excl_vat") @db.Decimal(12, 2)
+  status          ContractStatus @default(in_progress)
+  startDate       DateTime?      @map("start_date") @db.Date
   /// CHECK: not before startDate
-  endDate          DateTime?      @map("end_date") @db.Date
-  createdBy        String?        @map("created_by") @db.Uuid
-  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  endDate         DateTime?      @map("end_date") @db.Date
+  createdBy       Int?           @map("created_by")
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  subcontractor    Subcontractor  @relation(fields: [subcontractorId], references: [id], onDelete: Restrict)
-  project          Project        @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  creator          User?          @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subcontractor    Subcontractor     @relation(fields: [subcontractorId], references: [id], onDelete: Restrict)
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  creator          User?             @relation(fields: [createdBy], references: [id], onDelete: SetNull)
   purchaseInvoices PurchaseInvoice[]
 
   @@index([projectId])
@@ -1364,13 +1372,13 @@ model SubcontractorContract {
 /// up with no column, no migration and no developer.
 /// Read with: WHERE tenant_id IS NULL OR tenant_id = :current
 model CostType {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId  String?  @map("tenant_id") @db.Uuid
+  id        Int      @id @default(autoincrement())
+  tenantId  Int?     @map("tenant_id")
   name      String
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant           Tenant?                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   purchaseInvoices PurchaseInvoice[]
   snapshotCosts    ProjectClosureSnapshotCost[]
 
@@ -1394,13 +1402,13 @@ model CostType {
 /// status. `status` only tracks whether the money has left the bank.
 /// Instalments: one bill per stage. There is no payment ledger for money out.
 model PurchaseInvoice {
-  id                      String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId                String                @map("tenant_id") @db.Uuid
+  id                      Int                   @id @default(autoincrement())
+  tenantId                Int                   @map("tenant_id")
   type                    PurchaseInvoiceType
-  costTypeId              String                @map("cost_type_id") @db.Uuid
-  subcontractorContractId String?               @map("subcontractor_contract_id") @db.Uuid
-  supplierId              String?               @map("supplier_id") @db.Uuid
-  projectId               String?               @map("project_id") @db.Uuid
+  costTypeId              Int                   @map("cost_type_id")
+  subcontractorContractId Int?                  @map("subcontractor_contract_id")
+  supplierId              Int?                  @map("supplier_id")
+  projectId               Int?                  @map("project_id")
   /// Our number: PUR-2026-0007
   number                  String
   /// Their invoice number, as printed on their paper.
@@ -1414,17 +1422,17 @@ model PurchaseInvoice {
   status                  PurchaseInvoiceStatus @default(to_pay)
   paymentReference        String?               @map("payment_reference")
   paidAt                  DateTime?             @map("paid_at") @db.Timestamptz(6)
-  createdBy               String?               @map("created_by") @db.Uuid
+  createdBy               Int?                  @map("created_by")
   createdAt               DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt               DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                  Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  costType                CostType              @relation(fields: [costTypeId], references: [id], onDelete: Restrict)
-  contract                SubcontractorContract? @relation(fields: [subcontractorContractId], references: [id], onDelete: Restrict)
-  supplier                Supplier?             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  project                 Project?              @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  creator                 User?                 @relation(fields: [createdBy], references: [id], onDelete: SetNull)
-  stockMovements          StockMovement[]
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  costType       CostType               @relation(fields: [costTypeId], references: [id], onDelete: Restrict)
+  contract       SubcontractorContract? @relation(fields: [subcontractorContractId], references: [id], onDelete: Restrict)
+  supplier       Supplier?              @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  project        Project?               @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  creator        User?                  @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  stockMovements StockMovement[]
 
   @@unique([tenantId, number])
   @@index([projectId])
@@ -1439,23 +1447,23 @@ model PurchaseInvoice {
 /// deleted — a snapshot is a financial record. A partial unique index keeps
 /// exactly one live row (voidedAt IS NULL) per project.
 model ProjectClosureSnapshot {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId       String    @map("tenant_id") @db.Uuid
-  projectId      String    @map("project_id") @db.Uuid
-  budgetExclVat  Decimal   @map("budget_excl_vat") @db.Decimal(12, 2)
-  totalCost      Decimal   @map("total_cost") @db.Decimal(12, 2)
-  marginExclVat  Decimal   @map("margin_excl_vat") @db.Decimal(12, 2)
-  marginPct      Decimal?  @map("margin_pct") @db.Decimal(5, 2)
-  closedBy       String?   @map("closed_by") @db.Uuid
-  closedAt       DateTime  @default(now()) @map("closed_at") @db.Timestamptz(6)
-  voidedAt       DateTime? @map("voided_at") @db.Timestamptz(6)
-  voidedBy       String?   @map("voided_by") @db.Uuid
+  id            Int       @id @default(autoincrement())
+  tenantId      Int       @map("tenant_id")
+  projectId     Int       @map("project_id")
+  budgetExclVat Decimal   @map("budget_excl_vat") @db.Decimal(12, 2)
+  totalCost     Decimal   @map("total_cost") @db.Decimal(12, 2)
+  marginExclVat Decimal   @map("margin_excl_vat") @db.Decimal(12, 2)
+  marginPct     Decimal?  @map("margin_pct") @db.Decimal(5, 2)
+  closedBy      Int?      @map("closed_by")
+  closedAt      DateTime  @default(now()) @map("closed_at") @db.Timestamptz(6)
+  voidedAt      DateTime? @map("voided_at") @db.Timestamptz(6)
+  voidedBy      Int?      @map("voided_by")
 
-  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  closer         User?     @relation("SnapshotClosedBy", fields: [closedBy], references: [id], onDelete: SetNull)
-  voider         User?     @relation("SnapshotVoidedBy", fields: [voidedBy], references: [id], onDelete: SetNull)
-  costs          ProjectClosureSnapshotCost[]
+  tenant  Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  closer  User?                        @relation("SnapshotClosedBy", fields: [closedBy], references: [id], onDelete: SetNull)
+  voider  User?                        @relation("SnapshotVoidedBy", fields: [voidedBy], references: [id], onDelete: SetNull)
+  costs   ProjectClosureSnapshotCost[]
 
   @@map("project_closure_snapshots")
 }
@@ -1463,15 +1471,15 @@ model ProjectClosureSnapshot {
 /// The breakdown as ROWS, not columns. No fixed material_cost / labor_cost
 /// columns, because a tenant can add cost types — a new kind needs no migration.
 model ProjectClosureSnapshotCost {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId   String   @map("tenant_id") @db.Uuid
-  snapshotId String   @map("snapshot_id") @db.Uuid
-  costTypeId String   @map("cost_type_id") @db.Uuid
-  amount     Decimal  @db.Decimal(12, 2)
+  id         Int     @id @default(autoincrement())
+  tenantId   Int     @map("tenant_id")
+  snapshotId Int     @map("snapshot_id")
+  costTypeId Int     @map("cost_type_id")
+  amount     Decimal @db.Decimal(12, 2)
 
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  snapshot   ProjectClosureSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
-  costType   CostType @relation(fields: [costTypeId], references: [id], onDelete: Restrict)
+  tenant   Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  snapshot ProjectClosureSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  costType CostType               @relation(fields: [costTypeId], references: [id], onDelete: Restrict)
 
   @@unique([snapshotId, costTypeId])
   @@map("project_closure_snapshot_costs")
@@ -1483,13 +1491,13 @@ model ProjectClosureSnapshotCost {
 /// If an extra accepted quote raises the budget and cost drops back under the
 /// threshold, DELETE the rows so the levels can fire again.
 model ProjectMarginAlert {
-  tenantId  String           @map("tenant_id") @db.Uuid
-  projectId String           @map("project_id") @db.Uuid
+  tenantId  Int              @map("tenant_id")
+  projectId Int              @map("project_id")
   level     MarginAlertLevel
   firedAt   DateTime         @default(now()) @map("fired_at") @db.Timestamptz(6)
 
-  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@id([projectId, level])
   @@map("project_margin_alerts")
@@ -1505,23 +1513,23 @@ model ProjectMarginAlert {
 /// deleted like an ordinary photo.
 /// SUM(fileSize) per tenant is the storage_gb billing dimension.
 model Media {
-  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId    String          @map("tenant_id") @db.Uuid
-  entityType  MediaEntityType @map("entity_type")
-  entityId    String          @map("entity_id") @db.Uuid
-  fileName    String          @map("file_name")
+  id         Int             @id @default(autoincrement())
+  tenantId   Int             @map("tenant_id")
+  entityType MediaEntityType @map("entity_type")
+  entityId   Int             @map("entity_id")
+  fileName   String          @map("file_name")
   /// ImageKit URL. Never changes after upload — rename touches fileName only.
-  fileUrl     String          @map("file_url")
-  fileType    String          @map("file_type")
+  fileUrl    String          @map("file_url")
+  fileType   String          @map("file_type")
   /// CHECK: > 0 AND <= 10485760 (10 MB)
-  fileSize    BigInt          @map("file_size")
-  isLocked    Boolean         @default(false) @map("is_locked")
-  uploadedBy  String?         @map("uploaded_by") @db.Uuid
-  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  fileSize   BigInt          @map("file_size")
+  isLocked   Boolean         @default(false) @map("is_locked")
+  uploadedBy Int?            @map("uploaded_by")
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  uploader    User?           @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  uploader User?  @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
 
   @@index([entityType, entityId])
   @@index([tenantId])
@@ -1534,19 +1542,19 @@ model Media {
 /// pattern as refresh_tokens. A CHECK enforces exactly one recipient.
 /// retention_days deletes READ notifications only.
 model Notification {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId    String?  @map("tenant_id") @db.Uuid
-  userId      String?  @map("user_id") @db.Uuid
-  adminUserId String?  @map("admin_user_id") @db.Uuid
+  id          Int      @id @default(autoincrement())
+  tenantId    Int?     @map("tenant_id")
+  userId      Int?     @map("user_id")
+  adminUserId Int?     @map("admin_user_id")
   /// low_stock | late_invoice | margin_warning | ...
   type        String
   payload     Json?
   isRead      Boolean  @default(false) @map("is_read")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant      Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user        User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  adminUser   AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  tenant    Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adminUser AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([adminUserId])
@@ -1561,36 +1569,36 @@ model Notification {
 /// expiresAt is a COLUMN, not a constant, so per-tenant expiry later is a
 /// settings change rather than a migration.
 model PortalToken {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId   String   @map("tenant_id") @db.Uuid
-  clientId   String   @map("client_id") @db.Uuid
-  projectId  String   @map("project_id") @db.Uuid
+  id        Int      @id @default(autoincrement())
+  tenantId  Int      @map("tenant_id")
+  clientId  Int      @map("client_id")
+  projectId Int      @map("project_id")
   /// sha256, unique. Lookup is by hash.
-  tokenHash  String   @unique @map("token_hash")
-  isActive   Boolean  @default(true) @map("is_active")
-  expiresAt  DateTime @map("expires_at") @db.Timestamptz(6)
-  createdBy  String?  @map("created_by") @db.Uuid
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  tokenHash String   @unique @map("token_hash")
+  isActive  Boolean  @default(true) @map("is_active")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdBy Int?     @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  creator    User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
-  tracking   PortalTracking[]
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client   Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator  User?            @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  tracking PortalTracking[]
 
   @@map("portal_tokens")
 }
 
 model PortalTracking {
-  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId      String          @map("tenant_id") @db.Uuid
-  portalTokenId String          @map("portal_token_id") @db.Uuid
+  id            Int             @id @default(autoincrement())
+  tenantId      Int             @map("tenant_id")
+  portalTokenId Int             @map("portal_token_id")
   eventType     PortalEventType @map("event_type")
   ipAddress     String?         @map("ip_address") @db.Inet
   createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  portalToken   PortalToken     @relation(fields: [portalTokenId], references: [id], onDelete: Cascade)
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  portalToken PortalToken @relation(fields: [portalTokenId], references: [id], onDelete: Cascade)
 
   @@map("portal_tracking")
 }
@@ -1603,19 +1611,19 @@ model PortalTracking {
 /// conversation, so regenerating a portal link reuses it.
 /// Archived, never deleted: carries isArchived, never isActive.
 model Conversation {
-  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId        String           @map("tenant_id") @db.Uuid
+  id              Int              @id @default(autoincrement())
+  tenantId        Int              @map("tenant_id")
   type            ConversationType
-  projectId       String?          @map("project_id") @db.Uuid
-  supportTicketId String?          @map("support_ticket_id") @db.Uuid
+  projectId       Int?             @map("project_id")
+  supportTicketId Int?             @map("support_ticket_id")
   isArchived      Boolean          @default(false) @map("is_archived")
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  project         Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  supportTicket   SupportTicket?   @relation(fields: [supportTicketId], references: [id], onDelete: Cascade)
-  members         ConversationMember[]
-  messages        Message[]
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project       Project?             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  supportTicket SupportTicket?       @relation(fields: [supportTicketId], references: [id], onDelete: Cascade)
+  members       ConversationMember[]
+  messages      Message[]
 
   @@index([tenantId])
   @@map("conversations")
@@ -1623,19 +1631,19 @@ model Conversation {
 
 /// Exactly one of userId / clientId / adminUserId is set — a CHECK enforces it.
 model ConversationMember {
-  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId       String       @map("tenant_id") @db.Uuid
-  conversationId String       @map("conversation_id") @db.Uuid
-  userId         String?      @map("user_id") @db.Uuid
-  clientId       String?      @map("client_id") @db.Uuid
-  adminUserId    String?      @map("admin_user_id") @db.Uuid
-  joinedAt       DateTime     @default(now()) @map("joined_at") @db.Timestamptz(6)
+  id             Int      @id @default(autoincrement())
+  tenantId       Int      @map("tenant_id")
+  conversationId Int      @map("conversation_id")
+  userId         Int?     @map("user_id")
+  clientId       Int?     @map("client_id")
+  adminUserId    Int?     @map("admin_user_id")
+  joinedAt       DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
 
-  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  user           User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  client         Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  adminUser      AdminUser?   @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client       Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  adminUser    AdminUser?   @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
 
   @@map("conversation_members")
 }
@@ -1643,20 +1651,20 @@ model ConversationMember {
 /// There is NO attachments column. Every attachment is a Media row with
 /// entityType = message and entityId = messages.id. One mechanism for files.
 model Message {
-  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id             Int        @id @default(autoincrement())
   /// Denormalised on purpose: makes tenant-scoped filtering one indexed column.
-  tenantId       String       @map("tenant_id") @db.Uuid
-  conversationId String       @map("conversation_id") @db.Uuid
-  senderType     SenderType   @map("sender_type")
+  tenantId       Int        @map("tenant_id")
+  conversationId Int        @map("conversation_id")
+  senderType     SenderType @map("sender_type")
   /// users.id | clients.id | admin_users.id, per senderType.
-  senderId       String       @map("sender_id") @db.Uuid
+  senderId       Int        @map("sender_id")
   content        String
-  isArchived     Boolean      @default(false) @map("is_archived")
-  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  isArchived     Boolean    @default(false) @map("is_archived")
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  reads          MessageRead[]
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  reads        MessageRead[]
 
   @@index([conversationId, createdAt])
   @@map("messages")
@@ -1667,18 +1675,18 @@ model Message {
 /// because one row cannot have two readers.
 /// Unread count = messages with no matching row for that reader.
 model MessageRead {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId  String   @map("tenant_id") @db.Uuid
-  messageId String   @map("message_id") @db.Uuid
-  userId    String?  @map("user_id") @db.Uuid
+  id        Int      @id @default(autoincrement())
+  tenantId  Int      @map("tenant_id")
+  messageId Int      @map("message_id")
+  userId    Int?     @map("user_id")
   /// The client in the portal, who has no user account.
-  clientId  String?  @map("client_id") @db.Uuid
+  clientId  Int?     @map("client_id")
   readAt    DateTime @default(now()) @map("read_at") @db.Timestamptz(6)
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  client    Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client  Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, userId, clientId])
   @@map("message_reads")

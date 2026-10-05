@@ -2,8 +2,8 @@ import { ApiProperty } from '@nestjs/swagger';
 
 /** Response shape. The password hash and the TOTP secret are never returned. */
 export class AdminUserEntity {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty()
+  id: number;
 
   @ApiProperty({ example: 'staff@chantieros.com' })
   email: string;
