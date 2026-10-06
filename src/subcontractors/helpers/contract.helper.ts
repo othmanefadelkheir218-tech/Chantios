@@ -43,16 +43,6 @@ export function assertNonNegativeAmount(amount: string): void {
   }
 }
 
-/** "End not before start" — mirrors the DB check; only runs when both dates exist. */
-export function assertDateOrder(
-  start: Date | string | null | undefined,
-  end: Date | string | null | undefined,
-): void {
-  if (start && end && new Date(end) < new Date(start)) {
-    throw new BadRequestException('end_date must not be before start_date');
-  }
-}
-
 /** Builds the Prisma filter for the contract list. */
 export function buildContractFilter(
   projectId?: number,

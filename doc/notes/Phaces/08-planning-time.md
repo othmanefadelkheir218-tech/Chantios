@@ -8,14 +8,7 @@ Tasks with multiple assignees, daily hour logging with a frozen rate, and the sa
 
 ## Decide first
 
-**1 open question — worker hour scope.** Two notes disagree:
-
-- [technical/phase-07](../technical/phase-07-planning-time-entries.md) — assignee on **any task of that project**
-- [planning-time-entries.md](../planning-time-entries.md) — blocked on a **task** not assigned to them
-
-And `time_entries.task_id` is optional, so decide which rule applies when it is `NULL`.
-
-**Recommendation:** project-level. A worker may log hours on a project where they are an assignee on at least one task, with `task_id` optional. Task-level is too strict — real work spills across tasks. Write the decision into both notes and tick it off in [A_progress-tracker.md](../A_progress-tracker.md).
+**Decided 2026-10-06 — worker hour scope is project-level.** A worker may log hours on a project where they are an assignee on at least one task. `time_entries.task_id` stays optional, and the check is the same with or without it. Written into [planning-time-entries.md](../planning-time-entries.md) and [technical/phase-07](../technical/phase-07-planning-time-entries.md). Nothing blocking.
 
 ## Tables
 
@@ -159,41 +152,41 @@ Nothing ties a `user_id` to one project. No new table needed. Each project pays 
 
 ## Tasks
 
-- [ ] `tasks` module + `task_assignees`
-- [ ] `set-status` requires ≥ 1 assignee
-- [ ] Gantt list endpoint with a date range
-- [ ] `/api/mobile/my-tasks`
-- [ ] `time-entries` module
-- [ ] `daily-hours.helper.ts` — reject > 24h, alert > 12h, across all projects
-- [ ] The rule runs on **update** too, excluding the edited row
-- [ ] Freeze `hourly_rate` at write time
-- [ ] Correction rules: same-day self-edit, manager any time, old value to `audit_logs`
-- [ ] `/api/mobile/time-entries` for the worker
-- [ ] `labour-cost` endpoint for step 10
-- [ ] Project-assignment check on worker logging (the decision above)
-- [ ] `// TODO: step 13` at the abnormal-hours, missing-timesheet and stalled-project points
-- [ ] Decide the worker scope question and write it into both notes
+- [x] `tasks` module + `task_assignees`
+- [x] `set-status` requires ≥ 1 assignee
+- [x] Gantt list endpoint with a date range
+- [x] `/api/mobile/my-tasks`
+- [x] `time-entries` module
+- [x] `daily-hours.helper.ts` — reject > 24h, alert > 12h, across all projects
+- [x] The rule runs on **update** too, excluding the edited row
+- [x] Freeze `hourly_rate` at write time
+- [x] Correction rules: same-day self-edit, manager any time, old value to `audit_logs`
+- [x] `/api/mobile/time-entries` for the worker
+- [x] `labour-cost` endpoint for step 10
+- [x] Project-assignment check on worker logging (the decision above)
+- [x] `// TODO: step 13` at the abnormal-hours, missing-timesheet and stalled-project points
+- [x] Decide the worker scope question and write it into both notes
 
 ## Acceptance
 
-- [ ] Create a task with 5 assignees → **one** `tasks` row, 5 `task_assignees` rows
-- [ ] Add the same user twice → rejected
-- [ ] Move a task with no assignees to `in_progress` → refused
-- [ ] `end_date` before `start_date` → rejected by the database
-- [ ] Log 8h → saved, `hourly_rate` copied from the user
-- [ ] Change `users.hourly_rate` → the old entry keeps the old rate
-- [ ] Log 5h on project A and 3h on project B, same day → both saved, total 8h
-- [ ] Log 7h on A then 6h on B (13h) → saved **and** an abnormal-hours alert fires
-- [ ] Log 20h on A then 20h on B → the second is **rejected**
-- [ ] Edit an entry from 8h to 20h when another project already has 10h that day → rejected, and the edited row is not counted twice
-- [ ] A worker edits their own entry the same day → allowed. Next day → refused
-- [ ] A manager edits a week-old entry → allowed, old value in `audit_logs`
-- [ ] A worker logs hours on a project where they have no task → refused
-- [ ] A second entry for the same user, project and day → updates, no duplicate row
-- [ ] `labour-cost` uses the frozen rates, not the current ones
-- [ ] A worker calling `GET /api/time-entries` sees **only their own**
-- [ ] Tenant A cannot see tenant B's tasks or entries
-- [ ] Update `../WhereIStop/state.md`
+- [x] Create a task with 5 assignees → **one** `tasks` row, 5 `task_assignees` rows
+- [x] Add the same user twice → rejected
+- [x] Move a task with no assignees to `in_progress` → refused
+- [x] `end_date` before `start_date` → rejected by the database
+- [x] Log 8h → saved, `hourly_rate` copied from the user
+- [x] Change `users.hourly_rate` → the old entry keeps the old rate
+- [x] Log 5h on project A and 3h on project B, same day → both saved, total 8h
+- [x] Log 7h on A then 6h on B (13h) → saved **and** an abnormal-hours alert fires
+- [x] Log 20h on A then 20h on B → the second is **rejected**
+- [x] Edit an entry from 8h to 20h when another project already has 10h that day → rejected, and the edited row is not counted twice
+- [x] A worker edits their own entry the same day → allowed. Next day → refused
+- [x] A manager edits a week-old entry → allowed, old value in `audit_logs`
+- [x] A worker logs hours on a project where they have no task → refused
+- [x] A second entry for the same user, project and day → updates, no duplicate row
+- [x] `labour-cost` uses the frozen rates, not the current ones
+- [x] A worker calling `GET /api/time-entries` sees **only their own**
+- [x] Tenant A cannot see tenant B's tasks or entries
+- [x] Update `../WhereIStop/state.md`
 
 ## Notes to read
 

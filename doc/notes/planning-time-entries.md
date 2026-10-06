@@ -167,7 +167,7 @@ This matches what's already planned for the `/time-entries` manager page (per th
 ### Employee side (mobile)
 - End-of-day reminder if no hours logged yet today.
 - Friendly error if a save would push their same-day total over 24h.
-- Block logging hours on a task that isn't assigned to them.
+- Block logging hours on a **project** where they are not an assignee on at least one task. `task_id` is optional: with or without it, the check is the same — the project-level one.
 
 ### Manager side
 - **Missing timesheet alert** — an employee has a task `in_progress` today but no `time_entries` row for today.

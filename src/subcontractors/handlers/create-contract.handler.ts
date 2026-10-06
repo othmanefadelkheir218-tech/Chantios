@@ -1,11 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { assertDateOrder } from '../../common/helpers/date-range.helper';
 import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
 import { ProjectsService } from '../../projects/projects.service';
 import { CreateContractDto } from '../dto/create-contract.dto';
 import {
-  assertDateOrder,
   assertNonNegativeAmount,
   toContractEntity,
 } from '../helpers/contract.helper';

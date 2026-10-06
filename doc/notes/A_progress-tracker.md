@@ -136,7 +136,7 @@
 
 - [x] **Overpayment** — decided 2026-10-06: no new status, `paid` already covers `balance_due ≤ 0`. `payments` is append-only (same as `stock_movements`) — a mistake gets a correcting row, never an edit/delete. Status is recomputed from the ledger on every write, so a correction can naturally reopen `paid → partially_paid`. See \[\[phase-05-quotes-invoices\]\].
 
-- [ ] **Worker hour scope** — assignee on any task of the *project*, or only that *task*? Which rule when `time_entries.task_id` is `NULL`?
+- [x] **Worker hour scope** — decided 2026-10-06: **project-level**. A worker may log hours on a project where they are an assignee on at least one task. `time_entries.task_id` stays optional; the check is the same with or without it. See \[\[planning-time-entries\]\].
 
 - [ ] **Platform-admin cross-tenant read** — the escape hatch past the Prisma extension for a support conversation, and it must write `audit_logs`.
 

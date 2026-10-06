@@ -35,7 +35,7 @@
 
 ### CON-02 — `end_date` before `start_date` → `400`
 
-`"start_date":"2026-11-10","end_date":"2026-11-01"` → `400` `end_date must not be before start_date`. Also checked on `PATCH` against the stored start date. Confirmed live.
+`"start_date":"2026-11-10","end_date":"2026-11-01"` → `400` `end_date cannot be before start_date`. Also checked on `PATCH` against the stored start date. Confirmed live.
 
 ### CON-03 — Same subcontractor, second project → a NEW contract
 

@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import {
   Project,
   ProjectStatusHistory,
@@ -63,19 +62,5 @@ export function buildProjectFilter(
   };
 }
 
-/**
- * The single implementation of "`end_date` not before `start_date`"
- * (chk_project_dates backs this at the DB level too). Accepts the ISO
- * date strings a DTO carries or the `Date` a Prisma row already has.
- */
-export function assertDateOrder(
-  startDate: string | Date | null | undefined,
-  endDate: string | Date | null | undefined,
-): void {
-  if (!startDate || !endDate) return;
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  if (end < start) {
-    throw new BadRequestException('end_date cannot be before start_date');
-  }
-}
+// The one implementation lives in common (also used by contracts and tasks).
+export { assertDateOrder } from '../../common/helpers/date-range.helper';

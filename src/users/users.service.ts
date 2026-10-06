@@ -72,6 +72,16 @@ export class UsersService {
     return this.users.findByIdUnscoped(id);
   }
 
+  /**
+   * An ACTIVE user of this tenant, or `null`. `findByIdRaw` is not tenant-filtered,
+   * so anything that takes a user id from a request body (task assignees,
+   * time-entry owner) must go through this, never `findByIdRaw`.
+   */
+  async findActiveInTenant(id: number, tenantId: number): Promise<User | null> {
+    const user = await this.users.findByIdUnscoped(id);
+    return user && user.tenantId === tenantId && user.isActive ? user : null;
+  }
+
   /** `tx` — step 02 registration runs this inside its own transaction. */
   create(
     data: Prisma.UserCreateInput,

@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { assertDateOrder } from '../../common/helpers/date-range.helper';
 import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
 import { UpdateContractDto } from '../dto/update-contract.dto';
 import {
-  assertDateOrder,
   assertNonNegativeAmount,
   toContractEntity,
 } from '../helpers/contract.helper';

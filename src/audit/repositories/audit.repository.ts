@@ -25,6 +25,28 @@ export class AuditRepository {
     });
   }
 
+  /**
+   * How many audit rows on this entity were written by someone OTHER than
+   * `ownerUserId` (a different tenant user, an admin, or an unknown actor).
+   * Used by time entries: "an employee may edit their own entry only if
+   * nobody else touched it".
+   */
+  countByOtherActors(
+    tenantId: number,
+    entityType: string,
+    entityId: number,
+    ownerUserId: number,
+  ): Promise<number> {
+    return this.prisma.auditLog.count({
+      where: {
+        tenantId,
+        entityType,
+        entityId,
+        OR: [{ userId: null }, { userId: { not: ownerUserId } }],
+      },
+    });
+  }
+
   findMany(
     where: Prisma.AuditLogWhereInput,
     skip: number,

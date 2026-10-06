@@ -65,6 +65,7 @@ WHERE user_id = :u AND work_date = :d;
 - Build it in the service layer first (ships fast, clear message to the employee)
 - Add a DB trigger later as a safety net, so the rule holds whatever inserts the row
 - A worker can only log hours on a project where they are an assignee on at least one task
+- `time_entries.task_id` is optional. The check is project-level whether or not it is set — a worker never needs to name a task, and naming one does not narrow the check. If `task_id` is given, that task must belong to the same project
 
 ### Correcting an entry
 - The employee can edit their own entry on the same day only, and only if nobody else touched it. After that it is read-only to them

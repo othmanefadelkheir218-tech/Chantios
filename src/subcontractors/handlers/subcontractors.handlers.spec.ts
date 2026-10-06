@@ -156,7 +156,7 @@ describe('Subcontractors handlers', () => {
           { ...body, start_date: '2026-11-10', end_date: '2026-11-01' },
           actor,
         ),
-      ).rejects.toThrow(/end_date must not be before start_date/);
+      ).rejects.toThrow(/end_date cannot be before start_date/);
     });
 
     it('refuses a negative amount', async () => {
@@ -173,7 +173,7 @@ describe('Subcontractors handlers', () => {
       );
       await expect(
         updateContract.execute(4, { end_date: '2026-11-01' }, actor),
-      ).rejects.toThrow(/end_date must not be before start_date/);
+      ).rejects.toThrow(/end_date cannot be before start_date/);
       expect(contracts.update).not.toHaveBeenCalled();
     });
   });

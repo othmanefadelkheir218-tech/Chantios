@@ -23,6 +23,8 @@ import { CostTypesModule } from './cost-types/cost-types.module';
 import { PurchaseInvoicesModule } from './purchase-invoices/purchase-invoices.module';
 import { SubcontractorsModule } from './subcontractors/subcontractors.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
+import { TasksModule } from './tasks/tasks.module';
+import { TimeEntriesModule } from './time-entries/time-entries.module';
 import { MaterialsModule } from './materials/materials.module';
 import { MediaModule } from './media/media.module';
 import { OneTimeCodesModule } from './one-time-codes/one-time-codes.module';
@@ -93,6 +95,9 @@ import { UsersModule } from './users/users.module';
     SuppliersModule,
     SubcontractorsModule,
     PurchaseInvoicesModule,
+    // Step 08 — planning & time
+    TasksModule,
+    TimeEntriesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
