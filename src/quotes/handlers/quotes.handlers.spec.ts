@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { getLoggerToken } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
+import { MarginsService } from '../../margins/margins.service';
 import { ClientsService } from '../../clients/clients.service';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 import { DocumentsService } from '../../documents/documents.service';
@@ -95,6 +96,7 @@ describe('Quotes handlers', () => {
   const tenantsService = { findOne: jest.fn() };
   const documentsService = { allocateNumber: jest.fn() };
   const stockService = { reserveForProject: jest.fn() };
+  const margins = { checkProjectThresholds: jest.fn() };
   const audit = { write: jest.fn() };
   const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn() };
   const txMock = {};
@@ -136,6 +138,7 @@ describe('Quotes handlers', () => {
         { provide: DocumentsService, useValue: documentsService },
         { provide: StockService, useValue: stockService },
         { provide: AuditService, useValue: audit },
+        { provide: MarginsService, useValue: margins },
         { provide: TenantPrismaService, useValue: tenantPrisma },
         ...handlers.map((h) => ({
           provide: getLoggerToken(h.name),
@@ -428,6 +431,8 @@ describe('Quotes handlers', () => {
       );
       expect(result.status).toBe('accepted');
       expect(audit.write).toHaveBeenCalledTimes(1);
+      // the budget just grew: the 80 % / 95 % levels are re-checked (and may reset)
+      expect(margins.checkProjectThresholds).toHaveBeenCalledWith(20, actor);
     });
 
     it('rolls back (nothing written) when the project step fails', async () => {
@@ -447,6 +452,7 @@ describe('Quotes handlers', () => {
       // and that the handler itself writes no audit log for a failed chain.
       expect(stockService.reserveForProject).not.toHaveBeenCalled();
       expect(audit.write).not.toHaveBeenCalled();
+      expect(margins.checkProjectThresholds).not.toHaveBeenCalled();
     });
   });
 });

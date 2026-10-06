@@ -7,6 +7,8 @@ import { Test } from '@nestjs/testing';
 import { getLoggerToken } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import { ClientsService } from '../../clients/clients.service';
+import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
+import { MarginsService } from '../../margins/margins.service';
 import { MediaService } from '../../media/media.service';
 import { RolesService } from '../../roles/roles.service';
 import { StockService } from '../../stock/stock.service';
@@ -70,6 +72,14 @@ describe('Projects handlers', () => {
   const media = { deleteAllForEntity: jest.fn() };
   const stock = { releaseByProject: jest.fn() };
   const audit = { write: jest.fn() };
+  const tx = { marker: 'tx' };
+  const tenantPrisma = {
+    db: { $transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)) },
+  };
+  const margins = {
+    writeClosureSnapshot: jest.fn(),
+    voidClosureSnapshot: jest.fn(),
+  };
   const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn() };
 
   let createProject: CreateProjectHandler;
@@ -83,6 +93,9 @@ describe('Projects handlers', () => {
 
   beforeEach(async () => {
     jest.resetAllMocks();
+    tenantPrisma.db.$transaction.mockImplementation((fn) => fn(tx));
+    margins.writeClosureSnapshot.mockResolvedValue({ id: 77 });
+    margins.voidClosureSnapshot.mockResolvedValue(77);
     const handlers = [
       CreateProjectHandler,
       FindProjectsHandler,
@@ -103,6 +116,8 @@ describe('Projects handlers', () => {
         { provide: MediaService, useValue: media },
         { provide: StockService, useValue: stock },
         { provide: AuditService, useValue: audit },
+        { provide: TenantPrismaService, useValue: tenantPrisma },
+        { provide: MarginsService, useValue: margins },
         ...handlers.map((h) => ({
           provide: getLoggerToken(h.name),
           useValue: logger,
@@ -285,14 +300,23 @@ describe('Projects handlers', () => {
         actor,
       );
 
-      expect(repo.setStatus).toHaveBeenCalledWith(10, 'in_progress', undefined);
+      expect(repo.setStatus).toHaveBeenCalledWith(
+        10,
+        'in_progress',
+        undefined,
+        tx,
+      );
       expect(history.write).toHaveBeenCalledWith(
         expect.objectContaining({
           fromStatus: 'prospect',
           toStatus: 'in_progress',
         }),
+        tx,
       );
       expect(result.status).toBe('in_progress');
+      // a start is not a closure: nothing frozen, nothing voided
+      expect(margins.writeClosureSnapshot).not.toHaveBeenCalled();
+      expect(margins.voidClosureSnapshot).not.toHaveBeenCalled();
     });
 
     it('sets actual_end_date when moving to completed, no payment check', async () => {
@@ -311,8 +335,35 @@ describe('Projects handlers', () => {
         10,
         'completed',
         expect.any(Date),
+        tx,
       );
       expect(result.status).toBe('completed');
+    });
+
+    it('moving to completed freezes the snapshot inside the same transaction', async () => {
+      repo.findById.mockResolvedValue(project({ status: 'in_progress' }));
+      repo.setStatus.mockResolvedValue(project({ status: 'completed' }));
+
+      await changeStatus.execute(10, { status: 'completed' } as never, actor);
+
+      expect(margins.writeClosureSnapshot).toHaveBeenCalledWith(10, actor, tx);
+      expect(audit.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'change_status',
+          newValue: { status: 'completed', snapshotId: 77 },
+        }),
+      );
+    });
+
+    it('if the snapshot fails the whole status change fails: nothing audited', async () => {
+      repo.findById.mockResolvedValue(project({ status: 'in_progress' }));
+      repo.setStatus.mockResolvedValue(project({ status: 'completed' }));
+      margins.writeClosureSnapshot.mockRejectedValue(new Error('boom'));
+
+      await expect(
+        changeStatus.execute(10, { status: 'completed' } as never, actor),
+      ).rejects.toThrow('boom');
+      expect(audit.write).not.toHaveBeenCalled();
     });
 
     it('rejects completed -> in_progress for a non-admin', async () => {
@@ -336,6 +387,9 @@ describe('Projects handlers', () => {
         actor,
       );
       expect(result.status).toBe('in_progress');
+      // the snapshot is VOIDED (never deleted), and no new one is written
+      expect(margins.voidClosureSnapshot).toHaveBeenCalledWith(10, actor, tx);
+      expect(margins.writeClosureSnapshot).not.toHaveBeenCalled();
     });
 
     it('delegates cancellation to CancelProjectHandler', async () => {
@@ -348,12 +402,18 @@ describe('Projects handlers', () => {
         actor,
       );
 
-      expect(repo.setStatus).toHaveBeenCalledWith(10, 'cancelled');
+      expect(repo.setStatus).toHaveBeenCalledWith(
+        10,
+        'cancelled',
+        undefined,
+        tx,
+      );
       expect(history.write).toHaveBeenCalledWith(
         expect.objectContaining({
           toStatus: 'cancelled',
           reason: 'client withdrew',
         }),
+        tx,
       );
       expect(result.status).toBe('cancelled');
     });
@@ -369,8 +429,39 @@ describe('Projects handlers', () => {
       );
       expect(result.status).toBe('cancelled');
       expect(audit.write).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'cancel', entityType: 'project' }),
+        expect.objectContaining({
+          action: 'cancel',
+          entityType: 'project',
+          newValue: { status: 'cancelled', snapshotId: 77 },
+        }),
       );
+    });
+
+    it('a cancelled job is frozen too: the snapshot is written in the same transaction', async () => {
+      repo.setStatus.mockResolvedValue(project({ status: 'cancelled' }));
+      await cancelProject.execute(
+        project({ status: 'in_progress' }) as never,
+        'client withdrew',
+        actor,
+      );
+      expect(margins.writeClosureSnapshot).toHaveBeenCalledWith(10, actor, tx);
+      expect(tenantPrisma.db.$transaction).toHaveBeenCalledTimes(1);
+      // cancelled is final: nothing is ever voided
+      expect(margins.voidClosureSnapshot).not.toHaveBeenCalled();
+    });
+
+    it('if the snapshot fails the cancellation fails: reservations stay, no audit', async () => {
+      repo.setStatus.mockResolvedValue(project({ status: 'cancelled' }));
+      margins.writeClosureSnapshot.mockRejectedValue(new Error('boom'));
+      await expect(
+        cancelProject.execute(
+          project({ status: 'in_progress' }) as never,
+          undefined,
+          actor,
+        ),
+      ).rejects.toThrow('boom');
+      expect(stock.releaseByProject).not.toHaveBeenCalled();
+      expect(audit.write).not.toHaveBeenCalled();
     });
   });
 

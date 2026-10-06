@@ -231,7 +231,7 @@ Materials are counted **only** from the ledger, never from a supplier bill — s
 
 While a project is active (`in_progress`), its costs and margin are calculated live from the project's actual cost data.
 
-When the project status changes to `completed`, the system calculates the final numbers and permanently saves a **closure snapshot**.
+When the project status changes to `completed` or `cancelled`, the system calculates the final numbers and permanently saves a **closure snapshot**.
 
 The snapshot keeps the final project-level financial values:
 

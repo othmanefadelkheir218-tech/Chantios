@@ -3,6 +3,7 @@ import { AuditModule } from '../audit/audit.module';
 import { TokenModule } from '../auth/token.module';
 import { CostTypesModule } from '../cost-types/cost-types.module';
 import { DocumentsModule } from '../documents/documents.module';
+import { MarginsModule } from '../margins/margins.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { RolesModule } from '../roles/roles.module';
 import { SubcontractorsModule } from '../subcontractors/subcontractors.module';
@@ -27,6 +28,7 @@ import { PurchaseInvoiceRepository } from './repositories/purchase-invoice.repos
     SubcontractorsModule,
     SuppliersModule,
     ProjectsModule,
+    MarginsModule, // the 80 % / 95 % check after every bill
     TenantsModule, // default VAT rate (also needed by the guards)
     // What `@TenantAuth()`'s guards need to resolve their own dependencies.
     TokenModule,

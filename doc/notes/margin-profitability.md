@@ -79,7 +79,7 @@ Each cost enters the margin through exactly one door:
 
 A material bill never counts here, because the tiles are already counted when they leave the stock. That is why a bill with `cost_type = material` has no `project_id` — see [[purchase-invoices]].
 
-All calculated **live** from `project_margin_live` view while project is active. Frozen once into `project_closure_snapshots` when project becomes `completed`.
+All calculated **live** from `project_margin_live` view while project is active. Frozen once into `project_closure_snapshots` when project becomes `completed` or `cancelled`.
 
 ---
 

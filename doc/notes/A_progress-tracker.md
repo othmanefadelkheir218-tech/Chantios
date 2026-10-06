@@ -132,7 +132,7 @@
 
 - [x] **Closing guard** — decided 2026-10-06: never blocked by payment status. `completed` means work finished, not fully paid. A bill arriving after closure is still recorded (shows up in the live `project_margin_live`) but never retroactively changes the frozen `project_closure_snapshots` row — reopen/reclose (admin only) to refresh it. See \[\[phase-03-clients-projects\]\].
 
-- [ ] **Cancelled projects get no snapshot** — only `completed` writes one, so `project_margin_live` computes a dead project forever.
+- [x] **Cancelled projects get a snapshot too** — decided 2026-10-06: both `completed` and `cancelled` write one, so the cost of a dead job is frozen. `cancelled` is final, so its snapshot is never voided. See \[\[phase-08-margin-snapshot\]\].
 
 - [x] **Overpayment** — decided 2026-10-06: no new status, `paid` already covers `balance_due ≤ 0`. `payments` is append-only (same as `stock_movements`) — a mistake gets a correcting row, never an edit/delete. Status is recomputed from the ledger on every write, so a correction can naturally reopen `paid → partially_paid`. See \[\[phase-05-quotes-invoices\]\].
 

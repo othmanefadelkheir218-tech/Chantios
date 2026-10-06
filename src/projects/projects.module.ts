@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { TokenModule } from '../auth/token.module';
 import { ClientsModule } from '../clients/clients.module';
+import { MarginsModule } from '../margins/margins.module';
 import { MediaModule } from '../media/media.module';
 import { RolesModule } from '../roles/roles.module';
 import { StockModule } from '../stock/stock.module';
@@ -42,6 +43,10 @@ import { ProjectsService } from './projects.service';
     // `cancel-project.handler` calls `StockService.releaseByProject` (never
     // its repositories) to release this project's unused reservations.
     StockModule,
+    // `change-status` / `cancel-project` write the closure snapshot (and void it
+    // on a reopen) through `MarginsService`. One-directional: `margins` is a
+    // leaf module and imports nothing from `projects`.
+    MarginsModule,
   ],
   controllers: [ProjectsController, ClientProjectsController],
   providers: [

@@ -7,6 +7,7 @@ import { Prisma } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
+import { MarginsService } from '../../margins/margins.service';
 import { CostTypesService } from '../../cost-types/cost-types.service';
 import { ProjectsService } from '../../projects/projects.service';
 import { SubcontractorsService } from '../../subcontractors/subcontractors.service';
@@ -34,6 +35,7 @@ export class UpdatePurchaseInvoiceHandler {
     private readonly subcontractors: SubcontractorsService,
     private readonly projects: ProjectsService,
     private readonly audit: AuditService,
+    private readonly margins: MarginsService,
   ) {}
 
   async execute(
@@ -130,6 +132,11 @@ export class UpdatePurchaseInvoiceHandler {
       ipAddress: null,
     });
     this.logger.info(`Purchase invoice updated: ${id}`);
+    // The amount or the project may have changed: check the new project, and the old one if it moved.
+    await this.margins.checkProjectThresholds(updated.projectId, actor);
+    if (current.projectId !== updated.projectId) {
+      await this.margins.checkProjectThresholds(current.projectId, actor);
+    }
     return entity;
   }
 }

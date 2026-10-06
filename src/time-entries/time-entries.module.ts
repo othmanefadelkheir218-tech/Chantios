@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { TokenModule } from '../auth/token.module';
+import { MarginsModule } from '../margins/margins.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { RolesModule } from '../roles/roles.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
@@ -24,6 +25,7 @@ import { TimeEntriesService } from './time-entries.service';
     ProjectsModule, // validates `project_id` through `ProjectsService`
     TasksModule, // the worker project-assignment check + `task_id` validation
     UsersModule, // the active user + the hourly rate to freeze
+    MarginsModule, // the 80 % / 95 % check after every save
     // What `@TenantAuth()`'s guards need to resolve their own dependencies.
     TokenModule,
     RolesModule,

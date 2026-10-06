@@ -6,6 +6,7 @@ import {
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
+import { MarginsService } from '../../margins/margins.service';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 import { ProjectsService } from '../../projects/projects.service';
 import { RecipeLine } from '../../stock/helpers/recipe.helper';
@@ -39,6 +40,7 @@ export class AcceptQuoteHandler {
     private readonly projects: ProjectsService,
     private readonly stock: StockService,
     private readonly audit: AuditService,
+    private readonly margins: MarginsService,
   ) {}
 
   async execute(id: number, actor: AuthenticatedUser) {
@@ -104,6 +106,8 @@ export class AcceptQuoteHandler {
     this.logger.info(
       `Quote accepted: ${id} — project ${quote.projectId} in_progress, reservations created`,
     );
+    // The budget just grew: a level that was reached may be reached no more, so it can fire again.
+    await this.margins.checkProjectThresholds(quote.projectId, actor);
     return entity;
   }
 }

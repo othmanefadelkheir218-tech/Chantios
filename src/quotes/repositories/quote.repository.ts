@@ -123,6 +123,14 @@ export class QuoteRepository {
     });
   }
 
+  /** Step 10's budget history: the accepted quotes of a project, oldest `accepted_at` first. */
+  findAcceptedByProject(projectId: number): Promise<Quote[]> {
+    return this.tenantPrisma.db.quote.findMany({
+      where: { projectId, status: 'accepted' },
+      orderBy: [{ acceptedAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
   /** The budget (step 10, `project_margin_live`): sum of accepted quotes for a project. */
   async sumAcceptedByProject(projectId: number): Promise<Prisma.Decimal> {
     const result = await this.tenantPrisma.db.quote.aggregate({

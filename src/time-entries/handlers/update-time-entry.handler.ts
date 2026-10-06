@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
+import { MarginsService } from '../../margins/margins.service';
 import { TasksService } from '../../tasks/tasks.service';
 import { UpdateTimeEntryDto } from '../dto/update-time-entry.dto';
 import { checkDailyTotal } from '../helpers/daily-hours.helper';
@@ -38,6 +39,7 @@ export class UpdateTimeEntryHandler {
     private readonly entries: TimeEntryRepository,
     private readonly tasks: TasksService,
     private readonly audit: AuditService,
+    private readonly margins: MarginsService,
   ) {}
 
   async execute(
@@ -119,6 +121,7 @@ export class UpdateTimeEntryHandler {
       // TODO: step 13 — abnormal-hours alert to the manager
     }
     this.logger.info(`Time entry updated: ${id}`);
+    await this.margins.checkProjectThresholds(current.projectId, actor);
     return withDailyInfo(entity, total, abnormal);
   }
 }

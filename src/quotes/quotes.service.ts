@@ -5,6 +5,7 @@ import { FindQuotesQueryDto } from './dto/find-quotes-query.dto';
 import { SetQuoteLinesDto } from './dto/set-quote-lines.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
 import { AcceptQuoteHandler } from './handlers/accept-quote.handler';
+import { BudgetHistoryHandler } from './handlers/budget-history.handler';
 import { CreateQuoteHandler } from './handlers/create-quote.handler';
 import { FindQuoteHandler } from './handlers/find-quote.handler';
 import { FindQuotesHandler } from './handlers/find-quotes.handler';
@@ -27,6 +28,7 @@ export class QuotesService {
     private readonly acceptQuote: AcceptQuoteHandler,
     private readonly refuseQuote: RefuseQuoteHandler,
     private readonly quotes: QuoteRepository,
+    private readonly budgetHistoryHandler: BudgetHistoryHandler,
   ) {}
 
   create(dto: CreateQuoteDto, actor: AuthenticatedUser) {
@@ -62,6 +64,11 @@ export class QuotesService {
   }
 
   // ---- Internal API for `invoices` (coverage) and step 10 (budget) ----
+
+  /** `GET /api/projects/:id/budget-history` — the accepted quotes by `accepted_at`, with the running budget. */
+  budgetHistory(projectId: number) {
+    return this.budgetHistoryHandler.execute(projectId);
+  }
 
   /** Sum of `amount_excl_vat` across accepted quotes for a project. */
   sumAcceptedByProject(projectId: number) {

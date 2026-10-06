@@ -7,6 +7,7 @@ import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { getLoggerToken } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
+import { MarginsService } from '../../margins/margins.service';
 import { ProjectsService } from '../../projects/projects.service';
 import { TasksService } from '../../tasks/tasks.service';
 import { UsersService } from '../../users/users.service';
@@ -90,6 +91,7 @@ describe('Time entries handlers', () => {
   const projects = { findOne: jest.fn() };
   const tasks = { isAssignedToProject: jest.fn(), findByIdRaw: jest.fn() };
   const users = { findActiveInTenant: jest.fn() };
+  const margins = { checkProjectThresholds: jest.fn() };
   const audit = { write: jest.fn(), wasTouchedByOthers: jest.fn() };
   const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn() };
 
@@ -114,6 +116,7 @@ describe('Time entries handlers', () => {
         { provide: TasksService, useValue: tasks },
         { provide: UsersService, useValue: users },
         { provide: AuditService, useValue: audit },
+        { provide: MarginsService, useValue: margins },
         ...handlers.map((h) => ({
           provide: getLoggerToken(h.name),
           useValue: logger,
@@ -338,6 +341,34 @@ describe('Time entries handlers', () => {
         true,
       );
       expect(repo.findMany).toHaveBeenCalledWith({ userId: 1 }, 0, 20);
+    });
+  });
+  describe('the 80 % / 95 % margin check', () => {
+    it('runs after a time entry is created, with its project', async () => {
+      repo.create.mockResolvedValue(entry());
+      await create.execute(body(), worker, 'own');
+      expect(margins.checkProjectThresholds).toHaveBeenCalledWith(12, worker);
+    });
+
+    it('runs after an edit', async () => {
+      repo.findById.mockResolvedValue(entry());
+      repo.update.mockResolvedValue(entry({ hours: new Prisma.Decimal('6') }));
+      await update.execute(20, { hours: '6' }, worker, 'own');
+      expect(margins.checkProjectThresholds).toHaveBeenCalledWith(12, worker);
+    });
+
+    it('runs after a delete: the cost fell, a level may reset', async () => {
+      repo.findById.mockResolvedValue(entry());
+      await remove.execute(20, manager, 'all');
+      expect(margins.checkProjectThresholds).toHaveBeenCalledWith(12, manager);
+    });
+
+    it('does not run when the entry is refused', async () => {
+      repo.sumHoursForUserOnDate.mockResolvedValue(new Prisma.Decimal(20));
+      await expect(
+        create.execute(body({ hours: '20' }), worker, 'own'),
+      ).rejects.toThrow();
+      expect(margins.checkProjectThresholds).not.toHaveBeenCalled();
     });
   });
 });

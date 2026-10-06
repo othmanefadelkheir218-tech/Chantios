@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { TokenModule } from '../auth/token.module';
+import { MarginsModule } from '../margins/margins.module';
 import { MediaModule } from '../media/media.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { RolesModule } from '../roles/roles.module';
@@ -28,6 +29,7 @@ import { ReportsService } from './reports.service';
     StockModule, // the stock door: `declareConsumption` + the recipe walk
     ServicesModule, // validates `service_id`
     MediaModule, // the report's photos
+    MarginsModule, // the 80 % / 95 % check after declared material
     // What `@TenantAuth()`'s guards need to resolve their own dependencies.
     TokenModule,
     RolesModule,

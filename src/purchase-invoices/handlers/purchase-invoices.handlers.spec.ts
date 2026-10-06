@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getLoggerToken } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
+import { MarginsService } from '../../margins/margins.service';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 import { CostTypesService } from '../../cost-types/cost-types.service';
 import { DocumentsService } from '../../documents/documents.service';
@@ -117,6 +118,7 @@ describe('Purchase invoice handlers', () => {
   const suppliers = { findByIdRaw: jest.fn() };
   const projects = { findOne: jest.fn() };
   const tenants = { findOne: jest.fn() };
+  const margins = { checkProjectThresholds: jest.fn() };
   const audit = { write: jest.fn() };
   const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn() };
 
@@ -144,6 +146,7 @@ describe('Purchase invoice handlers', () => {
         { provide: ProjectsService, useValue: projects },
         { provide: TenantsService, useValue: tenants },
         { provide: AuditService, useValue: audit },
+        { provide: MarginsService, useValue: margins },
         ...handlers.map((h) => ({
           provide: getLoggerToken(h.name),
           useValue: logger,
@@ -358,6 +361,81 @@ describe('Purchase invoice handlers', () => {
         ConflictException,
       );
       expect(repo.markPaid).not.toHaveBeenCalled();
+    });
+  });
+  describe('the 80 % / 95 % margin check', () => {
+    it('runs after a bill with a project is created', async () => {
+      costTypes.findVisibleById.mockResolvedValue({
+        id: 2,
+        name: 'insurance',
+        isActive: true,
+      });
+      suppliers.findByIdRaw.mockResolvedValue({ id: 7, isActive: true });
+      projects.findOne.mockResolvedValue({ id: 3, status: 'in_progress' });
+      documents.allocateNumber.mockResolvedValue('PUR-2026-0001');
+      repo.create.mockResolvedValue(invoice({ projectId: 3 }));
+
+      await create.execute(dto({ cost_type_id: 2, project_id: 3 }), actor);
+      expect(margins.checkProjectThresholds).toHaveBeenCalledWith(3, actor);
+    });
+
+    it('a material bill has no project: the check gets null (and does nothing)', async () => {
+      costTypes.findVisibleById.mockResolvedValue({
+        id: 2,
+        name: 'material',
+        isActive: true,
+      });
+      suppliers.findByIdRaw.mockResolvedValue({ id: 7, isActive: true });
+      documents.allocateNumber.mockResolvedValue('PUR-2026-0001');
+      repo.create.mockResolvedValue(invoice({ projectId: null }));
+
+      await create.execute(dto(), actor);
+      expect(margins.checkProjectThresholds).toHaveBeenCalledWith(null, actor);
+    });
+
+    it('an explicit "project_id": null (JSON null) is a material bill, not a 500', async () => {
+      costTypes.findVisibleById.mockResolvedValue({
+        id: 2,
+        name: 'material',
+        isActive: true,
+      });
+      suppliers.findByIdRaw.mockResolvedValue({ id: 7, isActive: true });
+      documents.allocateNumber.mockResolvedValue('PUR-2026-0001');
+      repo.create.mockResolvedValue(invoice({ projectId: null }));
+
+      await create.execute(
+        dto({ project_id: null as unknown as undefined }),
+        actor,
+      );
+      expect(projects.findOne).not.toHaveBeenCalled();
+      expect(repo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: null }),
+        'PUR-2026-0001',
+        tx,
+      );
+    });
+
+    it('runs after an edit of the amount', async () => {
+      repo.findById.mockResolvedValue(invoice({ projectId: 3 }));
+      costTypes.findVisibleById.mockResolvedValue({
+        id: 2,
+        name: 'insurance',
+        isActive: true,
+      });
+      projects.findOne.mockResolvedValue({ id: 3 });
+      repo.update.mockResolvedValue(
+        invoice({ projectId: 3, amountExclVat: '200.00' }),
+      );
+
+      await update.execute(5, { amount_excl_vat: '200.00' }, actor);
+      expect(margins.checkProjectThresholds).toHaveBeenCalledWith(3, actor);
+    });
+
+    it('marking a bill paid does NOT run it: the cost counted from entry', async () => {
+      repo.findById.mockResolvedValue(invoice());
+      repo.markPaid.mockResolvedValue(invoice({ status: 'paid' }));
+      await markPaid.execute(5, {}, actor);
+      expect(margins.checkProjectThresholds).not.toHaveBeenCalled();
     });
   });
 });

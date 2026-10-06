@@ -6,6 +6,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { getLoggerToken } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
+import { MarginsService } from '../../margins/margins.service';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 import { MediaService } from '../../media/media.service';
 import { ProjectsService } from '../../projects/projects.service';
@@ -66,6 +67,7 @@ describe('Reports handlers', () => {
   const stock = { declareConsumption: jest.fn(), walkRecipeFor: jest.fn() };
   const services = { findOne: jest.fn() };
   const media = { findAll: jest.fn() };
+  const margins = { checkProjectThresholds: jest.fn() };
   const audit = { write: jest.fn() };
   const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn() };
 
@@ -99,6 +101,7 @@ describe('Reports handlers', () => {
         { provide: ServicesService, useValue: services },
         { provide: MediaService, useValue: media },
         { provide: AuditService, useValue: audit },
+        { provide: MarginsService, useValue: margins },
         ...handlers.map((h) => ({
           provide: getLoggerToken(h.name),
           useValue: logger,
@@ -283,6 +286,8 @@ describe('Reports handlers', () => {
       expect(result.movements).toHaveLength(2);
       // one audit row, after the commit
       expect(audit.write).toHaveBeenCalledTimes(1);
+      // the material cost rose: the 80 % / 95 % levels are re-checked
+      expect(margins.checkProjectThresholds).toHaveBeenCalledWith(12, actor);
       expect(audit.write).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'declare_materials', entityId: 9 }),
       );
@@ -298,6 +303,7 @@ describe('Reports handlers', () => {
         NotFoundException,
       );
       expect(audit.write).not.toHaveBeenCalled();
+      expect(margins.checkProjectThresholds).not.toHaveBeenCalled();
     });
 
     it('a worker can never declare material', async () => {

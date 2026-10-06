@@ -8,9 +8,7 @@ The live margin view, the alert thresholds that fire once each, and the snapshot
 
 ## Decide first
 
-**1 open question — cancelled projects get no snapshot.** Only `completed` writes one, so `project_margin_live` keeps computing a dead project forever. Decide whether cancellation also closes the numbers.
-
-**Recommendation:** write a snapshot on `cancelled` too. The company still wants to know what that job cost them. Write the decision into [technical/phase-08-margin-snapshot.md](../technical/phase-08-margin-snapshot.md) and tick it off in [A_progress-tracker.md](../A_progress-tracker.md).
+**Decided 2026-10-06 — a snapshot is written on `completed` AND on `cancelled`.** A cancelled job still cost the company money, so its numbers are frozen too. `cancelled` is final, so its snapshot is never voided. Written into [technical/phase-08-margin-snapshot.md](../technical/phase-08-margin-snapshot.md). Nothing blocking.
 
 ## Tables
 
@@ -139,42 +137,42 @@ That last line matters: an extra accepted quote raises the budget, so a project 
 
 ## Tasks
 
-- [ ] `project_margin_live` view as raw SQL in a migration — full SQL in § 10 of the schema
-- [ ] Divide-by-zero guard: `margin_pct` is `NULL` with no accepted quote
-- [ ] `margins` module, full shape
-- [ ] All view reads through `$queryRaw` **with `tenant_id`**
-- [ ] `margin-threshold.helper.ts` — the 80 / 95 logic, one implementation
-- [ ] `check-thresholds` called from step 08 (time entry), step 09 (consumption), step 07 (bill)
-- [ ] `project_margin_alerts` dedup, and the reset that deletes rows when cost drops back
-- [ ] `write-snapshot` wired into step 04's `change-status` on `→ completed`
-- [ ] `void-snapshot` wired into the admin reopen `completed → in_progress`
-- [ ] `budget-history` endpoint from the accepted quotes
-- [ ] Remove the `// TODO: step 10` markers in step 04
-- [ ] `// TODO: step 13` at the two alert send points
-- [ ] Decide the cancelled-project snapshot question
+- [x] `project_margin_live` view as raw SQL in a migration — full SQL in § 10 of the schema
+- [x] Divide-by-zero guard: `margin_pct` is `NULL` with no accepted quote
+- [x] `margins` module, full shape
+- [x] All view reads through `$queryRaw` **with `tenant_id`**
+- [x] `margin-threshold.helper.ts` — the 80 / 95 logic, one implementation
+- [x] `check-thresholds` called from step 08 (time entry), step 09 (consumption), step 07 (bill)
+- [x] `project_margin_alerts` dedup, and the reset that deletes rows when cost drops back
+- [x] `write-snapshot` wired into step 04's `change-status` on `→ completed`
+- [x] `void-snapshot` wired into the admin reopen `completed → in_progress`
+- [x] `budget-history` endpoint from the accepted quotes
+- [x] Remove the `// TODO: step 10` markers in step 04
+- [x] `// TODO: step 13` at the two alert send points
+- [x] Decide the cancelled-project snapshot question
 
 ## Acceptance
 
-- [ ] A project with no accepted quote → `budget = 0`, `margin_pct` is `NULL`, **no error**
-- [ ] Accept a €10,000 quote → `budget_excl_vat = 10000`
-- [ ] Accept a second €1,500 quote → budget becomes `11500`, with no update code
-- [ ] Consume €400 of material → `material_cost = 400`, using the **frozen** price
-- [ ] Log 20h at €20 → `labor_cost = 400`, using the **frozen** rate
-- [ ] A €2,500 subcontractor bill `to_pay` → `bill_cost = 2500` **immediately**, before payment
-- [ ] Mark that bill `paid` → margin **unchanged**
-- [ ] A `material` bill with `project_id = NULL` → **not** in `bill_cost`
-- [ ] Breakdown shows one line per `cost_type_id`
-- [ ] A tenant adds cost type `insurance` and a bill for it → a new line appears, **no code change**
-- [ ] Cost crosses 80% → one warning. Save again at 83% → **nothing sent**
-- [ ] Cost crosses 95% → one critical. A second row in `project_margin_alerts`
-- [ ] An extra quote drops cost under 80% → both rows deleted, levels can fire again
-- [ ] Close the project → snapshot written, with one cost row per type, in one transaction
-- [ ] Change a material price after closing → the snapshot **does not move**
-- [ ] Admin reopens → `voided_at` set, the row **still exists**
-- [ ] Close again → a second snapshot, only one with `voided_at IS NULL`
-- [ ] A `manager` sees margins; a `site_supervisor` gets 403
-- [ ] Tenant A cannot read tenant B's margins through the view
-- [ ] Update `../WhereIStop/state.md`
+- [x] A project with no accepted quote → `budget = 0`, `margin_pct` is `NULL`, **no error**
+- [x] Accept a €10,000 quote → `budget_excl_vat = 10000`
+- [x] Accept a second €1,500 quote → budget becomes `11500`, with no update code
+- [x] Consume €400 of material → `material_cost = 400`, using the **frozen** price
+- [x] Log 20h at €20 → `labor_cost = 400`, using the **frozen** rate
+- [x] A €2,500 subcontractor bill `to_pay` → `bill_cost = 2500` **immediately**, before payment
+- [x] Mark that bill `paid` → margin **unchanged**
+- [x] A `material` bill with `project_id = NULL` → **not** in `bill_cost`
+- [x] Breakdown shows one line per `cost_type_id`
+- [x] A tenant adds cost type `insurance` and a bill for it → a new line appears, **no code change**
+- [x] Cost crosses 80% → one warning. Save again at 83% → **nothing sent**
+- [x] Cost crosses 95% → one critical. A second row in `project_margin_alerts`
+- [x] An extra quote drops cost under 80% → both rows deleted, levels can fire again
+- [x] Close the project → snapshot written, with one cost row per type, in one transaction
+- [x] Change a material price after closing → the snapshot **does not move**
+- [x] Admin reopens → `voided_at` set, the row **still exists**
+- [x] Close again → a second snapshot, only one with `voided_at IS NULL`
+- [x] A `manager` sees margins; a `site_supervisor` gets 403
+- [x] Tenant A cannot read tenant B's margins through the view
+- [x] Update `../WhereIStop/state.md`
 
 ## Notes to read
 

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
+import { MarginsService } from '../../margins/margins.service';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 import { CostTypesService } from '../../cost-types/cost-types.service';
 import { DocumentsService } from '../../documents/documents.service';
@@ -40,6 +41,7 @@ export class CreatePurchaseInvoiceHandler {
     private readonly projects: ProjectsService,
     private readonly tenants: TenantsService,
     private readonly audit: AuditService,
+    private readonly margins: MarginsService,
   ) {}
 
   async execute(dto: CreatePurchaseInvoiceDto, actor: AuthenticatedUser) {
@@ -93,7 +95,7 @@ export class CreatePurchaseInvoiceHandler {
       }
     }
 
-    if (dto.project_id !== undefined) {
+    if (dto.project_id != null) {
       // Throws NotFoundException if the project does not belong to this tenant.
       await this.projects.findOne(dto.project_id);
     }
@@ -145,6 +147,8 @@ export class CreatePurchaseInvoiceHandler {
     this.logger.info(
       `Purchase invoice created: ${created.id} (${created.number})`,
     );
+    // A material bill carries no project (`null`) and never counts here.
+    await this.margins.checkProjectThresholds(created.projectId, actor);
     return entity;
   }
 }

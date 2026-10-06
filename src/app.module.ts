@@ -27,6 +27,7 @@ import { SuppliersModule } from './suppliers/suppliers.module';
 import { TasksModule } from './tasks/tasks.module';
 import { TimeEntriesModule } from './time-entries/time-entries.module';
 import { MaterialsModule } from './materials/materials.module';
+import { MarginsModule } from './margins/margins.module';
 import { MediaModule } from './media/media.module';
 import { OneTimeCodesModule } from './one-time-codes/one-time-codes.module';
 import { PlansModule } from './plans/plans.module';
@@ -101,6 +102,8 @@ import { UsersModule } from './users/users.module';
     TimeEntriesModule,
     // Step 09 — site reports
     ReportsModule,
+    // Step 10 — margin & closure snapshot
+    MarginsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

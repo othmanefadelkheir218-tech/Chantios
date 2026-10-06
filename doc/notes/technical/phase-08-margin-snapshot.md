@@ -5,7 +5,7 @@
 ## Tables
 
 - `project_margin_live` — SQL view, always fresh (no stored data)
-- `project_closure_snapshots` — written once when project → `completed`
+- `project_closure_snapshots` — written once when project → `completed` or `cancelled`
 - `project_closure_snapshot_costs` — line items of the snapshot
 - `cost_types` — seeded, 3 rows with `tenant_id = NULL`: `material` / `subcontractor` / `labor`. A tenant admin can add its own
 - `project_margin_alerts` — remembers which alert level already fired per project
@@ -67,7 +67,8 @@ Margin is recomputed after every time entry, consumption and purchase invoice. W
 | Extra accepted quote raises the budget, cost drops back under 80% | Both rows deleted — levels can fire again |
 
 ### Closure snapshot — locked forever
-- Project moves to `completed` → one row written to `project_closure_snapshots`
+- Project moves to `completed` **or `cancelled`** → one row written to `project_closure_snapshots`. A cancelled job still cost the company money, so its numbers are frozen too
+- `cancelled` is final (there is no reopen), so a `cancelled` snapshot is never voided. A bill or entry that arrives after closure never changes a snapshot — it only shows in the live view
 - Row stores the final numbers at that exact moment
 - Never updated after creation — it's a financial record
 - An admin reopening the project sets `voided_at` on it. The row **stays**; a fresh one is written at the next close. A partial unique index (`WHERE voided_at IS NULL`) keeps exactly one live snapshot per project
@@ -84,7 +85,7 @@ Margin is recomputed after every time entry, consumption and purchase invoice. W
 - `project_margin_live` SQL view (raw SQL in migration)
 - Margin alert trigger (check after every time entry, stock consumption, or purchase invoice saved) — with the `project_margin_alerts` dedup check
 - Alert reset: delete the rows when cost drops back below a threshold
-- Closure handler (project → `completed` → write snapshot)
+- Closure handler (project → `completed` or `cancelled` → write snapshot)
 - Snapshot reader (for closed project reports)
 - Seed file: `cost_types` (3 rows, `tenant_id = NULL`)
 

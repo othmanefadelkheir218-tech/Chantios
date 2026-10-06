@@ -7,6 +7,7 @@ import type { PermissionScope } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
+import { MarginsService } from '../../margins/margins.service';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 import { ServicesService } from '../../services/services.service';
 import { assertPositiveQuantity } from '../../stock/helpers/stock.helper';
@@ -38,6 +39,7 @@ export class DeclareMaterialsHandler {
     private readonly stock: StockService,
     private readonly services: ServicesService,
     private readonly audit: AuditService,
+    private readonly margins: MarginsService,
   ) {}
 
   async execute(
@@ -113,6 +115,8 @@ export class DeclareMaterialsHandler {
     this.logger.info(
       `${movements.length} consumption row(s) written for report ${reportId}`,
     );
+    // The material cost just rose: fire each alert level once, or reset one.
+    await this.margins.checkProjectThresholds(report.projectId, actor);
     return { reportId, serviceId: dto.service_id ?? null, movements };
   }
 }

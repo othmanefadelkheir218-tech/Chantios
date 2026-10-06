@@ -7,6 +7,7 @@ import type { PermissionScope } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
+import { MarginsService } from '../../margins/margins.service';
 import { toTimeEntryEntity } from '../helpers/time-entry.helper';
 import { TimeEntryRepository } from '../repositories/time-entry.repository';
 
@@ -22,6 +23,7 @@ export class DeleteTimeEntryHandler {
     private readonly logger: PinoLogger,
     private readonly entries: TimeEntryRepository,
     private readonly audit: AuditService,
+    private readonly margins: MarginsService,
   ) {}
 
   async execute(id: number, actor: AuthenticatedUser, scope: PermissionScope) {
@@ -52,6 +54,8 @@ export class DeleteTimeEntryHandler {
       ipAddress: null,
     });
     this.logger.info(`Time entry deleted: ${id}`);
+    // the cost fell: a level may no longer be reached, so it can fire again later
+    await this.margins.checkProjectThresholds(current.projectId, actor);
     return { deleted: true, id };
   }
 }

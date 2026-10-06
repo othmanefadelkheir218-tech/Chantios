@@ -7,6 +7,7 @@ import type { PermissionScope } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
+import { MarginsService } from '../../margins/margins.service';
 import { ProjectsService } from '../../projects/projects.service';
 import { TasksService } from '../../tasks/tasks.service';
 import { UsersService } from '../../users/users.service';
@@ -43,6 +44,7 @@ export class CreateTimeEntryHandler {
     private readonly users: UsersService,
     private readonly updateEntry: UpdateTimeEntryHandler,
     private readonly audit: AuditService,
+    private readonly margins: MarginsService,
   ) {}
 
   async execute(
@@ -152,6 +154,7 @@ export class CreateTimeEntryHandler {
       // TODO: step 13 — abnormal-hours alert to the manager
     }
     this.logger.info(`Time entry created: ${created.id}`);
+    await this.margins.checkProjectThresholds(created.projectId, actor);
     return withDailyInfo(entity, total, abnormal);
   }
 }
