@@ -7,6 +7,7 @@ import { imagekit } from '../../config/imagekit.config';
 import { UploadMediaDto } from '../dto/upload-media.dto';
 import {
   ALLOWED_MIME_TYPES,
+  buildMediaFolder,
   isMimeAllowed,
   MAX_FILE_SIZE_BYTES,
   toMediaEntity,
@@ -53,6 +54,7 @@ export class UploadMediaHandler {
         type: file.mimetype,
       }),
       fileName: file.originalname,
+      folder: buildMediaFolder(actor.tenantId, dto.entity_type, dto.entity_id),
     });
     if (!uploaded.fileId || !uploaded.url) {
       throw new BadRequestException('ImageKit upload did not return a file');

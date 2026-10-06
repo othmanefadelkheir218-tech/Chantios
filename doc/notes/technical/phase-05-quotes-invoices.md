@@ -34,6 +34,20 @@ quote ──── invoices (optional link)
 A `sent` quote is visible in the client portal with **Accept** and **Refuse** buttons. The client answers there; staff can also answer for a client who phones. Both paths write the same columns — see [[client-portal]].
 | `refused` | Client rejected → project stays `prospect` |
 
+### The quote transition matrix — decided 2026-10-06
+
+```
+draft    → sent
+sent     → draft (edit & resend), accepted, refused
+accepted → nothing (terminal)
+refused  → nothing (terminal)
+```
+
+- **`sent → draft` is allowed** — lets staff fix a price before the client replies. The PDF already sent stays locked forever in `media` (`is_locked`); reverting the quote never touches it, and a later re-send creates a new locked PDF, not an overwrite.
+- **`valid_until` blocks acceptance, hard.** Once `valid_until` has passed, `accept` is refused (`400`) — material/labour costs may have moved since the quote was priced. Unlike a soft stock-reservation alert, honoring a stale price is a real financial risk, so this is a real block, not a warning. Staff re-sends the quote (bumping `valid_until`) before it can be accepted again.
+- **`accepted` cannot be undone directly** — it is terminal, same philosophy as a project's `cancelled`. If the deal falls through after acceptance, the fix is cancelling the *project* (already releases its stock reservations, step 05) rather than an "unaccept" path that would duplicate that logic.
+- **`refused` is also terminal** — same reasoning as projects: a client who changes their mind gets a **new** quote, not a reopened one.
+
 ### Invoice statuses
 
 | Status | Meaning |
@@ -77,6 +91,11 @@ There is **no `overdue` status.** Status answers only "how much is paid". Late i
 - Status auto-updates based on balance:
   - balance = 0 → `paid`
   - balance < total → `partially_paid`
+
+### Overpayment — decided 2026-10-06
+- **No new status for a negative `balance_due`.** `invoice_status` stays `paid` once `balance_due ≤ 0` — the negative number itself is the signal that the client overpaid. Adding an `overpaid` enum value is a schema change for an edge case the existing status already covers well enough.
+- **`payments` is append-only, same philosophy as `stock_movements`.** No edit route, no delete route, ever. A wrong entry (typo'd amount, a refund) is corrected with a **new** payment row — a positive top-up or a negative correction — never a mutation of the original. The full history of what came in, and what corrected it, always stays visible.
+- **Invoice status is recomputed from the ledger on every payment write**, not advanced one-way. So a correcting (negative) payment that pushes `balance_due` back above `0` naturally reopens `paid → partially_paid` — there is no special "reopen" code path, it is the exact same status-from-balance rule applied again.
 
 ### Late invoices
 - A daily cron finds `sent` / `partially_paid` invoices where `due_date < today AND balance_due > 0` and **fires the alert**

@@ -8,12 +8,12 @@ Quotes with per-line VAT, client invoices, the payment ledger, safe document num
 
 ## Decide first
 
-**2 open questions.**
+**Both decided 2026-10-06.** Nothing blocking.
 
-1. **Quote transitions.** There is no matrix like projects have. Can a `sent` quote go back to `draft` to fix a price? Does `valid_until` block acceptance once it has passed? Can an `accepted` quote be undone after reservations were created?
-2. **Overpayment.** `balance_due` goes negative — which status? May a `payments` row be edited or deleted, re-opening a `paid` invoice?
+1. **Decided 2026-10-06 — quote transitions.** `draft → sent`; `sent → draft` (edit & resend, the old sent PDF stays locked), `accepted`, or `refused`; `accepted` and `refused` are both terminal. `valid_until` hard-blocks acceptance once passed (`400`) — staff must re-send first. An accepted quote is never "undone" directly — cancel the project instead (already releases its reservations). Full writeup: [technical/phase-05-quotes-invoices.md](../technical/phase-05-quotes-invoices.md) § "The quote transition matrix".
+2. **Decided 2026-10-06 — overpayment.** No new status for a negative `balance_due` — `paid` already covers it. `payments` is append-only (same rule as `stock_movements`): no edit, no delete, ever; a mistake gets a correcting row. Invoice status is recomputed from the ledger on every payment write, so a correcting payment can naturally reopen `paid → partially_paid`. Full writeup: [technical/phase-05-quotes-invoices.md](../technical/phase-05-quotes-invoices.md) § "Overpayment".
 
-Build quotes, lines and numbering first; both questions only affect status handling. Write the answers into [client-invoices.md](../client-invoices.md) / [technical/phase-05-quotes-invoices.md](../technical/phase-05-quotes-invoices.md) and tick them off in [A_progress-tracker.md](../A_progress-tracker.md).
+Ticked off in [A_progress-tracker.md](../A_progress-tracker.md).
 
 ## Tables
 
@@ -202,42 +202,44 @@ If any part fails, all of it rolls back. A quote accepted without its reservatio
 
 ## Tasks
 
-- [ ] `invoice_balance` view as raw SQL in a migration
-- [ ] `documents` module: `document-number.helper.ts`, `document-totals.helper.ts`
-- [ ] Concurrency test: two simultaneous creates get different numbers
-- [ ] `quotes` module + lines + the per-rate totals
-- [ ] `send` freezes lines and totals; later edits refused
-- [ ] `accept-quote` as one transaction wiring steps 04 and 05
-- [ ] Remove the `// TODO: step 06` marker in step 04
-- [ ] `invoices` module + lines
-- [ ] `payments` ledger + automatic status
-- [ ] `invoice_balance` read through `$queryRaw` with `tenant_id`
-- [ ] Late-invoice daily cron — alerts only, writes nothing
-- [ ] Reminder endpoint: `reminder_count`, `last_reminder_at`
-- [ ] Coverage warning endpoint
-- [ ] Decide the 2 open questions, then finish status handling
+- [x] `invoice_balance` view as raw SQL in a migration — already existed from step 01's init migration, nothing new to write
+- [x] `documents` module: `document-number.helper.ts`, `document-totals.helper.ts`
+- [x] Concurrency test: two simultaneous creates get different numbers
+- [x] `quotes` module + lines + the per-rate totals
+- [x] `send` freezes lines and totals; later edits refused
+- [x] `accept-quote` as one transaction wiring steps 04 and 05
+- [x] Remove the `// TODO: step 06` marker in step 04 — no literal marker existed; `project-status.helper.ts`'s `canTransition` was already written to be called from here, and now is
+- [x] `invoices` module + lines
+- [x] `payments` ledger + automatic status
+- [x] `invoice_balance` read through `$queryRaw` with `tenant_id`
+- [x] Late-invoice daily cron — alerts only, writes nothing
+- [x] Reminder endpoint: `reminder_count`, `last_reminder_at`
+- [x] Coverage warning endpoint
+- [x] Decide the 2 open questions, then finish status handling
 
 ## Acceptance
 
-- [ ] Create a quote → `QUO-2026-0001`; the next one is `0002`
-- [ ] Two parallel creates → two different numbers, no error
-- [ ] A quote with a 6% line and a 21% line → `vat_amount` equals the two groups rounded **separately** and summed
-- [ ] Edit lines while `draft` → totals change. After `send` → refused
-- [ ] Accept a quote with zero lines → refused
-- [ ] Accept a quote → project `in_progress`, history row written, reservations created. **All in one transaction**
-- [ ] Force a failure inside the chain → nothing is written, quote still `sent`
-- [ ] Accept a quote on a `completed` project → refused
-- [ ] Refuse a quote → project stays `prospect`
-- [ ] Two accepted quotes on one project → `sumAcceptedByProject` is their sum
-- [ ] Invoice with no `due_date` given → defaults to `issue_date + 30`
-- [ ] Pay part → `partially_paid`. Pay the rest → `paid`
-- [ ] Past `due_date` with a balance → `late` true in the view, **status unchanged**
-- [ ] No row anywhere has status `overdue`
-- [ ] Cancel an invoice → number kept, gap visible, nothing renumbered
-- [ ] Invoices totalling less than the accepted quotes → warning returned, create still allowed
-- [ ] A `sales` user can create a quote but only **view** invoices
-- [ ] An `accountant` can do invoices but **not** quotes
-- [ ] Update `../WhereIStop/state.md`
+- [x] Create a quote → `QUO-2026-0001`; the next one is `0002`
+- [x] Two parallel creates → two different numbers, no error
+- [x] A quote with a 6% line and a 21% line → `vat_amount` equals the two groups rounded **separately** and summed
+- [x] Edit lines while `draft` → totals change. After `send` → refused
+- [x] Accept a quote with zero lines → refused
+- [x] Accept a quote → project `in_progress`, history row written, reservations created. **All in one transaction**
+- [x] Force a failure inside the chain → nothing is written, quote still `sent`
+- [x] Accept a quote on a `completed` project → refused
+- [x] Refuse a quote → project stays `prospect`
+- [x] Two accepted quotes on one project → `sumAcceptedByProject` is their sum
+- [x] Invoice with no `due_date` given → defaults to `issue_date + 30`
+- [x] Pay part → `partially_paid`. Pay the rest → `paid`
+- [x] Past `due_date` with a balance → `late` true in the view, **status unchanged**
+- [x] No row anywhere has status `overdue`
+- [x] Cancel an invoice → number kept, gap visible, nothing renumbered
+- [x] Invoices totalling less than the accepted quotes → warning returned, create still allowed
+- [x] A `sales` user can create a quote but only **view** invoices
+- [x] An `accountant` can do invoices but **not** quotes
+- [x] Update `../WhereIStop/state.md`
+
+All run live against a real started server and a real Postgres database on 2026-10-06 — see [../test/10-quotes-invoices.md](../test/10-quotes-invoices.md) for the exact requests and results. One real finding surfaced during review, not invented: `payments.amount` carries a DB `CHECK (amount > 0)`, which makes a "negative correction reopening `paid → partially_paid`" (described in [technical/phase-05-quotes-invoices.md](../technical/phase-05-quotes-invoices.md) § Overpayment) structurally unreachable as currently built. Flagged to the user, not yet resolved — see that test file § 4.
 
 ## Notes to read
 

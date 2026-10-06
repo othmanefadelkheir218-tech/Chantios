@@ -18,6 +18,7 @@ import { CreateProjectHandler } from './create-project.handler';
 import { DeleteProjectHandler } from './delete-project.handler';
 import { FindProjectHandler } from './find-project.handler';
 import { FindProjectsHandler } from './find-projects.handler';
+import { StartProgressFromQuoteHandler } from './start-progress-from-quote.handler';
 import { UpdateProjectHandler } from './update-project.handler';
 
 const actor = { userId: 1, tenantId: 1, roleId: 1, email: 'admin@test.local' };
@@ -78,6 +79,7 @@ describe('Projects handlers', () => {
   let changeStatus: ChangeStatusHandler;
   let cancelProject: CancelProjectHandler;
   let deleteProject: DeleteProjectHandler;
+  let startProgressFromQuote: StartProgressFromQuoteHandler;
 
   beforeEach(async () => {
     jest.resetAllMocks();
@@ -89,6 +91,7 @@ describe('Projects handlers', () => {
       ChangeStatusHandler,
       CancelProjectHandler,
       DeleteProjectHandler,
+      StartProgressFromQuoteHandler,
     ];
     const module = await Test.createTestingModule({
       providers: [
@@ -114,6 +117,7 @@ describe('Projects handlers', () => {
     changeStatus = module.get(ChangeStatusHandler);
     cancelProject = module.get(CancelProjectHandler);
     deleteProject = module.get(DeleteProjectHandler);
+    startProgressFromQuote = module.get(StartProgressFromQuoteHandler);
   });
 
   describe('CreateProjectHandler', () => {
@@ -402,6 +406,79 @@ describe('Projects handlers', () => {
       expect(repo.delete).toHaveBeenCalledWith(10);
       expect(result).toEqual({ id: 10, deleted: true });
       expect(audit.write).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('StartProgressFromQuoteHandler', () => {
+    const txMock = {};
+
+    it('rejects an unknown project', async () => {
+      repo.findById.mockResolvedValue(null);
+      await expect(
+        startProgressFromQuote.execute(10, actor, txMock as never),
+      ).rejects.toThrow(NotFoundException);
+      expect(repo.setStatus).not.toHaveBeenCalled();
+    });
+
+    it('rejects a completed project', async () => {
+      repo.findById.mockResolvedValue(project({ status: 'completed' }));
+      await expect(
+        startProgressFromQuote.execute(10, actor, txMock as never),
+      ).rejects.toThrow(BadRequestException);
+      expect(repo.setStatus).not.toHaveBeenCalled();
+    });
+
+    it('rejects a cancelled project', async () => {
+      repo.findById.mockResolvedValue(project({ status: 'cancelled' }));
+      await expect(
+        startProgressFromQuote.execute(10, actor, txMock as never),
+      ).rejects.toThrow(BadRequestException);
+      expect(repo.setStatus).not.toHaveBeenCalled();
+    });
+
+    it('moves a prospect project to in_progress and writes history, inside the given tx', async () => {
+      const prospectProject = project({ status: 'prospect' });
+      repo.findById.mockResolvedValue(prospectProject);
+      repo.setStatus.mockResolvedValue(project({ status: 'in_progress' }));
+
+      const result = await startProgressFromQuote.execute(
+        10,
+        actor,
+        txMock as never,
+      );
+
+      expect(repo.findById).toHaveBeenCalledWith(10, txMock);
+      expect(repo.setStatus).toHaveBeenCalledWith(
+        10,
+        'in_progress',
+        undefined,
+        txMock,
+      );
+      expect(history.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectId: 10,
+          fromStatus: 'prospect',
+          toStatus: 'in_progress',
+          reason: 'quote_accepted',
+        }),
+        txMock,
+      );
+      expect(result.status).toBe('in_progress');
+    });
+
+    it('is a no-op for a project already in_progress (second accepted quote)', async () => {
+      const inProgressProject = project({ status: 'in_progress' });
+      repo.findById.mockResolvedValue(inProgressProject);
+
+      const result = await startProgressFromQuote.execute(
+        10,
+        actor,
+        txMock as never,
+      );
+
+      expect(repo.setStatus).not.toHaveBeenCalled();
+      expect(history.write).not.toHaveBeenCalled();
+      expect(result.status).toBe('in_progress');
     });
   });
 });

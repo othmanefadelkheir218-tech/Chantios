@@ -8,6 +8,7 @@ import { imagekit } from '../../config/imagekit.config';
 import { TenantsService } from '../../tenants/tenants.service';
 import {
   ALLOWED_MIME_TYPES,
+  buildMediaFolder,
   isMimeAllowed,
   MAX_FILE_SIZE_BYTES,
   toMediaEntity,
@@ -59,6 +60,7 @@ export class ReplaceMediaHandler {
         type: file.mimetype,
       }),
       fileName: file.originalname,
+      folder: buildMediaFolder(actor.tenantId, entityType, entityId),
     });
     if (!uploaded.fileId || !uploaded.url) {
       throw new BadRequestException('ImageKit upload did not return a file');

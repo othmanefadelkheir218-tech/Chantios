@@ -13,16 +13,19 @@ import { CategoriesModule } from './categories/categories.module';
 import { ClientsModule } from './clients/clients.module';
 import { validateEnv } from './config/env.config';
 import { loggerConfig } from './config/logger.config';
+import { DocumentsModule } from './documents/documents.module';
 import { EmailModule } from './email/email.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { HealthModule } from './health/health.module';
 import { InvitationsModule } from './invitations/invitations.module';
+import { InvoicesModule } from './invoices/invoices.module';
 import { MaterialsModule } from './materials/materials.module';
 import { MediaModule } from './media/media.module';
 import { OneTimeCodesModule } from './one-time-codes/one-time-codes.module';
 import { PlansModule } from './plans/plans.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProjectsModule } from './projects/projects.module';
+import { QuotesModule } from './quotes/quotes.module';
 import { RolesModule } from './roles/roles.module';
 import { ServicesModule } from './services/services.module';
 import { StockModule } from './stock/stock.module';
@@ -77,6 +80,10 @@ import { UsersModule } from './users/users.module';
     MaterialsModule,
     ServicesModule,
     StockModule,
+    // Step 06 — quotes & invoices
+    DocumentsModule,
+    QuotesModule,
+    InvoicesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

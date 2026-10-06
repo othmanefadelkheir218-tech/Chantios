@@ -27,6 +27,23 @@ export function isMimeAllowed(
 }
 
 /**
+ * Every upload's ImageKit `folder` —
+ * `/Chantios/tenant-<id>/<entity_type>/<entity_id>`, e.g.
+ * `/Chantios/tenant-1/project/10`. The `Chantios` root keeps this app's
+ * files together and separate from anything else the same ImageKit account
+ * might ever hold. Without this, every file (every tenant, every entity)
+ * lands loose at the ImageKit root. ImageKit creates the nested folders on
+ * first upload if they don't exist yet — nothing to provision.
+ */
+export function buildMediaFolder(
+  tenantId: number,
+  entityType: MediaEntityType,
+  entityId: number,
+): string {
+  return `/Chantios/tenant-${tenantId}/${entityType}/${entityId}`;
+}
+
+/**
  * What may leave the module — an allow-list. ImageKit's own `file_id` never
  * appears in a response; it is an internal handle used only to call the
  * ImageKit SDK later, same spirit as `password_hash` never leaving `users`.

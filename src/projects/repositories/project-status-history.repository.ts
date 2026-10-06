@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, ProjectStatusHistory } from '@prisma/client';
-import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
+import {
+  TenantPrismaService,
+  TenantTransactionClient,
+} from '../../common/prisma/tenant-prisma.service';
 
 /**
  * The one allowed second repository in `projects` (doc/notes/Phaces/04-clients-projects.md):
@@ -11,10 +14,14 @@ import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 export class ProjectStatusHistoryRepository {
   constructor(private readonly tenantPrisma: TenantPrismaService) {}
 
+  /** `tx` — step 06's quote-acceptance chain writes this inside its own transaction. */
   write(
     entry: Prisma.ProjectStatusHistoryUncheckedCreateInput,
+    tx?: TenantTransactionClient,
   ): Promise<ProjectStatusHistory> {
-    return this.tenantPrisma.db.projectStatusHistory.create({ data: entry });
+    return (tx ?? this.tenantPrisma.db).projectStatusHistory.create({
+      data: entry,
+    });
   }
 
   findByProject(projectId: number): Promise<ProjectStatusHistory[]> {

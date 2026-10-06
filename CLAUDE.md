@@ -38,5 +38,18 @@ When asked what is missing or unclear, answer from those two lists. Do not re-de
 - A business rule is implemented once. Search before writing it again.
 - `tenant_id` is never a route param, query param or body field. It comes from the JWT through `nestjs-cls`.
 
+## Telegram notifications during multi-phase work
+When working through a build with several phases/steps, each holding several tasks:
+- Notify by Telegram **when starting a phase**.
+- Notify by Telegram **when each task inside the phase finishes**.
+- Notify by Telegram **when the whole phase finishes**.
+
+How: write `{"message": "..."}` to `push.json` in the project root. A running `node telegram-bot.js` process (started from this project's root) watches that file and sends the message, then resets `push.json` back to `{}`. Wait a couple seconds and check that it reset — that confirms delivery.
+
+If `push.json` does **not** reset after a few seconds, the bot's file-watcher has stalled (a known flakiness, not a config problem). Fix: stop the existing `telegram-bot.js` process and start a fresh one in the background, then retry the write. Don't keep retrying against a stalled instance.
+
+## Git push at the end of each phase
+When a phase/step is finished (build done, verified, docs updated, `state.md` updated): commit the changes with a clear, descriptive commit message and push to `main` on GitHub. Do this every time a phase finishes — no need to ask first, this is the standing instruction.
+
 ## End of every session
 Update `doc/notes/WhereIStop/state.md`: current step, status, next action, and anything that broke.

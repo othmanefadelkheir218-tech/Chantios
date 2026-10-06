@@ -14,6 +14,7 @@ import { CreateProjectHandler } from './handlers/create-project.handler';
 import { DeleteProjectHandler } from './handlers/delete-project.handler';
 import { FindProjectHandler } from './handlers/find-project.handler';
 import { FindProjectsHandler } from './handlers/find-projects.handler';
+import { StartProgressFromQuoteHandler } from './handlers/start-progress-from-quote.handler';
 import { UpdateProjectHandler } from './handlers/update-project.handler';
 import { ProjectStatusHistoryRepository } from './repositories/project-status-history.repository';
 import { ProjectRepository } from './repositories/project.repository';
@@ -54,6 +55,7 @@ import { ProjectsService } from './projects.service';
     ChangeStatusHandler,
     CancelProjectHandler,
     DeleteProjectHandler,
+    StartProgressFromQuoteHandler,
   ],
   exports: [ProjectsService],
 })

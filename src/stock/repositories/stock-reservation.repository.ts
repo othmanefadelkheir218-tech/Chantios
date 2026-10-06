@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, StockReservation } from '@prisma/client';
-import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
+import {
+  TenantPrismaService,
+  TenantTransactionClient,
+} from '../../common/prisma/tenant-prisma.service';
 
 /**
  * The only place where the stock module talks to the database for
@@ -17,15 +20,17 @@ export class StockReservationRepository {
    * Prisma's `increment`, it never creates a duplicate row or needs a
    * find-then-branch race. Always brings `status` back to `active` — even a
    * previously `released`/`consumed` row is live again once more is
-   * reserved against it.
+   * reserved against it. `tx` — step 06's quote-acceptance chain writes this
+   * inside its own transaction, alongside `quotes` and `projects`.
    */
   upsertAdd(
     projectId: number,
     materialId: number,
     quantity: string,
     tenantId: number,
+    tx?: TenantTransactionClient,
   ): Promise<StockReservation> {
-    return this.tenantPrisma.db.stockReservation.upsert({
+    return (tx ?? this.tenantPrisma.db).stockReservation.upsert({
       where: { projectId_materialId: { projectId, materialId } },
       create: {
         tenantId,

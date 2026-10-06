@@ -167,6 +167,9 @@ describe('Media handlers', () => {
       );
 
       expect(uploadMock).toHaveBeenCalledTimes(1);
+      expect(uploadMock).toHaveBeenCalledWith(
+        expect.objectContaining({ folder: '/Chantios/tenant-1/report/5' }),
+      );
       expect(repo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId: 1,
@@ -310,6 +313,9 @@ describe('Media handlers', () => {
 
       const result = await replaceMedia.execute('user', 7, file(), actor);
 
+      expect(uploadMock).toHaveBeenCalledWith(
+        expect.objectContaining({ folder: '/Chantios/tenant-1/user/7' }),
+      );
       expect(deleteMock).toHaveBeenCalledWith('old-file');
       expect(repo.hardDelete).toHaveBeenCalledWith([1]);
       expect(result.id).toBe(2);

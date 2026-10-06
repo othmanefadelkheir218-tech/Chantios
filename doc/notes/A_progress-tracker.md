@@ -128,13 +128,13 @@
 
 > These are service-layer rules. The schema supports either answer, so decide them inside their phase. **The full list also lives at the bottom of `doc/Schema Proposal.md`.** Keep the two in step.
 
-- [ ] **Quote transitions** — no matrix like projects have. Can `sent` go back to `draft` to fix a price? Does `valid_until` block acceptance once passed? Can an `accepted` quote be undone after reservations exist?
+- [x] **Quote transitions** — decided 2026-10-06: `draft → sent`, `sent → draft/accepted/refused`, `accepted`/`refused` terminal. `valid_until` hard-blocks acceptance once passed. An accepted quote can't be undone directly — cancel the project instead. See \[\[phase-05-quotes-invoices\]\].
 
 - [x] **Closing guard** — decided 2026-10-06: never blocked by payment status. `completed` means work finished, not fully paid. A bill arriving after closure is still recorded (shows up in the live `project_margin_live`) but never retroactively changes the frozen `project_closure_snapshots` row — reopen/reclose (admin only) to refresh it. See \[\[phase-03-clients-projects\]\].
 
 - [ ] **Cancelled projects get no snapshot** — only `completed` writes one, so `project_margin_live` computes a dead project forever.
 
-- [ ] **Overpayment** — `balance_due` goes negative, which status? May a `payments` row be edited or deleted, re-opening a `paid` invoice?
+- [x] **Overpayment** — decided 2026-10-06: no new status, `paid` already covers `balance_due ≤ 0`. `payments` is append-only (same as `stock_movements`) — a mistake gets a correcting row, never an edit/delete. Status is recomputed from the ledger on every write, so a correction can naturally reopen `paid → partially_paid`. See \[\[phase-05-quotes-invoices\]\].
 
 - [ ] **Worker hour scope** — assignee on any task of the *project*, or only that *task*? Which rule when `time_entries.task_id` is `NULL`?
 
@@ -145,6 +145,8 @@
 - [ ] **Tenant created by the super-admin** — `POST /api/admin/tenants` writes the `tenants` row only. Does it also create the trial `tenant_subscriptions` row and the first `admin` user, as self-registration does?
 
 - [ ] **Known bug list review** — going through each bug from the testing doc and confirming the rule that fixes it.
+
+- [ ] **Payments cannot actually go negative** — found during step 06's build (2026-10-06): `payments.amount` carries a DB `CHECK (amount > 0)` (`doc/Schema Proposal.md` § 6), but the decided Overpayment rule describes "a positive top-up or a negative correction" and a correction "naturally reopening `paid → partially_paid`". Under the real constraint, `amount_paid` can only ever increase, so `balance_due` can only ever fall — a `paid` invoice can never reopen. Either the CHECK needs relaxing (a migration) or the "negative correction" language needs rewriting to describe what's actually buildable. Not decided, not invented — see \[\[phase-05-quotes-invoices\]\] § Overpayment and `doc/notes/test/10-quotes-invoices.md` § 4.
 
 - [ ] **Frontend** — not started, backend first.
 

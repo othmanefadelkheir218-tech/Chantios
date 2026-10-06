@@ -312,6 +312,7 @@ describe('Stock handlers', () => {
         5,
         '3',
         actor.tenantId,
+        undefined,
       );
       expect(result).toHaveLength(1);
       expect(audit.write).toHaveBeenCalledTimes(1);

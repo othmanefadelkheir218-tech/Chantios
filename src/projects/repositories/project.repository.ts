@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, Project, ProjectStatus } from '@prisma/client';
-import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
+import {
+  TenantPrismaService,
+  TenantTransactionClient,
+} from '../../common/prisma/tenant-prisma.service';
 
 /** The only place where the projects module talks to the database for `projects` rows. */
 @Injectable()
@@ -11,8 +14,9 @@ export class ProjectRepository {
     return this.tenantPrisma.db.project.create({ data });
   }
 
-  findById(id: number): Promise<Project | null> {
-    return this.tenantPrisma.db.project.findFirst({ where: { id } });
+  /** `tx` — step 06's quote-acceptance chain reads the project inside its own transaction. */
+  findById(id: number, tx?: TenantTransactionClient): Promise<Project | null> {
+    return (tx ?? this.tenantPrisma.db).project.findFirst({ where: { id } });
   }
 
   async findMany(
@@ -35,13 +39,19 @@ export class ProjectRepository {
     return this.tenantPrisma.db.project.update({ where: { id }, data });
   }
 
-  /** `actualEndDate` is only ever set when moving to `completed`. */
+  /**
+   * `actualEndDate` is only ever set when moving to `completed`. `tx` —
+   * step 06's quote-acceptance chain writes this inside its own transaction
+   * alongside `quotes` and `stock_reservations` (register-tenant.handler.ts,
+   * step 02, is the precedent for threading an additive `tx` across modules).
+   */
   setStatus(
     id: number,
     status: ProjectStatus,
     actualEndDate?: Date,
+    tx?: TenantTransactionClient,
   ): Promise<Project> {
-    return this.tenantPrisma.db.project.update({
+    return (tx ?? this.tenantPrisma.db).project.update({
       where: { id },
       data: {
         status,

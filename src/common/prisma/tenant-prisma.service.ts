@@ -6,6 +6,21 @@ import { applyTenantExtension } from './tenant-extension';
 type TenantScopedClient = ReturnType<typeof applyTenantExtension>;
 
 /**
+ * The type of `tx` inside `this.tenantPrisma.db.$transaction(async (tx) => {...})`.
+ * Extracted from the extended client's own `$transaction` signature rather
+ * than typed as the raw `Prisma.TransactionClient` — a Prisma Client
+ * extension's model delegates are a structurally different (if compatible
+ * at runtime) generic shape, so a union of `Prisma.TransactionClient` with
+ * `TenantScopedClient` does not type-check ("not callable", excessive stack
+ * depth). Every repository method that threads an optional `tx` across a
+ * cross-module transaction (step 06's quote-acceptance chain and onward)
+ * should type it as `TenantTransactionClient`, not `Prisma.TransactionClient`.
+ */
+export type TenantTransactionClient = Parameters<
+  Parameters<TenantScopedClient['$transaction']>[0]
+>[0];
+
+/**
  * The tenant-scoped Prisma client. Every tenant-owned table's repository
  * (`users`, `user_invitations`, `role_permissions`, and every module after
  * step 02) injects this instead of the raw `PrismaService` and reads through

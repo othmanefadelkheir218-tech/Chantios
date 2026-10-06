@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
+import { TenantTransactionClient } from '../common/prisma/tenant-prisma.service';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 import { CreateMovementDto } from './dto/create-movement.dto';
 import { FindMovementsQueryDto } from './dto/find-movements-query.dto';
@@ -48,13 +49,18 @@ export class StockService {
 
   // ---- Internal API for other modules ----
 
-  /** Step 06 (quote acceptance): reserve stock for an accepted quote's lines. */
+  /**
+   * Step 06 (quote acceptance): reserve stock for an accepted quote's
+   * lines. `tx` — `accept-quote.handler` runs this inside its own
+   * transaction alongside `quotes` and `projects`.
+   */
   reserveForProject(
     projectId: number,
     lines: RecipeLine[],
     actor: AuthenticatedUser,
+    tx?: TenantTransactionClient,
   ) {
-    return this.createReservations.execute(projectId, lines, actor);
+    return this.createReservations.execute(projectId, lines, actor, tx);
   }
 
   /** Step 09 (site report): declares material actually used on site. */
