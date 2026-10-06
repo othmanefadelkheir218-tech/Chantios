@@ -8,6 +8,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { DeactivateUserHandler } from './handlers/deactivate-user.handler';
 import { FindUserHandler } from './handlers/find-user.handler';
 import { FindUsersHandler } from './handlers/find-users.handler';
+import { ReplaceAvatarHandler } from './handlers/replace-avatar.handler';
 import { SetPinHandler } from './handlers/set-pin.handler';
 import { UpdateProfileHandler } from './handlers/update-profile.handler';
 import { UpdateUserHandler } from './handlers/update-user.handler';
@@ -29,6 +30,7 @@ export class UsersService {
     private readonly updateProfile: UpdateProfileHandler,
     private readonly deactivateUser: DeactivateUserHandler,
     private readonly setPin: SetPinHandler,
+    private readonly replaceAvatar: ReplaceAvatarHandler,
   ) {}
 
   findAll(query: FindUsersQueryDto) {
@@ -53,6 +55,10 @@ export class UsersService {
 
   setMobilePin(id: number, dto: SetPinDto, actor: AuthenticatedUser) {
     return this.setPin.execute(id, dto, actor);
+  }
+
+  replaceOwnAvatar(file: Express.Multer.File, actor: AuthenticatedUser) {
+    return this.replaceAvatar.execute(file, actor);
   }
 
   // ---- Internal API for `auth` and `invitations` ----

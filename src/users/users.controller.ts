@@ -8,19 +8,25 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
 import { Module } from '../auth/decorators/module.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { TenantAuth } from '../auth/decorators/tenant-auth.decorator';
+import {
+  SessionAuth,
+  TenantAuth,
+} from '../auth/decorators/tenant-auth.decorator';
 import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
 import {
   ApiDeactivateUser,
   ApiFindUser,
   ApiFindUsers,
+  ApiReplaceAvatar,
   ApiSetPin,
   ApiUpdateProfile,
   ApiUpdateUser,
@@ -54,6 +60,20 @@ export class UsersController {
     @CurrentUser() actor: AuthenticatedUser,
   ) {
     return this.usersService.updateOwnProfile(dto, actor);
+  }
+
+  // Must stay registered before `GET :id` — both match one path segment
+  // with `me` (`PATCH` above already does; `POST` has no `:id` route today,
+  // kept defensive in case one is added later).
+  @Post('me/avatar')
+  @SessionAuth()
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiReplaceAvatar()
+  replaceAvatar(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.usersService.replaceOwnAvatar(file, actor);
   }
 
   @Get(':id')

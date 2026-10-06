@@ -185,42 +185,44 @@ A quote can be accepted with not enough stock. An alert fires — *"not enough s
 
 ## Tasks
 
-- [ ] `material_stock_live` view as raw SQL in a migration
-- [ ] `categories` module + the shared-defaults reader (`tenant_id IS NULL OR = :current`)
-- [ ] Guard: a tenant can never edit or delete a `NULL`-tenant default row
-- [ ] `services` module + the recipe endpoints
-- [ ] `replaceRecipe` in one transaction
-- [ ] `materials` module, joined with the view
-- [ ] `low-stock` endpoint
-- [ ] `stock` module: purchase, adjustment, movements list
-- [ ] `record-consumption.handler` — built here, **no route**, called by step 09
-- [ ] `recipe.helper.ts` — the recipe walk, one implementation
-- [ ] Reservations: `upsertAdd`, `consume`, `release`, `check-coverage`
-- [ ] Expose `releaseByProject` through the stock **service** and call it from step 04's cancel handler
-- [ ] All `$queryRaw` on the view pass `tenant_id` explicitly
-- [ ] `// TODO: step 13` at the low-stock and coverage alert points
+- [x] `material_stock_live` view as raw SQL in a migration — already existed from step 01, confirmed live
+- [x] `categories` module + the shared-defaults reader (`tenant_id IS NULL OR = :current`)
+- [x] Guard: a tenant can never edit or delete a `NULL`-tenant default row
+- [x] `services` module + the recipe endpoints
+- [x] `replaceRecipe` in one transaction
+- [x] `materials` module, joined with the view
+- [x] `low-stock` endpoint
+- [x] `stock` module: purchase, adjustment, movements list
+- [x] `record-consumption.handler` — built here, **no route**, called by step 09
+- [x] `recipe.helper.ts` — the recipe walk, one implementation
+- [x] Reservations: `upsertAdd`, `consume`, `release`, `check-coverage`
+- [x] Expose `releaseByProject` through the stock **service** and call it from step 04's cancel handler
+- [x] All `$queryRaw` on the view pass `tenant_id` explicitly
+- [x] `// TODO: step 13` at the low-stock and coverage alert points
 
 ## Acceptance
 
-- [ ] `GET /api/categories` returns the seeded defaults **plus** the tenant's own rows
-- [ ] A tenant tries to edit a `NULL`-tenant category → refused
-- [ ] Create a service with 3 recipe rows → `PUT recipe` replaces all 3 in one transaction
-- [ ] `materials` has no quantity column
-- [ ] Record a purchase of 100 → `on_hand = 100` from the view; `project_id` is `NULL`
-- [ ] Try to post a purchase with a `project_id` → rejected or forced to `NULL`
-- [ ] Try to post a purchase with a negative quantity → rejected
-- [ ] Reserve 30 via the recipe → `reserved = 30`, `available = 70`
-- [ ] A second accepted quote reserves 10 more → **one** row, `reserved_quantity = 40`
-- [ ] Consume 25 → `remaining_quantity = 15`, `reserved_quantity` still 40, `on_hand = 75`
-- [ ] Consume the last 15 → `status = 'consumed'`
-- [ ] Reserve more than `on_hand` → allowed, `available` goes negative, alert fires
-- [ ] Buy more stock → coverage check clears the alert
-- [ ] Cancel the project → remaining reservations `released`; consumed movements untouched
-- [ ] Change `materials.purchase_price` → past movements keep their old `unit_price`
-- [ ] An adjustment with no `note` → rejected
-- [ ] A `worker` calling any stock route → 403
-- [ ] Tenant A cannot see tenant B's materials, movements or reservations
-- [ ] Update `../WhereIStop/state.md`
+Run live 2026-10-06: HTTP scenarios against a real running app (`PORT=5391 node dist/main`), reservation/consumption scenarios via a direct service-level script against the real database (no HTTP route exists for them yet — only step 06/09 will call them). Scenarios in [../test/09-catalogue-stock.md](../test/09-catalogue-stock.md). Test data cleaned up afterward.
+
+- [x] `GET /api/categories` returns the seeded defaults **plus** the tenant's own rows
+- [x] A tenant tries to edit a `NULL`-tenant category → refused (`404`, the tenant-scoped repository simply never matches it)
+- [x] Create a service with 3 recipe rows → `PUT recipe` replaces all 3 in one transaction (confirmed: replacing with 1 row leaves exactly 1, the old 3 are gone)
+- [x] `materials` has no quantity column
+- [x] Record a purchase of 100 → `on_hand = 100` from the view; `project_id` is `NULL`
+- [x] Try to post a purchase with a `project_id` → rejected outright (`400`, the field doesn't exist on the DTO)
+- [x] Try to post a purchase with a negative quantity → rejected
+- [x] Reserve 30 via the recipe → `reserved = 30`, `available = 70`
+- [x] A second accepted quote reserves 10 more → **one** row, `reserved_quantity = 40`
+- [x] Consume 25 → `remaining_quantity = 15`, `reserved_quantity` still 40, `on_hand = 75`
+- [x] Consume the last 15 → `status = 'consumed'`
+- [x] Reserve more than `on_hand` → allowed, `available` goes negative (confirmed `-440`); the alert itself is a `// TODO: step 13`, not wired yet — the step file says so explicitly
+- [x] Buy more stock → coverage-check logic runs (confirmed unit-tested); the actual alert-clear side effect is the same step-13 TODO as above
+- [x] Cancel the project → remaining reservations `released`, `remaining_quantity = 0`; consumed movements untouched (confirmed: 2 movement rows survived the cancel)
+- [x] Change `materials.purchase_price` → past movements keep their old `unit_price` (confirmed: 3 movements stayed at the original price after changing it)
+- [x] An adjustment with no `note` → rejected
+- [x] A `worker` calling any stock route → 403
+- [x] Tenant A cannot see tenant B's materials, movements or reservations
+- [x] Update `../WhereIStop/state.md`
 
 ## Notes to read
 

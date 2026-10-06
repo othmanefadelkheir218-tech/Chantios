@@ -98,7 +98,7 @@ From [technical/build-order.md](../technical/build-order.md). Phase numbers are 
 | 02 | [02-auth-users.md](02-auth-users.md) | 02 | no |
 | 03 | [03-media.md](03-media.md) | 09 | 1 — `media` cascade cleanup |
 | 04 | [04-clients-projects.md](04-clients-projects.md) | 03 | 1 — project closing guard |
-| 05 | [05-catalogue-stock.md](05-catalogue-stock.md) | 04 | no |
+| 05 | [05-Catalogue & Stock.md](05-Catalogue%20%26%20Stock.md) | 04 | no |
 | 06 | [06-quotes-invoices.md](06-quotes-invoices.md) | 05 | 2 — quote transitions, overpayment |
 | 07 | [07-purchases.md](07-purchases.md) | 06 | no |
 | 08 | [08-planning-time.md](08-planning-time.md) | 07 | 1 — worker hour scope |

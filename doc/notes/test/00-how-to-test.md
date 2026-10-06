@@ -11,6 +11,9 @@
 | [04-subscriptions.md](04-subscriptions.md) | Subscription of a tenant, plan change, usage |
 | [05-audit-analytics-feedback.md](05-audit-analytics-feedback.md) | Audit logs, analytics events, feedback |
 | [06-auth-users.md](06-auth-users.md) | Step 02 — auth, mobile login, users, invitations, roles/permissions, admin guard, cleanup job, tenant isolation |
+| [07-media.md](07-media.md) | Step 03 — upload, rename, soft/hard delete, trash, 30-day purge, avatar/logo replace, storage usage, tenant isolation |
+| [08-clients-projects.md](08-clients-projects.md) | Step 04 — clients, projects, the status matrix, closing guard, prospect-only delete cascading to media, tenant isolation |
+| [09-catalogue-stock.md](09-catalogue-stock.md) | Step 05 — categories (shared defaults), services + recipe, materials, the append-only stock ledger, reservations, tenant isolation |
 
 ---
 
@@ -114,8 +117,8 @@ yarn test:e2e      # real database — needs docker compose up -d
 
 | Command | Expected | Notes |
 |---|---|---|
-| `yarn test` | `Tests: 143 passed`, 18 suites… all green | If the count is higher, new tests were added. A failure is a bug |
-| `yarn test:e2e` | `Tests: 11 passed` | **Jest does not exit by itself** after the e2e run. Press Ctrl+C once it prints the result, or run `npx jest --config test/jest-e2e.json --forceExit` |
+| `yarn test` | `Tests: 247 passed`, 28 suites… all green | If the count is higher, new tests were added. A failure is a bug |
+| `yarn test:e2e` | `Tests: 11 passed`, 44 tables checked | **Jest does not exit by itself** after the e2e run. Press Ctrl+C once it prints the result, or run `npx jest --config test/jest-e2e.json --forceExit` |
 | `yarn lint` | `0 errors` (3 warnings in `auth.handlers.spec.ts` are known) | |
 | `yarn build` | no output = ok | |
 

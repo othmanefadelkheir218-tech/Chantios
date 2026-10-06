@@ -91,4 +91,12 @@ export class TenantRepository {
       data: { emailVerifiedAt: new Date() },
     });
   }
+
+  /** Called by the media module after a logo upload/replace succeeds. */
+  setLogoMediaId(id: number, mediaId: number): Promise<Tenant> {
+    return this.prisma.tenant.update({
+      where: { id },
+      data: { logoMediaId: mediaId },
+    });
+  }
 }

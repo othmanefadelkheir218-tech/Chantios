@@ -8,9 +8,7 @@ Client cards, projects, and the status transition rules — enforced in the serv
 
 ## Decide first
 
-**1 open question — the closing guard.** May a project become `completed` while invoices are unpaid or purchase bills are still `to_pay`? And where does a cost that arrives **after** closure go, since the snapshot is frozen?
-
-You can build everything else in this step first. The transition `in_progress → completed` is the only part that waits. Write the answer into [technical/phase-03-clients-projects.md](../technical/phase-03-clients-projects.md) and tick it off in [A_progress-tracker.md](../A_progress-tracker.md).
+**Decided 2026-10-06 — the closing guard.** `in_progress → completed` is never blocked by payment status — unpaid invoices or `to_pay` purchase bills do not prevent closing. A cost that arrives after closure is still recorded (shows up in the live `project_margin_live`) but never retroactively changes the frozen `project_closure_snapshots` row — admin reopen/reclose refreshes it. Full writeup in [technical/phase-03-clients-projects.md](../technical/phase-03-clients-projects.md) § "The closing guard"; ticked off in [A_progress-tracker.md](../A_progress-tracker.md).
 
 ## Tables
 
@@ -49,7 +47,8 @@ src/
     ├── dto/create-project.dto.ts, update-project.dto.ts, find-projects-query.dto.ts,
     │       change-status.dto.ts
     ├── handlers/create-project.handler.ts, find-projects.handler.ts, find-project.handler.ts,
-    │            update-project.handler.ts, change-status.handler.ts, cancel-project.handler.ts
+    │            update-project.handler.ts, change-status.handler.ts, cancel-project.handler.ts,
+    │            delete-project.handler.ts
     ├── helpers/project-status.helper.ts     ← the transition matrix lives here, once
     ├── repositories/project.repository.ts, project-status-history.repository.ts
     └── projects.service.ts / .controller.ts / .module.ts
@@ -73,6 +72,7 @@ src/
 | `PATCH` | `/api/projects/:id` | `projects:edit` | not the status |
 | `PATCH` | `/api/projects/:id/status` | `projects:edit` | **goes through the matrix** |
 | `GET` | `/api/projects/:id/history` | `projects:view` | `project_status_history` |
+| `DELETE` | `/api/projects/:id` | `projects:delete` | **hard delete, `prospect`-status only.** Any other status → `400`. Decided in [media-files.md](../media-files.md) § cascade cleanup |
 
 Status changes get their own route on purpose. A generic `PATCH` that accepts `status` would bypass the matrix — that was one of the bugs found in testing.
 
@@ -113,6 +113,7 @@ write(entry), findByProject(projectId)
 | `create-project.handler` | status starts at `prospect`. `client_id` must be an **active** client of this tenant. Writes the first `project_status_history` row with `from_status = NULL` |
 | `change-status.handler` | the matrix below. Any other move is refused. Always writes a history row. Sets `actual_end_date` when moving to `completed` |
 | `cancel-project.handler` | releases unused `stock_reservations` (step 05 wires this), then fires the alert *"don't forget to invoice the client for completed work"* (step 13 wires this) |
+| `delete-project.handler` | **refused unless `status = 'prospect'`.** Calls `MediaService.deleteAllForEntity('project', id)` first (ImageKit + `media` rows gone), then deletes the `projects` row. `projects` module imports `MediaModule`, calls it through the media **service**, never its repository |
 
 ### The transition matrix — `project-status.helper.ts`
 
@@ -144,33 +145,38 @@ Leave a `// TODO: step NN` at each point, then come back. Do not stub a fake imp
 
 ## Tasks
 
-- [ ] `clients` module, full shape
-- [ ] `vat_number` required for `professional` — handler check **and** the DB constraint
-- [ ] `projects` module, full shape
-- [ ] `project-status.helper.ts` — the matrix as one exported constant + a `canTransition()` function
-- [ ] `change-status` route, separate from the generic `PATCH`
-- [ ] `project_status_history` written on **every** change, including creation
-- [ ] DB checks confirmed live: `chk_project_dates`, `chk_professional_has_vat`
-- [ ] `GET /api/clients/:id/projects` and `GET /api/projects/:id/history`
-- [ ] `// TODO: step NN` markers at the 4 wiring points above
-- [ ] Decide the closing guard, then implement `in_progress → completed`
+- [x] `clients` module, full shape
+- [x] `vat_number` required for `professional` — handler check **and** the DB constraint
+- [x] `projects` module, full shape
+- [x] `project-status.helper.ts` — the matrix as one exported constant + a `canTransition()` function
+- [x] `change-status` route, separate from the generic `PATCH`
+- [x] `project_status_history` written on **every** change, including creation
+- [x] DB checks confirmed live: `chk_project_dates`, `chk_professional_has_vat`
+- [x] `GET /api/clients/:id/projects` and `GET /api/projects/:id/history`
+- [x] `// TODO: step NN` markers at the 4 wiring points above
+- [x] Decide the closing guard — done, see *Decide first* above. Implement `in_progress → completed` with no payment-status check (just the matrix + history write, same as any other transition)
+- [x] `delete-project.handler` — `prospect`-only hard delete, calls `MediaService.deleteAllForEntity` first. Requires step 03's `media` module (`deleteAllForEntity`) to already exist
 
 ## Acceptance
 
-- [ ] Create a client of type `professional` with no `vat_number` → rejected
-- [ ] Two clients, same email, same tenant → rejected. Different tenant → allowed
-- [ ] `DELETE /api/clients/:id` → `is_active = false`, the row still exists
-- [ ] Create a project → status `prospect`, one history row with `from_status = NULL`
-- [ ] `end_date` before `start_date` → rejected by the database, not only the DTO
-- [ ] `prospect → completed` → **refused** (not in the matrix)
-- [ ] `prospect → in_progress` → allowed, history row written
-- [ ] `cancelled → in_progress` → refused, whoever asks
-- [ ] `completed → in_progress` as a non-admin → refused; as admin → allowed
-- [ ] Generic `PATCH /api/projects/:id` with a `status` field → status unchanged
-- [ ] `projects` has no budget or progress column
-- [ ] A `sales` user can create a client but only **view** projects
-- [ ] Tenant A cannot see tenant B's clients or projects
-- [ ] Update `../WhereIStop/state.md`
+Run live 2026-10-06 against a real running app (`PORT=5391 node dist/main`), real logins (`admin@dupont.test`, `manager@dupont.test`, `sales@dupont.test`, `admin@verhelst.test`). Test data cleaned up afterward. Scenarios in [../test/08-clients-projects.md](../test/08-clients-projects.md).
+
+- [x] Create a client of type `professional` with no `vat_number` → rejected
+- [x] Two clients, same email, same tenant → rejected. Different tenant → allowed
+- [x] `DELETE /api/clients/:id` → `is_active = false`, the row still exists
+- [x] Create a project → status `prospect`, one history row with `from_status = NULL`
+- [x] `end_date` before `start_date` → rejected (handler-level 400; the DB's `chk_project_dates` confirmed live separately during the build)
+- [x] `prospect → completed` → **refused** (not in the matrix)
+- [x] `prospect → in_progress` → allowed, history row written
+- [x] `cancelled → in_progress` → refused, whoever asks
+- [x] `completed → in_progress` as a non-admin → refused (`403`); as admin → allowed
+- [x] Generic `PATCH /api/projects/:id` with a `status` field → refused outright (`400`, whitelist validation) — stricter than merely "unchanged"
+- [x] `projects` has no budget or progress column
+- [x] `DELETE /api/projects/:id` on a `prospect` project with 2 uploaded files → project **and** its media gone from ImageKit and the database (confirmed via direct DB query, not just the API)
+- [x] `DELETE /api/projects/:id` on an `in_progress`/`completed`/`cancelled` project → refused, project and its media untouched
+- [x] A `sales` user can create a client but only **view** projects
+- [x] Tenant A cannot see tenant B's clients or projects
+- [x] Update `../WhereIStop/state.md`
 
 ## Notes to read
 

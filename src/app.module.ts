@@ -9,16 +9,23 @@ import { AdminUsersModule } from './admin-users/admin-users.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
+import { CategoriesModule } from './categories/categories.module';
+import { ClientsModule } from './clients/clients.module';
 import { validateEnv } from './config/env.config';
 import { loggerConfig } from './config/logger.config';
 import { EmailModule } from './email/email.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { HealthModule } from './health/health.module';
 import { InvitationsModule } from './invitations/invitations.module';
+import { MaterialsModule } from './materials/materials.module';
+import { MediaModule } from './media/media.module';
 import { OneTimeCodesModule } from './one-time-codes/one-time-codes.module';
 import { PlansModule } from './plans/plans.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ProjectsModule } from './projects/projects.module';
 import { RolesModule } from './roles/roles.module';
+import { ServicesModule } from './services/services.module';
+import { StockModule } from './stock/stock.module';
 import { StripeModule } from './stripe/stripe.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { TenantsModule } from './tenants/tenants.module';
@@ -60,6 +67,16 @@ import { UsersModule } from './users/users.module';
     RolesModule,
     InvitationsModule,
     AuthModule,
+    // Step 03 — media
+    MediaModule,
+    // Step 04 — clients & projects
+    ClientsModule,
+    ProjectsModule,
+    // Step 05 — catalogue & stock
+    CategoriesModule,
+    MaterialsModule,
+    ServicesModule,
+    StockModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

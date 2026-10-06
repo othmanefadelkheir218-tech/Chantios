@@ -17,6 +17,7 @@ import { SoftDeleteTenantHandler } from './handlers/soft-delete-tenant.handler';
 import { SoftDeleteTenantsHandler } from './handlers/soft-delete-tenants.handler';
 import { UpdateTenantHandler } from './handlers/update-tenant.handler';
 import { VerifyTenantEmailHandler } from './handlers/verify-tenant-email.handler';
+import { TenantRepository } from './repositories/tenant.repository';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
 @Injectable()
@@ -33,6 +34,7 @@ export class TenantsService {
     private readonly restoreTenants: RestoreTenantsHandler,
     private readonly sendVerificationEmail: SendTenantVerificationEmailHandler,
     private readonly verifyEmail: VerifyTenantEmailHandler,
+    private readonly tenants: TenantRepository,
   ) {}
 
   /** `tx` — step 02 registration runs this inside its own transaction. */
@@ -82,5 +84,15 @@ export class TenantsService {
 
   verifyEmailOf(id: number, dto: VerifyTenantEmailDto, actor: RequestActor) {
     return this.verifyEmail.execute(id, dto, actor);
+  }
+
+  /**
+   * One-line passthrough, no business decision to make (same spirit as the
+   * other internal methods on `UsersService`). Called by the media module
+   * after a logo upload/replace succeeds — never the other way around, to
+   * avoid a circular module dependency between `tenants` and `media`.
+   */
+  setLogoMediaId(id: number, mediaId: number) {
+    return this.tenants.setLogoMediaId(id, mediaId);
   }
 }

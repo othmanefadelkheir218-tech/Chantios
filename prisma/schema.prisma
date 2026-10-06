@@ -1518,6 +1518,8 @@ model Media {
   entityType MediaEntityType @map("entity_type")
   entityId   Int             @map("entity_id")
   fileName   String          @map("file_name")
+  /// ImageKit's own file id — required to delete/update the file later (the SDK has no delete-by-URL).
+  fileId     String          @map("file_id")
   /// ImageKit URL. Never changes after upload — rename touches fileName only.
   fileUrl    String          @map("file_url")
   fileType   String          @map("file_type")
@@ -1525,6 +1527,8 @@ model Media {
   fileSize   BigInt          @map("file_size")
   isLocked   Boolean         @default(false) @map("is_locked")
   uploadedBy Int?            @map("uploaded_by")
+  /// Soft delete (trash). NULL = not deleted. A trashed row still counts toward storage_gb billing.
+  deletedAt  DateTime?       @map("deleted_at") @db.Timestamptz(6)
   createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 

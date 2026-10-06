@@ -1,6 +1,9 @@
 import { applyDecorators } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBody,
+  ApiConsumes,
+  ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -61,6 +64,26 @@ export const ApiUpdateProfile = () =>
     ApiOperation({ summary: 'Update my own name/phone' }),
     ApiOkResponse({ description: 'Profile updated', type: UserEntity }),
     ApiBadRequestResponse({ description: 'Invalid data' }),
+  );
+
+export const ApiReplaceAvatar = () =>
+  applyDecorators(
+    ApiOperation({
+      summary: 'Replace my own avatar',
+      description:
+        'Multipart, JPG/PNG only, max 10MB. Hard-deletes the previous avatar (no trash).',
+    }),
+    ApiConsumes('multipart/form-data'),
+    ApiBody({
+      schema: {
+        type: 'object',
+        properties: { file: { type: 'string', format: 'binary' } },
+      },
+    }),
+    ApiCreatedResponse({ description: 'Avatar replaced' }),
+    ApiBadRequestResponse({
+      description: 'Too large or disallowed MIME type',
+    }),
   );
 
 export const ApiSetPin = () =>

@@ -34,6 +34,28 @@ export class PrismaExceptionFilter implements ExceptionFilter {
           error: 'Not Found',
           message: 'Record not found',
         };
+      // Prisma has no dedicated code for a raw Postgres error (a CHECK
+      // constraint, or a unique/partial index Prisma's schema doesn't know
+      // about — this app has 5 of those, hand-written in the migration). It
+      // wraps the real error under `meta`. Handlers already validate the
+      // business rules that back most of these (belt-and-suspenders); this
+      // is the fallback for whatever a handler missed, or a future module
+      // that forgets to check first.
+      case 'P2039': {
+        const pgCode = this.pgErrorCode(exception);
+        if (pgCode?.startsWith('23')) {
+          return {
+            statusCode: HttpStatus.BAD_REQUEST,
+            error: 'Bad Request',
+            message: this.pgErrorMessage(exception) ?? 'Invalid data',
+          };
+        }
+        return {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          error: 'Internal Server Error',
+          message: 'Database error',
+        };
+      }
       default:
         return {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -41,5 +63,22 @@ export class PrismaExceptionFilter implements ExceptionFilter {
           message: 'Database error',
         };
     }
+  }
+
+  /** Postgres SQLSTATE (e.g. `23514` = check_violation), buried under `meta`. */
+  private pgErrorCode(
+    exception: Prisma.PrismaClientKnownRequestError,
+  ): string | undefined {
+    const meta = exception.meta as
+      { driverAdapterError?: { cause?: { code?: string } } } | undefined;
+    return meta?.driverAdapterError?.cause?.code;
+  }
+
+  private pgErrorMessage(
+    exception: Prisma.PrismaClientKnownRequestError,
+  ): string | undefined {
+    const meta = exception.meta as
+      { driverAdapterError?: { cause?: { message?: string } } } | undefined;
+    return meta?.driverAdapterError?.cause?.message;
   }
 }

@@ -56,6 +56,15 @@ Anything else is refused by the service.
 | `completed` can be reopened, by an admin only | Closing by mistake must be fixable. The reopen sets `voided_at` on the `project_closure_snapshots` row — it never **deletes** it, because a snapshot is a financial record. A fresh snapshot is written at the next close, and a partial unique index keeps only one live row per project |
 | A quote can only be accepted on a `prospect` or `in_progress` project | Accepting on a closed project would change a budget that is already frozen in a snapshot |
 
+### The closing guard — decided 2026-10-06
+
+**`in_progress → completed` is never blocked by payment status.** Unpaid invoices or `to_pay` purchase bills do **not** prevent closing a project.
+
+- `completed` means *work finished*, not *fully paid*. Clients commonly pay weeks after the job is done, and a supplier bill can arrive late — gating closure on money actually moving would leave a finished job stuck open waiting on accounting, which doesn't match how the business runs.
+- **A cost (or invoice) that arrives after closure is still recorded against the project** — nothing locks writes to a `completed` project's ledger. It shows up in `project_margin_live` (a live view, so the *current* true margin always stays accurate), but it does **not** retroactively change the frozen `project_closure_snapshots` row written at the moment of closing — that row stays exactly as it was, a historical record.
+- To correct the *official* closeout number after a late cost lands, reuse the mechanism already decided above: admin reopens (`completed → in_progress`), which voids the old snapshot, then re-closes — a fresh snapshot is written with the up-to-date numbers. No new mechanism needed.
+- Trade-off accepted: `project_margin_live` and the frozen snapshot can disagree for a while after a late cost lands, until someone reopens/recloses. Preferred over blocking real operational work on accounting catching up.
+
 ### Project cancellation rule
 When project moves to `cancelled`:
 - Unused stock reservations released automatically

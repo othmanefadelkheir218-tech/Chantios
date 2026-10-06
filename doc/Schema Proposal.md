@@ -980,11 +980,13 @@ CREATE TABLE media (
   entity_type media_entity_type NOT NULL,
   entity_id   INTEGER NOT NULL,                       -- polymorphic: no FK by design
   file_name   TEXT NOT NULL,
+  file_id     TEXT NOT NULL,                       -- ImageKit's own file id, needed to delete/update it later
   file_url    TEXT NOT NULL,                       -- ImageKit URL, never changes
   file_type   TEXT NOT NULL,                       -- MIME
   file_size   BIGINT NOT NULL CHECK (file_size > 0 AND file_size <= 10485760),  -- 10 MB
   is_locked   BOOLEAN NOT NULL DEFAULT false,      -- true = the frozen copy of a sent document
   uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  deleted_at  TIMESTAMPTZ,                         -- soft delete (trash). NULL = not deleted
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -992,7 +994,7 @@ CREATE INDEX idx_media_entity ON media (entity_type, entity_id);
 CREATE INDEX idx_media_tenant ON media (tenant_id);
 ```
 
-`is_locked` protects the PDF the client actually received. The delete endpoint refuses a locked row — otherwise the legal copy of a sent invoice could be deleted like any photo. `SUM(file_size)` per tenant is the number the `storage_gb` billing dimension reads.
+`is_locked` protects the PDF the client actually received. The delete endpoint refuses a locked row, soft or hard — otherwise the legal copy of a sent invoice could be deleted like any photo. `SUM(file_size)` per tenant is the number the `storage_gb` billing dimension reads, and it **still counts a soft-deleted (trashed) row** — trash is not free storage. `deleted_at` decided 2026-10-06: see `doc/notes/media-files.md`.
 
 ```sql
 CREATE TABLE notifications (
@@ -1316,12 +1318,12 @@ INSERT INTO categories (tenant_id, name) VALUES
 These are service-layer rules. The schema above supports either answer.
 
 1. **Quote transitions.** There is no matrix like the one projects have. Can a `sent` quote go back to `draft` to fix a price? Does `valid_until` block acceptance once it has passed? Can an `accepted` quote be undone after the reservations were created?
-2. **Closing guard.** May a project become `completed` while invoices are unpaid or bills are still `to_pay`? And where does a bill that arrives *after* closure go — the snapshot is frozen.
+2. **Closing guard.** May a project become `completed` while invoices are unpaid or bills are still `to_pay`? And where does a bill that arrives *after* closure go — the snapshot is frozen. **Decided 2026-10-06** — never blocked by payment status; see `doc/notes/technical/phase-03-clients-projects.md` § "The closing guard". A late bill is still recorded (the live `project_margin_live` reflects it) but never retroactively changes the frozen snapshot; reopen/reclose (admin only) refreshes it.
 3. **Cancelled projects get no snapshot.** Only `completed` writes one, so `project_margin_live` keeps computing a dead project forever. Decide whether cancellation also closes the numbers.
 4. **Overpayment.** `balance_due` goes negative — which status? And may a `payments` row be edited or deleted, re-opening a `paid` invoice?
 5. **Worker hour scope.** Assignee on any task of that *project*, or only on that *task*? And which rule applies when `time_entries.task_id` is `NULL`?
 6. **Platform admin cross-tenant read.** A support conversation is a business table, so the Prisma extension scopes it. The escape hatch for an `admin_user` needs a defined mechanism, and it must write to `audit_logs`.
-7. **Delete / cascade on `media`.** It has no FK by design, so deleting a project leaves orphan rows. Decide whether a cleanup job sweeps them.
+7. **Delete / cascade on `media`.** It has no FK by design, so deleting a project leaves orphan rows. Decide whether a cleanup job sweeps them. **Decided 2026-10-06** — no sweep job; see `doc/notes/media-files.md`. Every entity type except `project` never hard-deletes at all, so none can orphan `media`. `project` gets the one exception — a real hard delete, `prospect`-status only — and its handler calls `MediaService.deleteAllForEntity()` synchronously first.
 8. **Tenant created by the super-admin.** `POST /api/admin/tenants` writes the `tenants` row only. The notes describe the trial `tenant_subscriptions` row and the first `admin` user only for self-registration (step 02). Decide whether the super-admin route also creates them, or whether a tenant made this way stays empty until something else does.
 
 ## Related notes

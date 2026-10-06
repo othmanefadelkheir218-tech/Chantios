@@ -130,7 +130,7 @@
 
 - [ ] **Quote transitions** — no matrix like projects have. Can `sent` go back to `draft` to fix a price? Does `valid_until` block acceptance once passed? Can an `accepted` quote be undone after reservations exist?
 
-- [ ] **Closing guard** — may a project become `completed` with unpaid invoices or `to_pay` bills? Where does a bill arriving *after* closure go?
+- [x] **Closing guard** — decided 2026-10-06: never blocked by payment status. `completed` means work finished, not fully paid. A bill arriving after closure is still recorded (shows up in the live `project_margin_live`) but never retroactively changes the frozen `project_closure_snapshots` row — reopen/reclose (admin only) to refresh it. See \[\[phase-03-clients-projects\]\].
 
 - [ ] **Cancelled projects get no snapshot** — only `completed` writes one, so `project_margin_live` computes a dead project forever.
 
@@ -140,7 +140,7 @@
 
 - [ ] **Platform-admin cross-tenant read** — the escape hatch past the Prisma extension for a support conversation, and it must write `audit_logs`.
 
-- [ ] **Delete / cascade policy** — `media` has no FK by design, so deleting a project leaves orphans. Decide whether a cleanup job sweeps them.
+- [x] **Delete / cascade policy** — decided 2026-10-06, no sweep job. Every entity type except `project` never hard-deletes (soft-delete, soft-cancel, archive-only, or no delete route at all), so none can orphan `media`. `project` gets one real hard delete, `prospect`-status only, and its handler calls `MediaService.deleteAllForEntity()` synchronously before removing the row. See \[\[media-files\]\].
 
 - [ ] **Tenant created by the super-admin** — `POST /api/admin/tenants` writes the `tenants` row only. Does it also create the trial `tenant_subscriptions` row and the first `admin` user, as self-registration does?
 
