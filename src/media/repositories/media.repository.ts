@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Media, MediaEntityType, Prisma } from '@prisma/client';
-import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
+import {
+  TenantPrismaService,
+  TenantTransactionClient,
+} from '../../common/prisma/tenant-prisma.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 /** The only place where the media module talks to the database. */
@@ -35,6 +38,34 @@ export class MediaRepository {
     return this.tenantPrisma.db.media.findMany({
       where: { entityType, entityId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /** Excludes trash. One query for a whole page of parents (a chat page's attachments). */
+  findByEntityIds(
+    entityType: MediaEntityType,
+    entityIds: number[],
+  ): Promise<Media[]> {
+    if (entityIds.length === 0) return Promise.resolve([]);
+    return this.tenantPrisma.db.media.findMany({
+      where: { entityType, entityId: { in: entityIds }, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  /**
+   * Points files at the entity that now exists (`entity_id`). `tx` — a chat
+   * message and its attachments are written in one transaction.
+   */
+  async setEntityId(
+    ids: number[],
+    entityId: number,
+    tx?: TenantTransactionClient,
+  ): Promise<void> {
+    if (ids.length === 0) return;
+    await (tx ?? this.tenantPrisma.db).media.updateMany({
+      where: { id: { in: ids } },
+      data: { entityId },
     });
   }
 

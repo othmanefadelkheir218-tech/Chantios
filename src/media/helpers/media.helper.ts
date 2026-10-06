@@ -48,6 +48,13 @@ export function buildMediaFolder(
  * appears in a response; it is an internal handle used only to call the
  * ImageKit SDK later, same spirit as `password_hash` never leaving `users`.
  */
+/**
+ * The `entity_id` a file carries while it waits to be attached to something
+ * that does not exist yet — a chat message is written AFTER its files are
+ * uploaded. `attach-media.handler.ts` replaces it with the real id.
+ */
+export const PENDING_ENTITY_ID = 0;
+
 export function toMediaEntity(media: Media) {
   return {
     id: media.id,

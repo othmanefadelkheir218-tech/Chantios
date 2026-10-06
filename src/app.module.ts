@@ -19,6 +19,7 @@ import { FeedbackModule } from './feedback/feedback.module';
 import { HealthModule } from './health/health.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { InvoicesModule } from './invoices/invoices.module';
+import { ChatModule } from './chat/chat.module';
 import { CostTypesModule } from './cost-types/cost-types.module';
 import { PurchaseInvoicesModule } from './purchase-invoices/purchase-invoices.module';
 import { ReportsModule } from './reports/reports.module';
@@ -104,6 +105,8 @@ import { UsersModule } from './users/users.module';
     ReportsModule,
     // Step 10 — margin & closure snapshot
     MarginsModule,
+    // Step 11 — chat & conversations
+    ChatModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

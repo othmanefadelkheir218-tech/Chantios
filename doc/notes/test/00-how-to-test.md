@@ -19,6 +19,7 @@
 | [12-planning-time.md](12-planning-time.md) | Step 08 — tasks + assignees (the Gantt feed), the daily-hours rule, the frozen hourly rate, the correction rules, project-level worker scope, labour cost, tenant isolation |
 | [13-site-reports.md](13-site-reports.md) | Step 09 — the report upsert, progress read from the newest report, the material pre-fill (a read), declare-material (the stock door, one transaction), report photos, the two alert crons, tenant isolation |
 | [14-margin.md](14-margin.md) | Step 10 — the live margin (three doors), the breakdown, the 80/95 alerts that fire once, the closure snapshot on `completed` and `cancelled`, void on reopen, budget history, roles, tenant isolation |
+| [15-chat.md](15-chat.md) | Step 11 — conversations, membership (HTTP and socket), real-time `new_message`, attachments, read tracking, the idempotent project conversation, the audited platform-admin support door, tenant isolation |
 
 ---
 
@@ -122,7 +123,7 @@ yarn test:e2e      # real database — needs docker compose up -d
 
 | Command | Expected | Notes |
 |---|---|---|
-| `yarn test` | `Tests: 436 passed`, 38 suites… all green | If the count is higher, new tests were added. A failure is a bug |
+| `yarn test` | `Tests: 491 passed`, 40 suites… all green | If the count is higher, new tests were added. A failure is a bug |
 | `yarn test:e2e` | `Tests: 11 passed`, 44 tables checked | **Jest does not exit by itself** after the e2e run. Press Ctrl+C once it prints the result, or run `npx jest --config test/jest-e2e.json --forceExit` |
 | `yarn lint` | `0 errors` (3 warnings in `auth.handlers.spec.ts` are known) | |
 | `yarn build` | no output = ok | |

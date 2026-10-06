@@ -20,6 +20,8 @@ All conversations are **scoped by `tenant_id`** — a message can never cross co
 
 `super_admin` can read across tenants — for support only — and every such access is logged in `audit_logs`.
 
+**How that read is built (decided 2026-10-06).** Conversations are a business table, so the Prisma tenant extension scopes every normal query to one tenant. The platform's read goes through **one explicit repository method** that takes a `tenantId` argument and runs on the **unwrapped** Prisma client. It is called only from a handler behind `AdminAuthGuard`, and that handler writes an `audit_logs` row on every call. There is no general "disable the extension" flag, anywhere — the bypass is one method that can be reviewed.
+
 ---
 
 ## 1. Internal chat

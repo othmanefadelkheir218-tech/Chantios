@@ -1,0 +1,104 @@
+import { Injectable } from '@nestjs/common';
+import { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
+import { RequestActor } from '../common/decorators/actor.decorator';
+import { AddMemberDto } from './dto/add-member.dto';
+import { AdminSendSupportMessageDto } from './dto/admin-send-support-message.dto';
+import { AdminSupportQueryDto } from './dto/admin-support-query.dto';
+import { CreateConversationDto } from './dto/create-conversation.dto';
+import { FindConversationsQueryDto } from './dto/find-conversations-query.dto';
+import { FindMessagesQueryDto } from './dto/find-messages-query.dto';
+import { SendMessageDto } from './dto/send-message.dto';
+import { AddMemberHandler } from './handlers/add-member.handler';
+import { AdminFindSupportMessagesHandler } from './handlers/admin-find-support-messages.handler';
+import { AdminSendSupportMessageHandler } from './handlers/admin-send-support-message.handler';
+import { ArchiveConversationHandler } from './handlers/archive-conversation.handler';
+import { CreateConversationHandler } from './handlers/create-conversation.handler';
+import { EnsureProjectConversationHandler } from './handlers/ensure-project-conversation.handler';
+import { FindConversationsHandler } from './handlers/find-conversations.handler';
+import { FindMessagesHandler } from './handlers/find-messages.handler';
+import { MarkReadHandler } from './handlers/mark-read.handler';
+import { SendMessageHandler } from './handlers/send-message.handler';
+import { UnreadCountHandler } from './handlers/unread-count.handler';
+
+/** Orchestration only: each method calls the handler that owns the business logic. */
+@Injectable()
+export class ChatService {
+  constructor(
+    private readonly createConversation: CreateConversationHandler,
+    private readonly findConversations: FindConversationsHandler,
+    private readonly findMessages: FindMessagesHandler,
+    private readonly sendMessage: SendMessageHandler,
+    private readonly markRead: MarkReadHandler,
+    private readonly unreadCount: UnreadCountHandler,
+    private readonly archiveConversation: ArchiveConversationHandler,
+    private readonly addMember: AddMemberHandler,
+    private readonly ensureProjectConversationHandler: EnsureProjectConversationHandler,
+    private readonly adminFindSupport: AdminFindSupportMessagesHandler,
+    private readonly adminSendSupport: AdminSendSupportMessageHandler,
+  ) {}
+
+  create(dto: CreateConversationDto, actor: AuthenticatedUser) {
+    return this.createConversation.execute(dto, actor);
+  }
+
+  findAll(query: FindConversationsQueryDto, actor: AuthenticatedUser) {
+    return this.findConversations.execute(query, actor);
+  }
+
+  findOne(id: number, actor: AuthenticatedUser) {
+    return this.findConversations.findOne(id, actor);
+  }
+
+  messages(id: number, query: FindMessagesQueryDto, actor: AuthenticatedUser) {
+    return this.findMessages.execute(id, query, actor);
+  }
+
+  send(id: number, dto: SendMessageDto, actor: AuthenticatedUser) {
+    return this.sendMessage.execute(id, dto, actor);
+  }
+
+  read(id: number, actor: AuthenticatedUser) {
+    return this.markRead.execute(id, actor);
+  }
+
+  unread(actor: AuthenticatedUser) {
+    return this.unreadCount.execute(actor);
+  }
+
+  archive(id: number, actor: AuthenticatedUser) {
+    return this.archiveConversation.execute(id, actor);
+  }
+
+  members(id: number, dto: AddMemberDto, actor: AuthenticatedUser) {
+    return this.addMember.execute(id, dto, actor);
+  }
+
+  // ---- The platform admin's cross-tenant support door (behind AdminAuthGuard) ----
+
+  adminReadSupport(
+    ticketId: number,
+    query: AdminSupportQueryDto,
+    actor: RequestActor,
+  ) {
+    return this.adminFindSupport.execute(ticketId, query, actor);
+  }
+
+  adminReplySupport(
+    ticketId: number,
+    tenantId: number,
+    dto: AdminSendSupportMessageDto,
+    actor: RequestActor,
+  ) {
+    return this.adminSendSupport.execute(ticketId, tenantId, dto, actor);
+  }
+
+  // ---- Internal API for step 12 (client portal) ----
+
+  /**
+   * Find-or-create the ONE `project_client` conversation of a project.
+   * Idempotent — step 12 calls it every time a portal link is generated.
+   */
+  ensureProjectConversation(projectId: number, actor: AuthenticatedUser) {
+    return this.ensureProjectConversationHandler.execute(projectId, actor);
+  }
+}

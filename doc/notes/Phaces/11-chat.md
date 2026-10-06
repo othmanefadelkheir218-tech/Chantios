@@ -8,9 +8,7 @@ Three conversation types, read tracking, attachments through `media`, and real-t
 
 ## Decide first
 
-**1 open question — platform admin cross-tenant read.** A support conversation is a business table, so the Prisma extension scopes it to one tenant. An `admin_user` needs a defined escape hatch to read it, and every such access must write to `audit_logs`.
-
-**Recommendation:** one explicit method on the conversations repository that takes a `tenantId` argument and runs on the **unwrapped** Prisma client, callable only from a handler behind `AdminAuthGuard`, and always writing an `audit_logs` row. Never a general "disable the extension" flag. Write the decision into [chat-conversations.md](../chat-conversations.md) and tick it off in [A_progress-tracker.md](../A_progress-tracker.md).
+**Decided 2026-10-06 — the platform admin's cross-tenant read is ONE explicit repository method.** It takes a `tenantId` argument and runs on the **unwrapped** Prisma client. It is called only from a handler behind `AdminAuthGuard`, and that handler always writes an `audit_logs` row. There is no general "disable the extension" flag. Written into [chat-conversations.md](../chat-conversations.md). Nothing blocking.
 
 ## Tables
 
@@ -131,36 +129,36 @@ markRead(messageIds, reader, tx), countUnread(conversationId, reader)
 
 ## Tasks
 
-- [ ] `chat` module, full shape
-- [ ] `chat-access.helper.ts` — membership check used by HTTP **and** the socket `join`
-- [ ] Socket.io gateway + the **Redis adapter**
-- [ ] `IoAdapter` registered in `main.ts` per `.instruction/main_file.txt`
-- [ ] `ensure-project-conversation` — idempotent, for step 12
-- [ ] `message_reads` + the unread count
-- [ ] Attachments through step 03's media, `entity_type = 'message'`, images + PDF only
-- [ ] Archive endpoints
-- [ ] The admin support escape hatch + its `audit_logs` write
-- [ ] `// TODO: step 13` at the new-message notification point
-- [ ] Decide the cross-tenant read question
+- [x] `chat` module, full shape
+- [x] `chat-access.helper.ts` — membership check used by HTTP **and** the socket `join`
+- [x] Socket.io gateway + the **Redis adapter**
+- [x] `IoAdapter` registered in `main.ts` per `.instruction/main_file.txt`
+- [x] `ensure-project-conversation` — idempotent, for step 12
+- [x] `message_reads` + the unread count
+- [x] Attachments through step 03's media, `entity_type = 'message'`, images + PDF only
+- [x] Archive endpoints
+- [x] The admin support escape hatch + its `audit_logs` write
+- [x] `// TODO: step 13` at the new-message notification point
+- [x] Decide the cross-tenant read question
 
 ## Acceptance
 
-- [ ] Create an internal conversation with 3 members → 3 `conversation_members` rows
-- [ ] Add a member from **another** tenant → refused
-- [ ] Send a message → row written, `tenant_id` set, `new_message` received by the other member's socket
-- [ ] A non-member calling `GET messages` → 403
-- [ ] A non-member sending `join` over the socket → refused
-- [ ] Attach 2 images → 2 `media` rows with `entity_type = 'message'`
-- [ ] Attach a .docx → rejected
-- [ ] Open the conversation → `message_reads` rows written once; opening again adds none
-- [ ] Unread count drops to 0 after reading
-- [ ] `ensure-project-conversation` called twice for one project → **one** conversation
-- [ ] `type = 'project_client'` with no `project_id` → rejected by the DB check
-- [ ] `type = 'support'` with no `support_ticket_id` → rejected
-- [ ] Archive → hidden from the default list, rows still present
-- [ ] A platform admin reads a support thread → works, **and** an `audit_logs` row exists
-- [ ] Tenant A cannot read tenant B's conversations or messages
-- [ ] Update `../WhereIStop/state.md`
+- [x] Create an internal conversation with 3 members → 3 `conversation_members` rows
+- [x] Add a member from **another** tenant → refused
+- [x] Send a message → row written, `tenant_id` set, `new_message` received by the other member's socket
+- [x] A non-member calling `GET messages` → 403
+- [x] A non-member sending `join` over the socket → refused
+- [x] Attach 2 images → 2 `media` rows with `entity_type = 'message'`
+- [x] Attach a .docx → rejected
+- [x] Open the conversation → `message_reads` rows written once; opening again adds none
+- [x] Unread count drops to 0 after reading
+- [x] `ensure-project-conversation` called twice for one project → **one** conversation
+- [x] `type = 'project_client'` with no `project_id` → rejected by the DB check
+- [x] `type = 'support'` with no `support_ticket_id` → rejected
+- [x] Archive → hidden from the default list, rows still present
+- [x] A platform admin reads a support thread → works, **and** an `audit_logs` row exists
+- [x] Tenant A cannot read tenant B's conversations or messages
+- [x] Update `../WhereIStop/state.md`
 
 ## Notes to read
 

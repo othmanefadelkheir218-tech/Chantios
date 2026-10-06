@@ -1070,6 +1070,11 @@ CREATE TABLE conversation_members (
   joined_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   CHECK (num_nonnulls(user_id, client_id, admin_user_id) = 1)
 );
+-- one membership per person: exactly one of the three columns is set, so a plain
+-- UNIQUE (conversation_id, user_id, ...) would never fire (NULLs are distinct)
+CREATE UNIQUE INDEX uq_member_user   ON conversation_members (conversation_id, user_id)       WHERE user_id IS NOT NULL;
+CREATE UNIQUE INDEX uq_member_client ON conversation_members (conversation_id, client_id)     WHERE client_id IS NOT NULL;
+CREATE UNIQUE INDEX uq_member_admin  ON conversation_members (conversation_id, admin_user_id) WHERE admin_user_id IS NOT NULL;
 
 CREATE TABLE messages (
   id              SERIAL PRIMARY KEY,
@@ -1093,6 +1098,10 @@ CREATE TABLE message_reads (
   CHECK (num_nonnulls(user_id, client_id) = 1),
   UNIQUE (message_id, user_id, client_id)
 );
+-- the UNIQUE above cannot stop a duplicate (one of the two columns is always NULL, and NULLs are
+-- distinct), so one row per message per reader is enforced by a partial index per reader column
+CREATE UNIQUE INDEX uq_read_user   ON message_reads (message_id, user_id)   WHERE user_id IS NOT NULL;
+CREATE UNIQUE INDEX uq_read_client ON message_reads (message_id, client_id) WHERE client_id IS NOT NULL;
 ```
 
 **There is no `attachments` column on `messages`.** Every attachment is a `media` row with `entity_type = 'message'`. One mechanism for files in the whole app.
@@ -1322,7 +1331,7 @@ These are service-layer rules. The schema above supports either answer.
 3. **Cancelled projects get no snapshot.** Only `completed` writes one, so `project_margin_live` keeps computing a dead project forever. Decide whether cancellation also closes the numbers. **Decided 2026-10-06** — both `completed` and `cancelled` write a snapshot; `cancelled` is final, so its snapshot is never voided. See `doc/notes/technical/phase-08-margin-snapshot.md`.
 4. **Overpayment.** `balance_due` goes negative — which status? And may a `payments` row be edited or deleted, re-opening a `paid` invoice? **Decided 2026-10-06** — no new status, `paid` already covers it; `payments` is append-only (same as `stock_movements`), a mistake gets a correcting row, and invoice status is recomputed from the ledger on every write. See `doc/notes/technical/phase-05-quotes-invoices.md`.
 5. **Worker hour scope.** Assignee on any task of that *project*, or only on that *task*? And which rule applies when `time_entries.task_id` is `NULL`? **Decided 2026-10-06** — project-level: a worker may log on a project where they are an assignee on at least one task; `task_id` stays optional and the check is the same with or without it. See `doc/notes/planning-time-entries.md`.
-6. **Platform admin cross-tenant read.** A support conversation is a business table, so the Prisma extension scopes it. The escape hatch for an `admin_user` needs a defined mechanism, and it must write to `audit_logs`.
+6. **Platform admin cross-tenant read.** A support conversation is a business table, so the Prisma extension scopes it. The escape hatch for an `admin_user` needs a defined mechanism, and it must write to `audit_logs`. **Decided 2026-10-06** — one explicit repository method that takes a `tenantId` and runs on the unwrapped Prisma client, called only from a handler behind `AdminAuthGuard`, which always writes `audit_logs`; never a general "disable the extension" flag. See `doc/notes/chat-conversations.md`.
 7. **Delete / cascade on `media`.** It has no FK by design, so deleting a project leaves orphan rows. Decide whether a cleanup job sweeps them. **Decided 2026-10-06** — no sweep job; see `doc/notes/media-files.md`. Every entity type except `project` never hard-deletes at all, so none can orphan `media`. `project` gets the one exception — a real hard delete, `prospect`-status only — and its handler calls `MediaService.deleteAllForEntity()` synchronously first.
 8. **Tenant created by the super-admin.** `POST /api/admin/tenants` writes the `tenants` row only. The notes describe the trial `tenant_subscriptions` row and the first `admin` user only for self-registration (step 02). Decide whether the super-admin route also creates them, or whether a tenant made this way stays empty until something else does.
 9. **Payments cannot actually go negative.** Found during step 06's build (2026-10-06): the "Overpayment" decision above says a correction can be "a positive top-up or a negative correction" and can "naturally reopen `paid → partially_paid`," but `payments.amount` carries `CHECK (amount > 0)` (§ 6 above) — so `amount_paid` can only increase and `balance_due` can only fall, and a `paid` invoice can never reopen as built. Decide whether to relax the CHECK (a migration) or rewrite the overpayment rule to match what the constraint actually allows. See `doc/notes/technical/phase-05-quotes-invoices.md` § Overpayment and `doc/notes/test/10-quotes-invoices.md` § 4.

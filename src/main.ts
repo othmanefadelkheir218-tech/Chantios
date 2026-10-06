@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { RedisIoAdapter } from './chat/gateways/redis-io.adapter';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { connectDatabase } from './config/database.config';
 import { ALLOWED_ORIGINS, env } from './config/env.config';
@@ -61,6 +62,12 @@ async function bootstrap() {
     }),
   );
   app.useGlobalFilters(new PrismaExceptionFilter());
+
+  // 3b. WebSockets (chat): the Socket.io adapter with Redis behind it, so a
+  // message sent through one API instance reaches a socket on another.
+  const ioAdapter = new RedisIoAdapter(app);
+  await ioAdapter.connectToRedis();
+  app.useWebSocketAdapter(ioAdapter);
 
   // 4. API documentation.
   if (env.SWAGGER_ENABLED) setupSwagger(app);

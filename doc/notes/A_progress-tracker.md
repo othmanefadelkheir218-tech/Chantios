@@ -138,7 +138,7 @@
 
 - [x] **Worker hour scope** — decided 2026-10-06: **project-level**. A worker may log hours on a project where they are an assignee on at least one task. `time_entries.task_id` stays optional; the check is the same with or without it. See \[\[planning-time-entries\]\].
 
-- [ ] **Platform-admin cross-tenant read** — the escape hatch past the Prisma extension for a support conversation, and it must write `audit_logs`.
+- [x] **Platform-admin cross-tenant read** — decided 2026-10-06: **one explicit repository method** that takes a `tenantId` and runs on the unwrapped Prisma client, called only from a handler behind `AdminAuthGuard`, and that handler always writes `audit_logs`. Never a general "disable the extension" flag. See \[\[chat-conversations\]\].
 
 - [x] **Delete / cascade policy** — decided 2026-10-06, no sweep job. Every entity type except `project` never hard-deletes (soft-delete, soft-cancel, archive-only, or no delete route at all), so none can orphan `media`. `project` gets one real hard delete, `prospect`-status only, and its handler calls `MediaService.deleteAllForEntity()` synchronously before removing the row. See \[\[media-files\]\].
 

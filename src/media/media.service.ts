@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { MediaEntityType, PermissionScope } from '@prisma/client';
 import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
+import { TenantTransactionClient } from '../common/prisma/tenant-prisma.service';
 import { BulkMediaIdsDto } from './dto/bulk-media-ids.dto';
 import { FindMediaQueryDto } from './dto/find-media-query.dto';
 import { RenameMediaDto } from './dto/rename-media.dto';
 import { UploadMediaDto } from './dto/upload-media.dto';
+import { AttachMediaHandler } from './handlers/attach-media.handler';
 import { DeleteMediaByEntityHandler } from './handlers/delete-media-by-entity.handler';
 import { FindMediaHandler } from './handlers/find-media.handler';
 import { HardDeleteMediaHandler } from './handlers/hard-delete-media.handler';
@@ -14,6 +16,8 @@ import { RestoreMediaHandler } from './handlers/restore-media.handler';
 import { SoftDeleteMediaHandler } from './handlers/soft-delete-media.handler';
 import { StorageUsageHandler } from './handlers/storage-usage.handler';
 import { UploadMediaHandler } from './handlers/upload-media.handler';
+import { toMediaEntity } from './helpers/media.helper';
+import { MediaRepository } from './repositories/media.repository';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
 @Injectable()
@@ -28,6 +32,8 @@ export class MediaService {
     private readonly replaceMediaHandler: ReplaceMediaHandler,
     private readonly storageUsage: StorageUsageHandler,
     private readonly deleteMediaByEntity: DeleteMediaByEntityHandler,
+    private readonly attachMedia: AttachMediaHandler,
+    private readonly mediaRepository: MediaRepository,
   ) {}
 
   upload(
@@ -97,5 +103,38 @@ export class MediaService {
     actor: AuthenticatedUser,
   ) {
     return this.deleteMediaByEntity.execute(entityType, entityId, actor);
+  }
+
+  /**
+   * Links already-uploaded files (`entity_id = 0`, uploaded by this user) to
+   * the entity that now exists — a chat message's attachments. `tx` — the
+   * caller writes the entity and links its files in one transaction.
+   */
+  attachToEntity(
+    mediaIds: number[],
+    entityType: MediaEntityType,
+    entityId: number,
+    actor: AuthenticatedUser,
+    tx?: TenantTransactionClient,
+  ) {
+    return this.attachMedia.execute(mediaIds, entityType, entityId, actor, tx);
+  }
+
+  /**
+   * The (non-trashed) files of many entities at once, grouped by entity id —
+   * one query for a whole page of chat messages, never one per message.
+   */
+  async findByEntityIds(entityType: MediaEntityType, entityIds: number[]) {
+    const rows = await this.mediaRepository.findByEntityIds(
+      entityType,
+      entityIds,
+    );
+    const grouped = new Map<number, ReturnType<typeof toMediaEntity>[]>();
+    for (const row of rows) {
+      const list = grouped.get(row.entityId) ?? [];
+      list.push(toMediaEntity(row));
+      grouped.set(row.entityId, list);
+    }
+    return grouped;
   }
 }

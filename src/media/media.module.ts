@@ -4,6 +4,7 @@ import { TokenModule } from '../auth/token.module';
 import { RolesModule } from '../roles/roles.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantsModule } from '../tenants/tenants.module';
+import { AttachMediaHandler } from './handlers/attach-media.handler';
 import { DeleteMediaByEntityHandler } from './handlers/delete-media-by-entity.handler';
 import { FindMediaHandler } from './handlers/find-media.handler';
 import { HardDeleteMediaHandler } from './handlers/hard-delete-media.handler';
@@ -46,6 +47,7 @@ import { MediaService } from './media.service';
     ReplaceMediaHandler,
     StorageUsageHandler,
     DeleteMediaByEntityHandler,
+    AttachMediaHandler,
     PurgeExpiredMediaHandler,
     PurgeExpiredMediaJob,
   ],
