@@ -15,6 +15,7 @@
 | [08-clients-projects.md](08-clients-projects.md) | Step 04 — clients, projects, the status matrix, closing guard, prospect-only delete cascading to media, tenant isolation |
 | [09-catalogue-stock.md](09-catalogue-stock.md) | Step 05 — categories (shared defaults), services + recipe, materials, the append-only stock ledger, reservations, tenant isolation |
 | [10-quotes-invoices.md](10-quotes-invoices.md) | Step 06 — quotes, VAT per rate group, document numbering, the acceptance chain (one transaction across quotes/projects/stock), invoices, the payment ledger, late invoices, tenant isolation |
+| [11-purchases.md](11-purchases.md) | Step 07 — subcontractor directory + contracts, suppliers, cost types, purchase invoices (the two rules, `PUR-` numbering), mark paid, due-soon, PDF-only media, tenant isolation |
 
 ---
 
@@ -118,7 +119,7 @@ yarn test:e2e      # real database — needs docker compose up -d
 
 | Command | Expected | Notes |
 |---|---|---|
-| `yarn test` | `Tests: 302 passed`, 30 suites… all green | If the count is higher, new tests were added. A failure is a bug |
+| `yarn test` | `Tests: 334 passed`, 33 suites… all green | If the count is higher, new tests were added. A failure is a bug |
 | `yarn test:e2e` | `Tests: 11 passed`, 44 tables checked | **Jest does not exit by itself** after the e2e run. Press Ctrl+C once it prints the result, or run `npx jest --config test/jest-e2e.json --forceExit` |
 | `yarn lint` | `0 errors` (3 warnings in `auth.handlers.spec.ts` are known) | |
 | `yarn build` | no output = ok | |

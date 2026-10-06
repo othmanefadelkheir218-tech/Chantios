@@ -174,38 +174,38 @@ Purchase invoices, suppliers and contracts are internal. The step 12 portal neve
 
 ## Tasks
 
-- [ ] `trg_material_bill_no_project` trigger in a migration
-- [ ] `subcontractors` module + contracts
-- [ ] `suppliers` module
-- [ ] `cost-types` module + the shared-defaults reader
-- [ ] Guard: a tenant can never edit a `NULL`-tenant cost type
-- [ ] `purchase-invoices` module, both kinds in one endpoint
-- [ ] Source-pairing validator in the DTO
-- [ ] `PUR-` numbering through step 06's shared counter
-- [ ] `due-soon` endpoint
-- [ ] Media upload for the received PDF, `entity_type = 'purchase_invoice'`, PDF only
-- [ ] Optional link: `stock_movements.purchase_invoice_id` when recording a stock purchase
-- [ ] `// TODO: step 13` at the due-soon alert point
+- [x] `trg_material_bill_no_project` trigger in a migration
+- [x] `subcontractors` module + contracts
+- [x] `suppliers` module
+- [x] `cost-types` module + the shared-defaults reader
+- [x] Guard: a tenant can never edit a `NULL`-tenant cost type
+- [x] `purchase-invoices` module, both kinds in one endpoint
+- [x] Source-pairing validator in the DTO
+- [x] `PUR-` numbering through step 06's shared counter
+- [x] `due-soon` endpoint
+- [x] Media upload for the received PDF, `entity_type = 'purchase_invoice'`, PDF only
+- [x] Optional link: `stock_movements.purchase_invoice_id` when recording a stock purchase
+- [x] `// TODO: step 13` at the due-soon alert point
 
 ## Acceptance
 
-- [ ] Create a subcontractor, then **edit** it → changes saved
-- [ ] Invalid phone → rejected
-- [ ] Contract with no `project_id` → rejected
-- [ ] Same subcontractor, second project → a new contract, the directory row reused
-- [ ] One contract, two bills → both accepted
-- [ ] `type = 'subcontractor'` with a `supplier_id` → rejected by the DB check
-- [ ] `type = 'supplier'` with no `supplier_id` → rejected
-- [ ] `cost_type = 'material'` **with** a `project_id` → **rejected by the trigger**
-- [ ] `cost_type = 'material'` with `project_id = NULL` → accepted
-- [ ] `type = 'subcontractor'` with no `project_id` → rejected
-- [ ] First purchase invoice → `PUR-2026-0001`
-- [ ] A tenant adds a cost type `insurance` → appears in their list, **not** in another tenant's
-- [ ] Mark a bill paid → `status`, `paid_at` set
-- [ ] Upload a JPG as the bill document → rejected, PDF only
-- [ ] A `manager` cannot touch purchase invoices (admin and accountant only)
-- [ ] Tenant A cannot see tenant B's subcontractors, suppliers or bills
-- [ ] Update `../WhereIStop/state.md`
+- [x] Create a subcontractor, then **edit** it → changes saved
+- [x] Invalid phone → rejected
+- [x] Contract with no `project_id` → rejected
+- [x] Same subcontractor, second project → a new contract, the directory row reused
+- [x] One contract, two bills → both accepted
+- [x] `type = 'subcontractor'` with a `supplier_id` → rejected by the DB check
+- [x] `type = 'supplier'` with no `supplier_id` → rejected
+- [x] `cost_type = 'material'` **with** a `project_id` → **rejected by the trigger**
+- [x] `cost_type = 'material'` with `project_id = NULL` → accepted
+- [x] `type = 'subcontractor'` with no `project_id` → rejected
+- [x] First purchase invoice → `PUR-2026-0001`
+- [x] A tenant adds a cost type `insurance` → appears in their list, **not** in another tenant's
+- [x] Mark a bill paid → `status`, `paid_at` set
+- [x] Upload a JPG as the bill document → rejected, PDF only
+- [x] A `manager` cannot touch purchase invoices (admin and accountant only)
+- [x] Tenant A cannot see tenant B's subcontractors, suppliers or bills
+- [x] Update `../WhereIStop/state.md`
 
 ## Notes to read
 

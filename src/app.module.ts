@@ -19,6 +19,10 @@ import { FeedbackModule } from './feedback/feedback.module';
 import { HealthModule } from './health/health.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { InvoicesModule } from './invoices/invoices.module';
+import { CostTypesModule } from './cost-types/cost-types.module';
+import { PurchaseInvoicesModule } from './purchase-invoices/purchase-invoices.module';
+import { SubcontractorsModule } from './subcontractors/subcontractors.module';
+import { SuppliersModule } from './suppliers/suppliers.module';
 import { MaterialsModule } from './materials/materials.module';
 import { MediaModule } from './media/media.module';
 import { OneTimeCodesModule } from './one-time-codes/one-time-codes.module';
@@ -84,6 +88,11 @@ import { UsersModule } from './users/users.module';
     DocumentsModule,
     QuotesModule,
     InvoicesModule,
+    // Step 07 — purchases
+    CostTypesModule,
+    SuppliersModule,
+    SubcontractorsModule,
+    PurchaseInvoicesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
