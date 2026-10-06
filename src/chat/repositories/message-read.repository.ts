@@ -45,6 +45,30 @@ export class MessageReadRepository {
     return rows.map((row) => row.messageId);
   }
 
+  /**
+   * The client's first open (step 12's portal): the same one-statement insert
+   * as `markReadForUser`, for the `client_id` column (`uq_read_client` +
+   * `ON CONFLICT DO NOTHING`). The client's OWN messages never get a row.
+   */
+  async markReadForClient(
+    conversationId: number,
+    clientId: number,
+    tenantId: number,
+  ): Promise<number[]> {
+    const rows = await this.prisma.$queryRaw<{ messageId: number }[]>`
+      INSERT INTO message_reads (tenant_id, message_id, client_id)
+      SELECT m.tenant_id, m.id, ${clientId}
+      FROM messages m
+      WHERE m.tenant_id = ${tenantId}
+        AND m.conversation_id = ${conversationId}
+        AND m.is_archived = false
+        AND NOT (m.sender_type = 'client' AND m.sender_id = ${clientId})
+      ON CONFLICT (message_id, client_id) WHERE client_id IS NOT NULL DO NOTHING
+      RETURNING message_id AS "messageId"
+    `;
+    return rows.map((row) => row.messageId);
+  }
+
   /** Messages in one conversation the user has not read (and did not write). */
   async countUnread(
     conversationId: number,

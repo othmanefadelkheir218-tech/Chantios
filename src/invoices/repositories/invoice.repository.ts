@@ -58,6 +58,36 @@ export class InvoiceRepository {
     return this.tenantPrisma.db.invoice.findFirst({ where: { id } });
   }
 
+  /**
+   * Step 12 (client portal): a project's invoices in the given statuses,
+   * newest first. The portal decides WHICH statuses the client may see.
+   */
+  findByProjectAndStatuses(
+    projectId: number,
+    statuses: InvoiceStatus[],
+  ): Promise<Invoice[]> {
+    return this.tenantPrisma.db.invoice.findMany({
+      where: { projectId, status: { in: statuses } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+  }
+
+  /** Live balance + late flag of many invoices, one read of the view (`tenant_id` by hand). */
+  async findBalancesByIds(
+    ids: number[],
+  ): Promise<Map<number, InvoiceBalanceRow>> {
+    if (ids.length === 0) return new Map();
+    const tenantId = this.currentTenantId();
+    const rows = await this.prisma.$queryRaw<InvoiceBalanceRow[]>`
+      SELECT invoice_id AS "invoiceId", tenant_id AS "tenantId",
+             amount_incl_vat AS "amountInclVat", amount_paid AS "amountPaid",
+             balance_due AS "balanceDue", is_late AS "isLate"
+      FROM invoice_balance
+      WHERE tenant_id = ${tenantId} AND invoice_id IN (${Prisma.join(ids)})
+    `;
+    return new Map(rows.map((row) => [row.invoiceId, row]));
+  }
+
   async findMany(
     where: Prisma.InvoiceWhereInput,
     skip: number,

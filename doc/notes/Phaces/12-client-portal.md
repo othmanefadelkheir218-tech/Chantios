@@ -150,40 +150,40 @@ The client in the portal and a staff member answering the phone **call the same 
 
 ## Tasks
 
-- [ ] `PortalTokenGuard` — the 3 checks, **and** `tenant_id` into `nestjs-cls` before any query
-- [ ] `findByHash` on the unwrapped client, with a comment explaining why
-- [ ] Two controllers: staff and client, kept separate
-- [ ] `generate-token` → raw token returned once, only the hash stored
-- [ ] Generating again deactivates the previous token
-- [ ] `ensure-project-conversation` called on generation (step 11)
-- [ ] `PORTAL_BASE_URL` read from env (added in step 02)
-- [ ] Allow-listed portal responses — no entity serialisation
-- [ ] Accept / Refuse calling step 06's handlers, not a copy
-- [ ] Portal messaging through step 11's `send-message`
-- [ ] `portal_tracking` on view and download
-- [ ] Tracking read endpoint for staff
-- [ ] Daily expiry cron
-- [ ] Rate limit every `/api/portal/*` route
+- [x] `PortalTokenGuard` — the 3 checks, **and** `tenant_id` into `nestjs-cls` before any query
+- [x] `findByHash` on the unwrapped client, with a comment explaining why
+- [x] Two controllers: staff and client, kept separate
+- [x] `generate-token` → raw token returned once, only the hash stored
+- [x] Generating again deactivates the previous token
+- [x] `ensure-project-conversation` called on generation (step 11)
+- [x] `PORTAL_BASE_URL` read from env (added in step 02)
+- [x] Allow-listed portal responses — no entity serialisation
+- [x] Accept / Refuse calling step 06's handlers, not a copy
+- [x] Portal messaging through step 11's `send-message`
+- [x] `portal_tracking` on view and download
+- [x] Tracking read endpoint for staff
+- [x] Daily expiry cron
+- [x] Rate limit every `/api/portal/*` route
 
 ## Acceptance
 
-- [ ] Generate a link → raw token returned once; the database holds only a hash
-- [ ] Open the URL → overview loads with project, progress %, invoice list
-- [ ] Generate a new link → the old URL stops working immediately
-- [ ] Revoke → the URL fails on the very next request
-- [ ] Set `expires_at` in the past → the URL fails
-- [ ] A random token → the same generic expired message, no detail
-- [ ] A `draft` quote → **not** in the portal
-- [ ] A `draft` or `cancelled` invoice → **not** in the portal
-- [ ] A late invoice → shows the late label
-- [ ] The portal payload contains **no** margin, cost, subcontractor, supplier, employee or stock field
-- [ ] Client clicks Accept → quote `accepted`, project `in_progress`, **reservations created**
-- [ ] Staff accepts the same way → identical result
-- [ ] Accept a quote belonging to **another** project through this token → refused
-- [ ] Client sends a message → staff sees it in the dashboard thread
-- [ ] Opening the portal twice → 2 `view` rows; a download → 1 `download` row
-- [ ] A portal request cannot read another tenant's data, even with a valid token
-- [ ] Update `../WhereIStop/state.md`
+- [x] Generate a link → raw token returned once; the database holds only a hash
+- [x] Open the URL → overview loads with project, progress %, invoice list
+- [x] Generate a new link → the old URL stops working immediately
+- [x] Revoke → the URL fails on the very next request
+- [x] Set `expires_at` in the past → the URL fails
+- [x] A random token → the same generic expired message, no detail
+- [x] A `draft` quote → **not** in the portal
+- [x] A `draft` or `cancelled` invoice → **not** in the portal
+- [x] A late invoice → shows the late label
+- [x] The portal payload contains **no** margin, cost, subcontractor, supplier, employee or stock field
+- [x] Client clicks Accept → quote `accepted`, project `in_progress`, **reservations created**
+- [x] Staff accepts the same way → identical result
+- [x] Accept a quote belonging to **another** project through this token → refused
+- [x] Client sends a message → staff sees it in the dashboard thread
+- [x] Opening the portal twice → 2 `view` rows; a download → 1 `download` row
+- [x] A portal request cannot read another tenant's data, even with a valid token
+- [x] Update `../WhereIStop/state.md`
 
 ## Notes to read
 

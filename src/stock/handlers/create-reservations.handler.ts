@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
-import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
+import type { ActingParty } from '../../auth/decorators/current-user.decorator';
 import { TenantTransactionClient } from '../../common/prisma/tenant-prisma.service';
 import { ServicesService } from '../../services/services.service';
 import { RecipeLine, walkRecipe } from '../helpers/recipe.helper';
@@ -28,7 +28,7 @@ export class CreateReservationsHandler {
   async execute(
     projectId: number,
     lines: RecipeLine[],
-    actor: AuthenticatedUser,
+    actor: ActingParty,
     tx?: TenantTransactionClient,
   ) {
     this.logger.info(

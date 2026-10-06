@@ -14,6 +14,7 @@ import { DeclareMaterialsHandler } from './handlers/declare-materials.handler';
 import { FindReportsHandler } from './handlers/find-reports.handler';
 import { LatestProgressHandler } from './handlers/latest-progress.handler';
 import { PrefillMaterialsHandler } from './handlers/prefill-materials.handler';
+import { ProjectPhotosHandler } from './handlers/project-photos.handler';
 import { ReportAlertsHandler } from './handlers/report-alerts.handler';
 import { UpdateReportHandler } from './handlers/update-report.handler';
 import { ReportAlertsJob } from './jobs/report-alerts.job';
@@ -46,6 +47,7 @@ import { ReportsService } from './reports.service';
     DeclareMaterialsHandler,
     PrefillMaterialsHandler,
     LatestProgressHandler,
+    ProjectPhotosHandler,
     ReportAlertsHandler,
     ReportAlertsJob,
   ],

@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
+import { QuoteStatus } from '@prisma/client';
+import {
+  ActingParty,
+  AuthenticatedUser,
+} from '../auth/decorators/current-user.decorator';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { FindQuotesQueryDto } from './dto/find-quotes-query.dto';
 import { SetQuoteLinesDto } from './dto/set-quote-lines.dto';
@@ -55,15 +59,27 @@ export class QuotesService {
     return this.sendQuote.execute(id, actor);
   }
 
-  accept(id: number, actor: AuthenticatedUser) {
+  accept(id: number, actor: ActingParty) {
     return this.acceptQuote.execute(id, actor);
   }
 
-  refuse(id: number, actor: AuthenticatedUser) {
+  refuse(id: number, actor: ActingParty) {
     return this.refuseQuote.execute(id, actor);
   }
 
   // ---- Internal API for `invoices` (coverage) and step 10 (budget) ----
+
+  // ---- Internal API for step 12 (client portal) ----
+
+  /** A project's quotes in the given statuses, with their lines (the portal picks the statuses). */
+  findByProjectAndStatuses(projectId: number, statuses: QuoteStatus[]) {
+    return this.quotes.findByProjectAndStatuses(projectId, statuses);
+  }
+
+  /** The raw quote row, scoped to the current tenant, or `null`. */
+  findByIdRaw(id: number) {
+    return this.quotes.findById(id);
+  }
 
   /** `GET /api/projects/:id/budget-history` — the accepted quotes by `accepted_at`, with the running budget. */
   budgetHistory(projectId: number) {

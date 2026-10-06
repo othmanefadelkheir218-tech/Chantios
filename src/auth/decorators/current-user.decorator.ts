@@ -21,3 +21,16 @@ export const CurrentUser = createParamDecorator(
       }
     ).user,
 );
+
+/**
+ * Who PERFORMS an action, as far as the shared business handlers care: a
+ * tenant user, or — `userId: null` — the client acting from the portal (a
+ * client has no `users` row). It is the supertype of `AuthenticatedUser`, so
+ * every existing caller still compiles. The quote accept / refuse chain
+ * (quotes → projects → stock) only ever reads `tenantId` and `userId`, which
+ * is what lets the portal and a staff member call the SAME handler.
+ */
+export interface ActingParty {
+  userId: number | null;
+  tenantId: number;
+}

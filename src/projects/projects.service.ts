@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
+import {
+  ActingParty,
+  AuthenticatedUser,
+} from '../auth/decorators/current-user.decorator';
 import { TenantTransactionClient } from '../common/prisma/tenant-prisma.service';
 import { ChangeStatusDto } from './dto/change-status.dto';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -68,7 +71,7 @@ export class ProjectsService {
    */
   beginFromQuoteAcceptance(
     projectId: number,
-    actor: AuthenticatedUser,
+    actor: ActingParty,
     tx: TenantTransactionClient,
   ) {
     return this.startProgressFromQuote.execute(projectId, actor, tx);

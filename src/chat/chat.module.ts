@@ -17,6 +17,7 @@ import { AdminJoinSupportHandler } from './handlers/admin-join-support.handler';
 import { AdminSendSupportMessageHandler } from './handlers/admin-send-support-message.handler';
 import { ArchiveConversationHandler } from './handlers/archive-conversation.handler';
 import { CheckAccessHandler } from './handlers/check-access.handler';
+import { ClientMessagesHandler } from './handlers/client-messages.handler';
 import { CreateConversationHandler } from './handlers/create-conversation.handler';
 import { EnsureProjectConversationHandler } from './handlers/ensure-project-conversation.handler';
 import { FindConversationsHandler } from './handlers/find-conversations.handler';
@@ -57,6 +58,7 @@ import { MessageRepository } from './repositories/message.repository';
     ArchiveConversationHandler,
     AddMemberHandler,
     EnsureProjectConversationHandler,
+    ClientMessagesHandler,
     AdminFindSupportMessagesHandler,
     AdminSendSupportMessageHandler,
     AdminJoinSupportHandler,

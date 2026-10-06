@@ -34,6 +34,7 @@ import { OneTimeCodesModule } from './one-time-codes/one-time-codes.module';
 import { PlansModule } from './plans/plans.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProjectsModule } from './projects/projects.module';
+import { PortalModule } from './portal/portal.module';
 import { QuotesModule } from './quotes/quotes.module';
 import { RolesModule } from './roles/roles.module';
 import { ServicesModule } from './services/services.module';
@@ -107,6 +108,8 @@ import { UsersModule } from './users/users.module';
     MarginsModule,
     // Step 11 — chat & conversations
     ChatModule,
+    // Step 12 — client portal
+    PortalModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

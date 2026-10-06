@@ -123,6 +123,21 @@ export class QuoteRepository {
     });
   }
 
+  /**
+   * Step 12 (client portal): a project's quotes in the given statuses, with
+   * their lines. The portal decides WHICH statuses the client may see.
+   */
+  findByProjectAndStatuses(
+    projectId: number,
+    statuses: QuoteStatus[],
+  ): Promise<Array<Quote & { lines: QuoteLine[] }>> {
+    return this.tenantPrisma.db.quote.findMany({
+      where: { projectId, status: { in: statuses } },
+      include: { lines: { orderBy: { position: 'asc' } } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+  }
+
   /** Step 10's budget history: the accepted quotes of a project, oldest `accepted_at` first. */
   findAcceptedByProject(projectId: number): Promise<Quote[]> {
     return this.tenantPrisma.db.quote.findMany({

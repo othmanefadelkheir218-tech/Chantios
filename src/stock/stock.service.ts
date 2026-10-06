@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
+import {
+  ActingParty,
+  AuthenticatedUser,
+} from '../auth/decorators/current-user.decorator';
 import { TenantTransactionClient } from '../common/prisma/tenant-prisma.service';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 import { CreateMovementDto } from './dto/create-movement.dto';
@@ -59,7 +62,7 @@ export class StockService {
   reserveForProject(
     projectId: number,
     lines: RecipeLine[],
-    actor: AuthenticatedUser,
+    actor: ActingParty,
     tx?: TenantTransactionClient,
   ) {
     return this.createReservations.execute(projectId, lines, actor, tx);

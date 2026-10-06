@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
+import {
+  ActingParty,
+  AuthenticatedUser,
+} from '../auth/decorators/current-user.decorator';
 import { TenantTransactionClient } from '../common/prisma/tenant-prisma.service';
 import { FindMarginsQueryDto } from './dto/find-margins-query.dto';
 import { CheckThresholdsHandler } from './handlers/check-thresholds.handler';
@@ -64,7 +67,7 @@ export class MarginsService {
    * is saved. Fires each alert level once, and resets a level when the cost
    * falls back under it. Never throws — the triggering save is already done.
    */
-  checkProjectThresholds(projectId: number | null, actor: AuthenticatedUser) {
+  checkProjectThresholds(projectId: number | null, actor: ActingParty) {
     if (projectId === null) return Promise.resolve();
     return this.checkThresholds.execute(projectId, actor.tenantId);
   }

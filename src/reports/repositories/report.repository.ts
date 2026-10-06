@@ -44,6 +44,15 @@ export class ReportRepository {
     return this.tenantPrisma.db.report.update({ where: { id }, data });
   }
 
+  /** Every report id of a project — the photos are read for all of them in one query. */
+  async findIdsByProject(projectId: number): Promise<number[]> {
+    const rows = await this.tenantPrisma.db.report.findMany({
+      where: { projectId },
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
+  }
+
   /** The upsert check — `UNIQUE (tenant_id, project_id, report_date)`. */
   findByProjectAndDate(
     projectId: number,

@@ -11,6 +11,7 @@ import { DeclareMaterialsHandler } from './handlers/declare-materials.handler';
 import { FindReportsHandler } from './handlers/find-reports.handler';
 import { LatestProgressHandler } from './handlers/latest-progress.handler';
 import { PrefillMaterialsHandler } from './handlers/prefill-materials.handler';
+import { ProjectPhotosHandler } from './handlers/project-photos.handler';
 import { UpdateReportHandler } from './handlers/update-report.handler';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
@@ -23,6 +24,7 @@ export class ReportsService {
     private readonly declareMaterials: DeclareMaterialsHandler,
     private readonly prefillMaterials: PrefillMaterialsHandler,
     private readonly latestProgress: LatestProgressHandler,
+    private readonly projectPhotos: ProjectPhotosHandler,
   ) {}
 
   create(
@@ -72,6 +74,11 @@ export class ReportsService {
   }
 
   // ---- Internal API for step 12 (client portal) and step 10 (margin) ----
+
+  /** The newest photos of a project's site reports (`media`, `entity_type = 'report'`). */
+  photos(projectId: number, limit: number) {
+    return this.projectPhotos.execute(projectId, limit);
+  }
 
   /** The newest report's `progress_pct` of a project (0 if no report yet). */
   progress(projectId: number) {

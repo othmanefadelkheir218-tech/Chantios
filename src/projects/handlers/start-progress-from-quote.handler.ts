@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Project } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
-import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
+import type { ActingParty } from '../../auth/decorators/current-user.decorator';
 import { TenantTransactionClient } from '../../common/prisma/tenant-prisma.service';
 import { canTransition } from '../helpers/project-status.helper';
 import { ProjectStatusHistoryRepository } from '../repositories/project-status-history.repository';
@@ -34,7 +34,7 @@ export class StartProgressFromQuoteHandler {
 
   async execute(
     projectId: number,
-    actor: AuthenticatedUser,
+    actor: ActingParty,
     tx: TenantTransactionClient,
   ): Promise<Project> {
     const project = await this.projects.findById(projectId, tx);

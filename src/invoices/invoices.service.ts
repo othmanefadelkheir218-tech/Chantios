@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { InvoiceStatus } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { FindInvoicesQueryDto } from './dto/find-invoices-query.dto';
@@ -16,6 +17,7 @@ import { SendInvoiceHandler } from './handlers/send-invoice.handler';
 import { SendReminderHandler } from './handlers/send-reminder.handler';
 import { SetInvoiceLinesHandler } from './handlers/set-invoice-lines.handler';
 import { UpdateInvoiceHandler } from './handlers/update-invoice.handler';
+import { InvoiceRepository } from './repositories/invoice.repository';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
 @Injectable()
@@ -32,6 +34,7 @@ export class InvoicesService {
     private readonly findPayments: FindPaymentsHandler,
     private readonly sendReminder: SendReminderHandler,
     private readonly invoiceCoverage: InvoiceCoverageHandler,
+    private readonly invoices: InvoiceRepository,
   ) {}
 
   create(dto: CreateInvoiceDto, actor: AuthenticatedUser) {
@@ -80,5 +83,27 @@ export class InvoicesService {
 
   coverageForProject(projectId: number) {
     return this.invoiceCoverage.execute(projectId);
+  }
+
+  // ---- Internal API for step 12 (client portal) ----
+
+  /** A project's invoices in the given statuses, each with its live balance and late flag. */
+  async findByProjectWithBalance(projectId: number, statuses: InvoiceStatus[]) {
+    const invoices = await this.invoices.findByProjectAndStatuses(
+      projectId,
+      statuses,
+    );
+    const balances = await this.invoices.findBalancesByIds(
+      invoices.map((invoice) => invoice.id),
+    );
+    return invoices.map((invoice) => ({
+      invoice,
+      balance: balances.get(invoice.id) ?? null,
+    }));
+  }
+
+  /** The raw invoice row, scoped to the current tenant, or `null`. */
+  findByIdRaw(id: number) {
+    return this.invoices.findById(id);
   }
 }

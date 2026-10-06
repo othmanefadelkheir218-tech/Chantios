@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
-import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
+import type { ActingParty } from '../../auth/decorators/current-user.decorator';
 import { toQuoteEntity } from '../helpers/quote.helper';
 import { QuoteRepository } from '../repositories/quote.repository';
 
@@ -24,7 +24,7 @@ export class RefuseQuoteHandler {
     private readonly audit: AuditService,
   ) {}
 
-  async execute(id: number, actor: AuthenticatedUser) {
+  async execute(id: number, actor: ActingParty) {
     this.logger.info(`Refusing quote ${id}`);
 
     const quote = await this.quotes.findById(id);

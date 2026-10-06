@@ -12,6 +12,7 @@ import { AddMemberHandler } from './handlers/add-member.handler';
 import { AdminFindSupportMessagesHandler } from './handlers/admin-find-support-messages.handler';
 import { AdminSendSupportMessageHandler } from './handlers/admin-send-support-message.handler';
 import { ArchiveConversationHandler } from './handlers/archive-conversation.handler';
+import { ClientMessagesHandler } from './handlers/client-messages.handler';
 import { CreateConversationHandler } from './handlers/create-conversation.handler';
 import { EnsureProjectConversationHandler } from './handlers/ensure-project-conversation.handler';
 import { FindConversationsHandler } from './handlers/find-conversations.handler';
@@ -35,6 +36,7 @@ export class ChatService {
     private readonly ensureProjectConversationHandler: EnsureProjectConversationHandler,
     private readonly adminFindSupport: AdminFindSupportMessagesHandler,
     private readonly adminSendSupport: AdminSendSupportMessageHandler,
+    private readonly clientMessages: ClientMessagesHandler,
   ) {}
 
   create(dto: CreateConversationDto, actor: AuthenticatedUser) {
@@ -100,5 +102,20 @@ export class ChatService {
    */
   ensureProjectConversation(projectId: number, actor: AuthenticatedUser) {
     return this.ensureProjectConversationHandler.execute(projectId, actor);
+  }
+
+  /** The client's messages on a project (the portal): newest first, opening marks them read for the client. */
+  listClientMessages(
+    projectId: number,
+    clientId: number,
+    tenantId: number,
+    query: FindMessagesQueryDto,
+  ) {
+    return this.clientMessages.list(projectId, clientId, tenantId, query);
+  }
+
+  /** The client writes on a project (the portal): `sender_type = 'client'`, `sender_id = client_id`. */
+  sendClientMessage(projectId: number, clientId: number, content: string) {
+    return this.clientMessages.send(projectId, clientId, content);
   }
 }
