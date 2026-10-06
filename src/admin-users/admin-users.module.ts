@@ -1,3 +1,5 @@
+import { SessionsModule } from '../sessions/sessions.module';
+import { TokenModule } from '../auth/token.module';
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { AdminUsersController } from './admin-users.controller';
@@ -9,7 +11,7 @@ import { UpdateAdminUserHandler } from './handlers/update-admin-user.handler';
 import { AdminUserRepository } from './repositories/admin-user.repository';
 
 @Module({
-  imports: [AuditModule],
+  imports: [SessionsModule, TokenModule, AuditModule],
   controllers: [AdminUsersController],
   providers: [
     AdminUsersService,

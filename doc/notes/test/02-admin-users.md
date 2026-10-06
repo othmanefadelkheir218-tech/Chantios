@@ -122,6 +122,7 @@ Use § 5 of [00-how-to-test.md](00-how-to-test.md). It deletes admin users whose
 
 ## Known limits (not bugs)
 
-- No login yet: these accounts cannot sign in until step 02.
-- Deactivating an admin does not log them out yet (no sessions exist before step 02).
+- These routes are `super_admin` only: a `staff` admin gets `403`. See ADMIN-AUTH-05 in [06-auth-users.md](06-auth-users.md).
+- An admin created here can sign in at `/api/admin/auth/login` (no 2FA enrollment route exists yet).
+- Deactivating an admin does not log them out yet: the `TODO` in `deactivate-admin-user.handler.ts` is still open.
 - Nothing stops you deactivating the last super-admin. Not decided.

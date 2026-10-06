@@ -13,6 +13,7 @@ import { CreateTenantHandler } from './create-tenant.handler';
 import { RestoreTenantHandler } from './restore-tenant.handler';
 import { RestoreTenantsHandler } from './restore-tenants.handler';
 import { SendTenantVerificationEmailHandler } from './send-tenant-verification-email.handler';
+import { SessionsService } from '../../sessions/sessions.service';
 import { SetTenantStatusHandler } from './set-tenant-status.handler';
 import { SoftDeleteTenantHandler } from './soft-delete-tenant.handler';
 import { SoftDeleteTenantsHandler } from './soft-delete-tenants.handler';
@@ -30,6 +31,8 @@ const tenant = (over: Record<string, unknown> = {}) => ({
   endOfDayReminderTime: new Date('1970-01-01T18:00:00.000Z'),
   ...over,
 });
+
+const revokeAllForTenant = jest.fn();
 
 describe('Tenants handlers', () => {
   const repo = {
@@ -70,6 +73,7 @@ describe('Tenants handlers', () => {
       SendTenantVerificationEmailHandler,
       VerifyTenantEmailHandler,
     ];
+    revokeAllForTenant.mockReset();
     const module = await Test.createTestingModule({
       providers: [
         ...handlers,
@@ -77,6 +81,10 @@ describe('Tenants handlers', () => {
         { provide: AuditService, useValue: audit },
         { provide: OneTimeCodesService, useValue: codes },
         { provide: EmailService, useValue: email },
+        {
+          provide: SessionsService,
+          useValue: { revokeAllForTenant: revokeAllForTenant },
+        },
         ...handlers.map((h) => ({
           provide: getLoggerToken(h.name),
           useValue: logger,
@@ -128,6 +136,25 @@ describe('Tenants handlers', () => {
   });
 
   describe('SetTenantStatusHandler', () => {
+    it('revokes every session of the tenant on suspend and on ban', async () => {
+      repo.findById.mockResolvedValue(tenant());
+      repo.setStatus.mockResolvedValue(tenant({ status: 'suspended' }));
+      await setStatus.execute(1, { status: 'suspended' }, actor);
+      expect(revokeAllForTenant).toHaveBeenCalledWith(1);
+
+      revokeAllForTenant.mockClear();
+      repo.setStatus.mockResolvedValue(tenant({ status: 'banned' }));
+      await setStatus.execute(1, { status: 'banned' }, actor);
+      expect(revokeAllForTenant).toHaveBeenCalledWith(1);
+    });
+
+    it('does not revoke sessions when the tenant becomes active again', async () => {
+      repo.findById.mockResolvedValue(tenant({ status: 'suspended' }));
+      repo.setStatus.mockResolvedValue(tenant({ status: 'active' }));
+      await setStatus.execute(1, { status: 'active' }, actor);
+      expect(revokeAllForTenant).not.toHaveBeenCalled();
+    });
+
     it('records the old and the new status', async () => {
       repo.findById.mockResolvedValue(tenant());
       repo.setStatus.mockResolvedValue(tenant({ status: 'suspended' }));

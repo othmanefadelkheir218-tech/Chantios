@@ -7,9 +7,10 @@ import {
   Patch,
   Query,
   UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Public } from '../common/decorators/public.decorator';
+import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
 import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
 import {
   ApiFindFeedback,
@@ -20,7 +21,7 @@ import { UpdateFeedbackStatusDto } from './dto/update-feedback-status.dto';
 import { FeedbackService } from './feedback.service';
 
 @ApiTags('Feedback')
-@Public() // TODO: step 02 — AdminAuthGuard (admin staff)
+@UseGuards(AdminAuthGuard)
 @UseInterceptors(SnakeCaseInterceptor)
 @Controller('admin/feedback')
 export class FeedbackController {

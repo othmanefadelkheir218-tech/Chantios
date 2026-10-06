@@ -217,44 +217,44 @@ Every token and code is sha256 in the database. The raw value exists only in the
 
 ## Tasks
 
-- [ ] Add `APP_URL` and `PORTAL_BASE_URL` to `.env` and `.env.example`
-- [ ] `common/cls/` — `nestjs-cls` setup, tenant context service
-- [ ] `common/prisma/tenant-extension.ts` — the extension + the 8-table skip list
-- [ ] Wrap the Prisma client **once** at startup; nothing else constructs one
-- [ ] Test: tenant A cannot read tenant B's rows, for 3 different tables
-- [ ] Test: `categories` / `cost_types` return shared defaults **plus** own rows
-- [ ] `token.helper.ts` — sign, verify, sha256, rotate
-- [ ] `cookie.helper.ts` — set and clear both cookies
-- [ ] Guards: `AuthGuard`, `AdminAuthGuard`, `TenantGuard`, `PermissionGuard`, `SubscriptionGuard`
-- [ ] Decorators: `@Public()`, `@Roles()`, `@Module()`, `@CurrentUser()`
-- [ ] `permission.helper.ts` — the default matrix + the override resolver with `scope`
-- [ ] `auth` module — all routes above
-- [ ] **Create `src/users/`** against the real table
-- [ ] `invitations` module + the email through Resend
-- [ ] `roles` module + the override endpoints
-- [ ] Email templates: verification, invitation, password reset (locale decision above)
-- [ ] Daily cron: delete expired tokens and codes older than 30 days
-- [ ] Go back to step 01's routes and replace the `@Public()` TODOs with `AdminAuthGuard`
+- [x] Add `APP_URL` and `PORTAL_BASE_URL` to `.env` and `.env.example`
+- [x] `common/cls/` — `nestjs-cls` setup, tenant context service
+- [x] `common/prisma/tenant-extension.ts` — the extension + the 8-table skip list
+- [x] Wrap the Prisma client **once** at startup; nothing else constructs one
+- [x] Test: tenant A cannot read tenant B's rows, for 3 different tables
+- [ ] Test: `categories` / `cost_types` return shared defaults **plus** own rows — not built: no module reads these tables yet. Do it in step 05 (catalogue)
+- [x] `token.helper.ts` — sign, verify, sha256, rotate
+- [x] `cookie.helper.ts` — set and clear both cookies
+- [x] Guards: `AuthGuard`, `AdminAuthGuard`, `TenantGuard`, `PermissionGuard`, `SubscriptionGuard`
+- [x] Decorators: `@Public()`, `@Roles()`, `@Module()`, `@CurrentUser()`
+- [x] `permission.helper.ts` — the default matrix + the override resolver with `scope`
+- [x] `auth` module — all routes above
+- [x] **Create `src/users/`** against the real table
+- [x] `invitations` module + the email through Resend
+- [x] `roles` module + the override endpoints
+- [x] Email templates: verification, invitation, password reset (locale decision above)
+- [x] Daily cron: delete expired tokens and codes older than 30 days
+- [x] Go back to step 01's routes and replace the `@Public()` TODOs with `AdminAuthGuard`
 
 ## Acceptance
 
-- [ ] Register a company → 3 rows in one transaction: `tenants`, `users` (admin), `tenant_subscriptions` (`trialing`)
-- [ ] Register with no `is_default` plan → clear error, **nothing** written
-- [ ] Register twice with the same email → rejected
-- [ ] Login → 2 httpOnly cookies, `refresh_tokens` holds only a hash
-- [ ] Refresh → new row, old `revoked_at` set
-- [ ] Replay the revoked refresh token → **all** sessions for that user revoked
-- [ ] Invite an employee → email arrives; accepting creates the `users` row; the link fails the second time
-- [ ] Invite an email already used at another company → refused with a clear message
-- [ ] A `worker` logs in at `/api/mobile/login` with email + PIN; 5 wrong PINs → locked
-- [ ] A `worker` calling a dashboard route → 403
-- [ ] `scope = 'own'`: a `worker` listing tasks sees only their own
-- [ ] Override `manager` + `invoices` + `can_view` → that tenant's manager sees invoices, **another tenant's does not**
-- [ ] Deactivate a user → cannot log in, sessions gone, history intact
-- [ ] Suspend a tenant → every user of it is locked out
-- [ ] Tenant A cannot read tenant B's data on any table
-- [ ] `yarn lint` and `yarn build` pass
-- [ ] Update `../WhereIStop/state.md`
+- [x] Register a company → 3 rows in one transaction: `tenants`, `users` (admin), `tenant_subscriptions` (`trialing`)
+- [x] Register with no `is_default` plan → clear error, **nothing** written
+- [x] Register twice with the same email → rejected — `409`
+- [x] Login → 2 httpOnly cookies, `refresh_tokens` holds only a hash
+- [x] Refresh → new row, old `revoked_at` set
+- [x] Replay the revoked refresh token → **all** sessions for that user revoked — the new token is dead too
+- [x] Invite an employee → email arrives; accepting creates the `users` row; the link fails the second time — invitation row + log `Email sent` checked; the real inbox was **not** checked. Accept and the second try were run with a known token
+- [x] Invite an email already used at another company → refused with a clear message — both cases: existing user and open invitation elsewhere, `409`
+- [x] A `worker` logs in at `/api/mobile/login` with email + PIN; 5 wrong PINs → locked — the 6th try inside one minute is stopped by the throttle (`429`) first; after the minute, the right PIN gives `403` locked
+- [x] A `worker` calling a dashboard route → 403 — `403 Insufficient role`
+- [ ] `scope = 'own'`: a `worker` listing tasks sees only their own — **half done**. Done and tested: the worker's `tasks` and `time_entries` resolve to `scope: own`, `PermissionGuard` puts it on the request (`permission.guard.spec.ts`: worker `own`, admin/manager `all`, a tenant override can change it, no view access gives `403`). **Not done: the `WHERE user_id = :current` in a task list** — there is no task module or route until step 08, so nothing exists to test. Do it when step 08 builds `GET /api/tasks`
+- [x] Override `manager` + `invoices` + `can_view` → that tenant's manager sees invoices, **another tenant's does not** — tenant A: view `true`, tenant B: still `false`
+- [x] Deactivate a user → cannot log in, sessions gone, history intact — login `401`, refresh `401`, 0 live sessions, row kept
+- [x] Suspend a tenant → every user of it is locked out — the live access token gets `403`, refresh `401`, login `401`, 0 live sessions
+- [x] Tenant A cannot read tenant B's data on any table — `test/tenant-isolation.e2e-spec.ts` now loops over **all 44 scoped models** in the schema (it reads the list from Prisma, so a new table is covered automatically): the SQL of `findMany`, `findFirst`, `count`, `findUnique` and `deleteMany` must carry `tenant_id = $n`; an unknown tenant sees no rows; no tenant in context throws. Cross-tenant read/update/delete is also tried on real rows (`users`, `user_invitations`, `role_permissions`). Found and fixed on the way: `findUnique` was **not** scoped. Limit: only `users` and `tenant_subscriptions` hold rows from 2+ tenants today, so for the other tables the proof is the SQL filter, not data. Tables with a nullable `tenant_id` (`categories`, `cost_types`, `audit_logs`, `notifications`) are scoped by the extension too, so shared defaults need the dedicated method (see the categories task)
+- [x] `yarn lint` and `yarn build` pass
+- [x] Update `../WhereIStop/state.md`
 
 ## Notes to read
 

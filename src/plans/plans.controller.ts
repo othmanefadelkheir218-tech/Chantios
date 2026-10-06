@@ -8,10 +8,11 @@ import {
   Post,
   Query,
   UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AuditLog } from '../audit/decorators/audit-log.decorator';
-import { Public } from '../common/decorators/public.decorator';
+import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
 import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
 import {
   ApiCreatePlan,
@@ -27,7 +28,7 @@ import { FindPlansQueryDto } from './dto/find-plans-query.dto';
 import { PlansService } from './plans.service';
 
 @ApiTags('Plans')
-@Public() // TODO: step 02 — AdminAuthGuard (super_admin / admin staff)
+@UseGuards(AdminAuthGuard)
 @UseInterceptors(SnakeCaseInterceptor)
 @Controller('admin/plans')
 export class PlansController {

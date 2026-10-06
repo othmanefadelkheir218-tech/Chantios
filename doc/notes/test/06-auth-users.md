@@ -3,13 +3,14 @@
 > Routes: `/api/auth`, `/api/mobile`, `/api/admin/auth`, `/api/users`, `/api/invitations`, `/api/roles`. Read [00-how-to-test.md](00-how-to-test.md) first.
 > Rules behind it: [auth-tokens.md](../auth-tokens.md), [roles-permissions.md](../roles-permissions.md).
 
-## Before you start — no guards are attached yet
+## Before you start — all guards are attached
 
-Every route in this step is still `@Public()`, by explicit instruction this session. `AuthGuard`, `TenantGuard`, `SubscriptionGuard` and `PermissionGuard` all exist as code (`src/auth/guards/`) but are **not** wired onto any controller yet. Practically, this means:
-
-- The fully public flows — **register, login, refresh, logout, forgot/reset-password, verify-email, mobile login, invitation verify/accept** — work exactly as a real client would call them, no workaround needed. These were live-verified this session.
-- Routes that need to know **who is calling** (`PATCH /api/users/:id`, `POST /api/invitations`, the roles overrides, `GET /api/auth/me`, `GET/DELETE /api/auth/sessions`) read `@CurrentUser()`, which is `undefined` until `AuthGuard`/`TenantGuard` run. Calling them right now throws a `500` (`Cannot read properties of undefined`) — this is expected, not a bug. These were verified instead through handler-level Jest specs (mocked actor) — see `src/{users,roles,invitations,auth}/**/*.handlers.spec.ts`.
-- Once guards are attached (a later session), re-run this whole file end to end — this is the thing `state.md`'s Next Action will ask for.
+- **Platform:** `AdminAuthGuard` is on every `/api/admin/...` route and on admin logout (§ 8). Needs the admin cookie.
+- **Tenant side:** `AuthGuard` + `TenantGuard` + `SubscriptionGuard` + `PermissionGuard` are on `users`, `invitations` (except verify/accept) and `roles`. `/auth/me`, `/auth/sessions` and `/auth/logout` use `AuthGuard` + `TenantGuard`.
+- **Public:** register, login, refresh, forgot/reset-password, verify-email, mobile login, invitation verify/accept.
+- **Log in first** for any tenant-side route. Use `curl -c jar.txt` on `POST /api/auth/login`, then `-b jar.txt`. Demo logins (password `Demo@12345678`): `admin@dupont.test`, `manager@dupont.test`, `worker@dupont.test`, `admin@verhelst.test`.
+- Without a cookie you get `401`. With the wrong role you get `403 Insufficient role`. After the tenant is suspended you get `403 This company is suspended or banned`.
+- Routes in §§ 5–7 that earlier said "500, no actor" now work with a login. The old note is gone.
 
 ## Start everything
 
@@ -268,11 +269,104 @@ All need an authenticated admin actor — see the note at the top for the curren
 
 **Expected**: `201`, cookies cleared, that session's `refresh_tokens` row revoked.
 
+### ADMIN-AUTH-03 — Platform routes refuse a caller with no cookie
+
+With **no** cookie, call each of these:
+`GET /api/admin/tenants`, `/admin/admin-users`, `/admin/audit-logs`, `/admin/plans`, `/admin/subscriptions`, `/admin/feedback`, and `POST /api/admin/auth/logout`.
+
+**Expected**: every one answers `401` `Not authenticated`. Nothing is returned or written.
+
+### ADMIN-AUTH-04 — Platform routes work with the cookie
+
+Log in (ADMIN-AUTH-01), then call the same 6 `GET` routes with the cookie.
+
+**Expected**: every one answers `200`. A garbage cookie value (`admin_access_token=abc`) gives `401` `Invalid or expired session`.
+
+### ADMIN-AUTH-05 — A `staff` admin cannot use `super_admin` routes
+
+1. As super-admin: create a staff admin with ADM-01 in [02-admin-users.md](02-admin-users.md) (`test-staff@test.invalid`, role `staff`).
+2. Log in as that admin (use a new cookie jar).
+3. Call `GET /api/admin/tenants`, then `GET /api/admin/admin-users`, then `GET /api/admin/audit-logs`.
+
+**Expected**
+- `/admin/tenants` → `200` (any admin role).
+- `/admin/admin-users` and `/admin/audit-logs` → `403` `Not allowed for your admin role`.
+- Checked live on 2026-10-05 (same results).
+
+### ADMIN-AUTH-06 — The audit log records who did it
+
+Logged in as super-admin, create a tenant (TEN-01), then `GET /api/admin/audit-logs?tenant_id=<id>`.
+
+**Expected**: the `create` entry has `admin_user_id` = your admin's id, not `null`.
+
+## 9. Daily cleanup job
+
+Runs at **03:00** every day: deletes `refresh_tokens` and `one_time_codes` that **expired more than 30 days ago**. A row that expired 5 days ago stays. There is no route; run it once by hand with `yarn job:cleanup`.
+
+### JOB-01 — Old expired rows go, recent ones stay
+
+1. Insert two codes:
+```powershell
+& docker exec chantieros_postgres psql -U chantieros -d chantieros -c "insert into one_time_codes (type, tenant_id, code_hash, expires_at) select 'email_verification', id, 'testcleanup1', now() - interval '40 days' from tenants limit 1; insert into one_time_codes (type, tenant_id, code_hash, expires_at) select 'email_verification', id, 'testcleanup2', now() - interval '5 days' from tenants limit 1;"
+```
+2. `yarn job:cleanup`
+3. `select code_hash from one_time_codes where code_hash like 'testcleanup%';`
+
+**Expected**
+- The command prints `{ refreshTokens: N, codes: 1 }` (`codes` is at least 1).
+- Only `testcleanup2` is left. `testcleanup1` (40 days) is gone.
+- Delete the leftover (see Clean up below).
+
 ---
 
 ## Cross-tenant isolation (the Prisma extension)
 
-Covered by an automated test, not a manual one: `test/tenant-isolation.e2e-spec.ts` (`yarn test:e2e`) — creates two real tenants, writes to `users`, `user_invitations` and `role_permissions` under each, and proves tenant B's scoped client never sees tenant A's rows (and that a scoped query with no tenant in context throws rather than running unscoped).
+Covered by an automated test, not a manual one: `test/tenant-isolation.e2e-spec.ts`. Run it with `yarn test:e2e` (Jest does not exit by itself afterwards — press Ctrl+C, or run `npx jest --config test/jest-e2e.json --forceExit`). It needs the database up.
+
+It checks, against the real DB (11 tests):
+- two real tenants: tenant B cannot read, find by id (`findUnique`), update or delete tenant A's `users`, `user_invitations`, `role_permissions`;
+- **all 44 tenant-scoped tables**: the SQL of every read and delete carries `tenant_id = $n`; an unknown tenant sees nothing; no tenant in context throws.
+
+The console prints which tables had rows from 2+ tenants. A new table in `schema.prisma` is checked automatically.
+
+## 11. Tenant isolation by hand (two companies)
+
+Why: the automated test (`yarn test:e2e`, see [00-how-to-test.md](00-how-to-test.md) § 6) proves it on every table. These scenarios show the same thing through the real API. Use two logins, in two cookie jars: Dupont admin (`admin@dupont.test`, tenant 1) and Verhelst admin (`admin@verhelst.test`, tenant 2). Password `Demo@12345678`.
+
+Get the ids once: in Prisma Studio, or `select id, email, tenant_id from users;`. Below, `V_ID` is a Verhelst user (like `admin@verhelst.test`) and `D_ID` is a Dupont user.
+
+### ISO-01 — A company lists only its own team
+`GET /api/users` as Dupont, then as Verhelst.
+
+**Expected:** each answer has only users of its own company. Seed data: Dupont `total` 7, Verhelst `total` 3. In every row `tenant_id` is the same number.
+
+### ISO-02 — Own user is readable, another company's is not
+As Dupont admin: `GET /api/users/D_ID` → `200`. `GET /api/users/V_ID` → `404 User not found` (not `403`: the other company's row must look like it does not exist).
+
+### ISO-03 — Cannot change another company's user
+As Dupont admin, on `V_ID`: `PATCH /api/users/V_ID` with `{"name":"HACKED"}`, `DELETE /api/users/V_ID`, `POST /api/users/V_ID/pin` with `{"pin":"4321"}`.
+
+**Expected:** all three → `404 User not found`. Check in the database: `select name, is_active, mobile_pin_hash is not null from users where id = V_ID;` still shows the old name, `true`, and `false`.
+
+### ISO-04 — Invitations stay inside the company
+1. Insert an open invitation for Verhelst (tenant 2):
+```powershell
+& docker exec chantieros_postgres psql -U chantieros -d chantieros -c "insert into user_invitations (tenant_id, email, name, role_id, token_hash, invited_by, expires_at) values (2, 'test-iso@test.invalid', 'TEST Iso', 5, 'iso-hash-1', V_ID, now() + interval '7 days');"
+```
+2. As Dupont admin: `GET /api/invitations` → `total` 0. `DELETE /api/invitations/<its id>` → `404 Invitation not found`.
+3. As Verhelst admin: `GET /api/invitations` → `total` 1.
+
+### ISO-05 — A permission override stays inside the company
+Already covered by GRD-03 (§ 10). Run it again after any change to `roles`.
+
+## 12. `scope = own`
+
+### SCOPE-01 — The worker's scope is `own`
+Log in as `worker@dupont.test`, then `GET /api/auth/me`.
+
+**Expected:** in `permissions`, these modules have `scope: "own"`: `tasks`, `time_entries`, `reports`, `media`, `chat`. As `admin@dupont.test` and `manager@dupont.test`, `tasks` has `scope: "all"`.
+
+**Not testable yet:** a task list that only shows the worker's own tasks. There is no `GET /api/tasks` until step 08. Add that scenario then. The guard side is covered by `src/auth/guards/permission.guard.spec.ts` (`yarn test`).
 
 ## Clean up after testing
 
@@ -283,4 +377,31 @@ Covered by an automated test, not a manual one: `test/tenant-isolation.e2e-spec.
 & docker exec chantieros_postgres psql -U chantieros -d chantieros -c "delete from users where email like '%@test.invalid';"
 & docker exec chantieros_postgres psql -U chantieros -d chantieros -c "delete from tenant_subscriptions where tenant_id in (select id from tenants where name like 'TEST%');"
 & docker exec chantieros_postgres psql -U chantieros -d chantieros -c "delete from tenants where name like 'TEST%';"
+& docker exec chantieros_postgres psql -U chantieros -d chantieros -c "delete from refresh_tokens where admin_user_id in (select id from admin_users where email like 'test-%'); delete from admin_users where email like 'test-%'; delete from one_time_codes where code_hash like 'testcleanup%';"
 ```
+
+## 10. Guards on the tenant side (Acceptance run, 2026-10-05)
+
+### GRD-01 — No cookie
+`GET /api/users`, `/api/auth/me`, `/api/auth/sessions`, `/api/roles`, `POST /api/invitations` → all `401 Not authenticated`. `GET /api/invitations/verify/abc` is **not** `401` (it is public; a bad token gives `400`).
+
+### GRD-02 — Role check
+Log in as `worker@dupont.test`: `POST /api/invitations` → `403 Insufficient role`, `GET /api/users` → `403`. As `manager@dupont.test`: `GET /api/users` → `200`.
+
+### GRD-03 — Permission override stays inside its tenant
+1. As `admin@dupont.test`: `PUT /api/roles/2/permissions/invoices` with `{"can_view":true,"can_create":true,"can_edit":false,"can_delete":false,"scope":"all"}`.
+2. `GET /api/roles/permissions` as Dupont admin and as `admin@verhelst.test`; look at role `2`, module `invoices`.
+3. Log in as `manager@dupont.test`: `GET /api/auth/me` → `permissions` shows `invoices` with `can_view: true`.
+4. Remove it: `DELETE /api/roles/2/permissions/invoices`.
+
+**Expected:** Dupont shows `can_view: true`; Verhelst still `false`.
+
+### GRD-04 — Suspend a tenant locks everyone out
+1. Register a TEST company (AUTH-01) and log in as its owner. `GET /api/users` → `200`.
+2. As super-admin: `PATCH /api/admin/tenants/<id>/status` with `{"status":"suspended","reason":"test"}`.
+3. Owner again: `GET /api/users` (old access cookie) → `403`; `POST /api/auth/refresh` → `401`; login → `401`.
+
+**Expected:** `select count(*) from refresh_tokens where revoked_at is null and user_id in (...)` is `0`.
+
+### GRD-05 — Sessions list hides the hash
+`GET /api/auth/sessions` → each row has `id`, `user_agent`, `ip_address`, `created_at`, `expires_at`. There is **no** `token_hash`.

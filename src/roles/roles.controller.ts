@@ -13,7 +13,12 @@ import { ApiTags } from '@nestjs/swagger';
 import { PermissionModule } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
-import { Public } from '../common/decorators/public.decorator';
+import { Module } from '../auth/decorators/module.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import {
+  SessionAuth,
+  TenantAuth,
+} from '../auth/decorators/tenant-auth.decorator';
 import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
 import {
   ApiFindPermissions,
@@ -25,13 +30,13 @@ import { UpsertPermissionDto } from './dto/upsert-permission.dto';
 import { RolesService } from './roles.service';
 
 @ApiTags('Roles')
-@Public() // TODO: step 02 wiring — AuthGuard (+ settings:view / admin per route) once attached
 @UseInterceptors(SnakeCaseInterceptor)
 @Controller('roles')
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @Get()
+  @SessionAuth()
   @ApiFindRoles()
   findAll() {
     return this.rolesService.findAll();
@@ -39,12 +44,16 @@ export class RolesController {
 
   // Must stay registered before a future `GET :id` — matches one path segment.
   @Get('permissions')
+  @TenantAuth()
+  @Module('settings')
   @ApiFindPermissions()
   findPermissions() {
     return this.rolesService.findPermissionsMatrix();
   }
 
   @Put(':roleId/permissions/:module')
+  @TenantAuth()
+  @Roles('admin')
   @ApiUpsertPermission()
   upsertPermission(
     @Param('roleId', ParseIntPipe) roleId: number,
@@ -62,6 +71,8 @@ export class RolesController {
   }
 
   @Delete(':roleId/permissions/:module')
+  @TenantAuth()
+  @Roles('admin')
   @ApiRemovePermission()
   removePermission(
     @Param('roleId', ParseIntPipe) roleId: number,

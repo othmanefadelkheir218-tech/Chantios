@@ -57,6 +57,12 @@ export class SessionsService {
     return count;
   }
 
+  async revokeAllForTenant(tenantId: number): Promise<number> {
+    const count = await this.refreshTokens.revokeAllForTenant(tenantId);
+    this.logger.info(`Revoked ${count} session(s) for tenant ${tenantId}`);
+    return count;
+  }
+
   async revokeAllForAdmin(adminUserId: number): Promise<number> {
     const count = await this.refreshTokens.revokeAllForAdmin(adminUserId);
     this.logger.info(`Revoked ${count} session(s) for admin ${adminUserId}`);

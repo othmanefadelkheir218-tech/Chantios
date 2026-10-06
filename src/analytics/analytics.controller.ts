@@ -1,13 +1,19 @@
-import { Controller, Get, Query, UseInterceptors } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  UseInterceptors,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Public } from '../common/decorators/public.decorator';
+import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
 import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
 import { AnalyticsService } from './analytics.service';
 import { ApiFindAnalytics } from './decorators/analytics.swagger';
 import { FindAnalyticsQueryDto } from './dto/find-analytics-query.dto';
 
 @ApiTags('Analytics')
-@Public() // TODO: step 02 — AdminAuthGuard (admin staff)
+@UseGuards(AdminAuthGuard)
 @UseInterceptors(SnakeCaseInterceptor)
 @Controller('admin/analytics')
 export class AnalyticsController {

@@ -21,12 +21,20 @@ const READ_OPS = new Set([
   'findMany',
   'findFirst',
   'findFirstOrThrow',
+  'findUnique',
+  'findUniqueOrThrow',
   'count',
   'aggregate',
   'groupBy',
 ]);
 const CREATE_OPS = new Set(['create', 'createMany', 'createManyAndReturn']);
-const WHERE_OPS = new Set(['update', 'updateMany', 'delete', 'deleteMany']);
+const WHERE_OPS = new Set([
+  'update',
+  'updateMany',
+  'updateManyAndReturn',
+  'delete',
+  'deleteMany',
+]);
 
 /**
  * A Prisma client extension, not Postgres RLS (decision recorded in

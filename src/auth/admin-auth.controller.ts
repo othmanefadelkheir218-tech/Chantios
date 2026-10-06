@@ -4,10 +4,12 @@ import {
   Post,
   Req,
   Res,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
+import { AdminAuthGuard } from './guards/admin-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
 import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
 import { AuthService } from './auth.service';
@@ -20,7 +22,7 @@ import { AdminLoginDto } from './dto/admin-login.dto';
 import { Verify2faDto } from './dto/verify-2fa.dto';
 
 @ApiTags('Admin Auth')
-@Public() // TODO: step 02 wiring — AdminAuthGuard on logout
+@Public()
 @UseInterceptors(SnakeCaseInterceptor)
 @Controller('admin/auth')
 export class AdminAuthController {
@@ -47,6 +49,7 @@ export class AdminAuthController {
   }
 
   @Post('logout')
+  @UseGuards(AdminAuthGuard)
   @ApiAdminLogout()
   logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     return this.authService.adminSignOut(req, res);

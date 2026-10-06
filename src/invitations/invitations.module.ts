@@ -1,3 +1,7 @@
+import { TokenModule } from '../auth/token.module';
+import { RolesModule } from '../roles/roles.module';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { TenantsModule } from '../tenants/tenants.module';
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { EmailModule } from '../email/email.module';
@@ -13,7 +17,15 @@ import { InvitationsService } from './invitations.service';
 import { InvitationRepository } from './repositories/invitation.repository';
 
 @Module({
-  imports: [AuditModule, EmailModule, UsersModule],
+  imports: [
+    AuditModule,
+    EmailModule,
+    UsersModule,
+    TokenModule,
+    RolesModule,
+    TenantsModule,
+    SubscriptionsModule,
+  ],
   controllers: [InvitationsController],
   providers: [
     InvitationsService,

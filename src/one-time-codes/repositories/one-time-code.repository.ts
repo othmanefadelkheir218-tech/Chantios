@@ -25,6 +25,13 @@ export class OneTimeCodeRepository {
     });
   }
 
+  async deleteExpiredOlderThan(date: Date): Promise<number> {
+    const { count } = await this.prisma.oneTimeCode.deleteMany({
+      where: { expiresAt: { lt: date } },
+    });
+    return count;
+  }
+
   findActive(
     type: OneTimeCodeType,
     scope: OneTimeCodeScope,

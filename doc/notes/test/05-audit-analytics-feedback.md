@@ -24,7 +24,7 @@ An entry is written when something sensitive changes. It records **who** (empty 
 **Expected**
 - `total` is **1**.
 - The entry: `action` `create`, `entity_type` `tenant`, `entity_id` = `TENANT_AUDIT`, `old_value` `null`, `new_value` = the tenant.
-- `admin_user_id` is `null` (no login yet). `ip_address` is your IP (like `::1` or `127.0.0.1`).
+- `admin_user_id` is the **id of the admin you are logged in as** (the guard fills it; it was `null` before). `ip_address` is your IP (like `::1` or `127.0.0.1`).
 - **Keys inside `new_value` are `snake_case`** and `postal_code` is **not** hidden if you set it.
 
 ## AUD-02 — An update records old and new

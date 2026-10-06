@@ -7,7 +7,15 @@ import { AuthenticatedUser } from '../decorators/current-user.decorator';
 export class ListSessionsHandler {
   constructor(private readonly sessions: SessionsService) {}
 
-  execute(actor: AuthenticatedUser) {
-    return this.sessions.listLiveForUser(actor.userId);
+  /** Never returns `token_hash` — the hash is a secret-equivalent lookup key. */
+  async execute(actor: AuthenticatedUser) {
+    const rows = await this.sessions.listLiveForUser(actor.userId);
+    return rows.map((row) => ({
+      id: row.id,
+      userAgent: row.userAgent,
+      ipAddress: row.ipAddress,
+      createdAt: row.createdAt,
+      expiresAt: row.expiresAt,
+    }));
   }
 }

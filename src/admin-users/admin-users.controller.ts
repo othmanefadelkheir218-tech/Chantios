@@ -11,10 +11,12 @@ import {
   Post,
   Query,
   UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AuditLog } from '../audit/decorators/audit-log.decorator';
-import { Public } from '../common/decorators/public.decorator';
+import { AdminRoles } from '../auth/decorators/admin-roles.decorator';
+import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
 import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
 import { AdminUsersService } from './admin-users.service';
 import {
@@ -28,7 +30,8 @@ import { FindAdminUsersQueryDto } from './dto/find-admin-users-query.dto';
 import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
 
 @ApiTags('Admin users')
-@Public() // TODO: step 02 — AdminAuthGuard (super_admin)
+@UseGuards(AdminAuthGuard)
+@AdminRoles('super_admin')
 @UseInterceptors(SnakeCaseInterceptor)
 @Controller('admin/admin-users')
 export class AdminUsersController {

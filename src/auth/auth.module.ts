@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
 import { AdminUsersModule } from '../admin-users/admin-users.module';
 import { EmailModule } from '../email/email.module';
 import { OneTimeCodesModule } from '../one-time-codes/one-time-codes.module';
@@ -12,7 +11,6 @@ import { UsersModule } from '../users/users.module';
 import { AdminAuthController } from './admin-auth.controller';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { AdminAuthGuard } from './guards/admin-auth.guard';
 import { AuthGuard } from './guards/auth.guard';
 import { PermissionGuard } from './guards/permission.guard';
 import { SubscriptionGuard } from './guards/subscription.guard';
@@ -33,8 +31,9 @@ import { RevokeAllSessionsHandler } from './handlers/revoke-all-sessions.handler
 import { RevokeSessionHandler } from './handlers/revoke-session.handler';
 import { Verify2faHandler } from './handlers/verify-2fa.handler';
 import { VerifyEmailHandler } from './handlers/verify-email.handler';
-import { TokenHelper } from './helpers/token.helper';
 import { MobileAuthController } from './mobile-auth.controller';
+import { CleanupExpiredTokensJob } from './jobs/cleanup-expired-tokens.job';
+import { TokenModule } from './token.module';
 
 /**
  * Guards are provided here, as plain injectables, but not attached to any
@@ -43,7 +42,7 @@ import { MobileAuthController } from './mobile-auth.controller';
  */
 @Module({
   imports: [
-    JwtModule.register({}), // secret passed per call — see auth/helpers/token.helper.ts
+    TokenModule,
     AdminUsersModule,
     UsersModule,
     RolesModule,
@@ -57,9 +56,8 @@ import { MobileAuthController } from './mobile-auth.controller';
   controllers: [AuthController, MobileAuthController, AdminAuthController],
   providers: [
     AuthService,
-    TokenHelper,
+    CleanupExpiredTokensJob,
     AuthGuard,
-    AdminAuthGuard,
     TenantGuard,
     SubscriptionGuard,
     PermissionGuard,
@@ -80,6 +78,6 @@ import { MobileAuthController } from './mobile-auth.controller';
     Verify2faHandler,
     AdminLogoutHandler,
   ],
-  exports: [AuthService, TokenHelper],
+  exports: [AuthService, TokenModule],
 })
 export class AuthModule {}

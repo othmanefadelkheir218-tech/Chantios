@@ -1,3 +1,5 @@
+import { SessionsModule } from '../sessions/sessions.module';
+import { TokenModule } from '../auth/token.module';
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { EmailModule } from '../email/email.module';
@@ -18,7 +20,13 @@ import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
 
 @Module({
-  imports: [AuditModule, EmailModule, OneTimeCodesModule],
+  imports: [
+    SessionsModule,
+    TokenModule,
+    AuditModule,
+    EmailModule,
+    OneTimeCodesModule,
+  ],
   controllers: [TenantsController],
   providers: [
     TenantsService,

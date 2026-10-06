@@ -1,3 +1,4 @@
+import { TokenModule } from '../auth/token.module';
 import { Module } from '@nestjs/common';
 import { FeedbackController } from './feedback.controller';
 import { FeedbackService } from './feedback.service';
@@ -6,6 +7,7 @@ import { UpdateFeedbackStatusHandler } from './handlers/update-feedback-status.h
 import { FeedbackRepository } from './repositories/feedback.repository';
 
 @Module({
+  imports: [TokenModule],
   controllers: [FeedbackController],
   providers: [
     FeedbackService,

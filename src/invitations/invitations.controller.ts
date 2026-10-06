@@ -12,6 +12,8 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { TenantAuth } from '../auth/decorators/tenant-auth.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
 import {
@@ -28,13 +30,14 @@ import { FindInvitationsQueryDto } from './dto/find-invitations-query.dto';
 import { InvitationsService } from './invitations.service';
 
 @ApiTags('Invitations')
-@Public() // TODO: step 02 wiring — AuthGuard + admin role, except verify/accept which stay public
 @UseInterceptors(SnakeCaseInterceptor)
 @Controller('invitations')
 export class InvitationsController {
   constructor(private readonly invitationsService: InvitationsService) {}
 
   @Post()
+  @TenantAuth()
+  @Roles('admin')
   @ApiCreateInvitation()
   create(
     @Body() dto: CreateInvitationDto,
@@ -44,24 +47,30 @@ export class InvitationsController {
   }
 
   @Get()
+  @TenantAuth()
+  @Roles('admin')
   @ApiFindInvitations()
   findAll(@Query() query: FindInvitationsQueryDto) {
     return this.invitationsService.findAll(query);
   }
 
   @Get('verify/:token')
+  @Public()
   @ApiVerifyInvitation()
   verify(@Param('token') token: string) {
     return this.invitationsService.verify(token);
   }
 
   @Post('accept')
+  @Public()
   @ApiAcceptInvitation()
   accept(@Body() dto: AcceptInvitationDto) {
     return this.invitationsService.accept(dto);
   }
 
   @Post(':id/resend')
+  @TenantAuth()
+  @Roles('admin')
   @ApiResendInvitation()
   resend(
     @Param('id', ParseIntPipe) id: number,
@@ -71,6 +80,8 @@ export class InvitationsController {
   }
 
   @Delete(':id')
+  @TenantAuth()
+  @Roles('admin')
   @ApiRevokeInvitation()
   revoke(
     @Param('id', ParseIntPipe) id: number,

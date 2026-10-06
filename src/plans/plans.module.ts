@@ -1,3 +1,4 @@
+import { TokenModule } from '../auth/token.module';
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { StripeModule } from '../stripe/stripe.module';
@@ -12,7 +13,7 @@ import { PlansService } from './plans.service';
 import { PlanRepository } from './repositories/plan.repository';
 
 @Module({
-  imports: [AuditModule, StripeModule],
+  imports: [TokenModule, AuditModule, StripeModule],
   controllers: [PlansController],
   providers: [
     PlansService,

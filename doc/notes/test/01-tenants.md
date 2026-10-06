@@ -282,6 +282,6 @@ Send a code (TEN-18), then send a second one **before** verifying with the first
 
 ## Known limits (not bugs)
 
-- No login: anyone can call these routes.
+- These routes need the admin login cookie (see [00-how-to-test.md](00-how-to-test.md) § 2b). Any admin role may use them.
 - Creating a tenant here creates **only** the company row. No subscription and no first user are created. This is an open question in [A_progress-tracker.md](../A_progress-tracker.md).
 - There is no "read the code back" route — testing TEN-18/19/20/21 end to end needs a real inbox at the tenant's `email`, or a direct DB insert into `one_time_codes` with a known `code_hash` (sha256 of the code) to simulate it.

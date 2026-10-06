@@ -7,10 +7,11 @@ import {
   Patch,
   Query,
   UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AuditLog } from '../audit/decorators/audit-log.decorator';
-import { Public } from '../common/decorators/public.decorator';
+import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
 import {
@@ -24,7 +25,7 @@ import { SetPendingPlanDto } from './dto/set-pending-plan.dto';
 import { SubscriptionsService } from './subscriptions.service';
 
 @ApiTags('Subscriptions')
-@Public() // TODO: step 02 — AdminAuthGuard (super_admin / admin staff)
+@UseGuards(AdminAuthGuard)
 @UseInterceptors(SnakeCaseInterceptor)
 @Controller('admin/subscriptions')
 export class SubscriptionsController {

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
+import { SessionsService } from '../../sessions/sessions.service';
 import { RequestActor } from '../../common/decorators/actor.decorator';
 import { SetTenantStatusDto } from '../dto/suspend-tenant.dto';
 import { toTenantEntity } from '../helpers/tenant.helper';
@@ -17,6 +18,7 @@ export class SetTenantStatusHandler {
     private readonly logger: PinoLogger,
     private readonly tenants: TenantRepository,
     private readonly audit: AuditService,
+    private readonly sessions: SessionsService,
   ) {}
 
   async execute(id: number, dto: SetTenantStatusDto, actor: RequestActor) {
@@ -33,8 +35,9 @@ export class SetTenantStatusHandler {
 
     const updated = await this.tenants.setStatus(id, dto.status);
 
-    // TODO: step 02 — `suspended` and `banned` must also revoke the
-    // refresh tokens of every user of this tenant.
+    if (updated.status === 'suspended' || updated.status === 'banned') {
+      await this.sessions.revokeAllForTenant(id);
+    }
     await this.audit.write({
       tenantId: id,
       adminUserId: actor.adminUserId,

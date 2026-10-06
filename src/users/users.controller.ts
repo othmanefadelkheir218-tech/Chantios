@@ -13,7 +13,9 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
-import { Public } from '../common/decorators/public.decorator';
+import { Module } from '../auth/decorators/module.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { TenantAuth } from '../auth/decorators/tenant-auth.decorator';
 import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
 import {
   ApiDeactivateUser,
@@ -30,13 +32,14 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
 @ApiTags('Users')
-@Public() // TODO: step 02 wiring — AuthGuard + PermissionGuard(team) once attached
 @UseInterceptors(SnakeCaseInterceptor)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
+  @TenantAuth()
+  @Module('team')
   @ApiFindUsers()
   findAll(@Query() query: FindUsersQueryDto) {
     return this.usersService.findAll(query);
@@ -44,6 +47,7 @@ export class UsersController {
 
   // Must stay registered before `GET/PATCH :id` — both match one path segment.
   @Patch('me')
+  @TenantAuth()
   @ApiUpdateProfile()
   updateProfile(
     @Body() dto: UpdateProfileDto,
@@ -53,12 +57,16 @@ export class UsersController {
   }
 
   @Get(':id')
+  @TenantAuth()
+  @Module('team')
   @ApiFindUser()
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.findOne(id);
   }
 
   @Patch(':id')
+  @TenantAuth()
+  @Roles('admin')
   @ApiUpdateUser()
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -69,6 +77,8 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @TenantAuth()
+  @Roles('admin')
   @ApiDeactivateUser()
   deactivate(
     @Param('id', ParseIntPipe) id: number,
@@ -78,6 +88,8 @@ export class UsersController {
   }
 
   @Post(':id/pin')
+  @TenantAuth()
+  @Roles('admin')
   @ApiSetPin()
   setPin(
     @Param('id', ParseIntPipe) id: number,

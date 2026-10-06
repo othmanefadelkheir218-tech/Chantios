@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { SessionsService } from '../../sessions/sessions.service';
 import { AdminUserRepository } from '../repositories/admin-user.repository';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class DeactivateAdminUserHandler {
     @InjectPinoLogger(DeactivateAdminUserHandler.name)
     private readonly logger: PinoLogger,
     private readonly admins: AdminUserRepository,
+    private readonly sessions: SessionsService,
   ) {}
 
   /** Never a hard delete: the row stays, `is_active` goes to false. */
@@ -19,8 +21,8 @@ export class DeactivateAdminUserHandler {
       throw new NotFoundException('Admin user not found');
     }
 
-    // TODO: step 02 — also revoke every refresh token of this admin.
     await this.admins.deactivate(id);
+    await this.sessions.revokeAllForAdmin(id);
     this.logger.info(`Admin user deactivated: ${id}`);
   }
 }

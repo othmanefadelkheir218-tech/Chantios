@@ -9,8 +9,8 @@ export interface RequestActor {
 
 /**
  * Reads the actor of the current request.
- * TODO: step 02 — `req.user` is filled by AdminAuthGuard. Until then the
- * admin id is always null.
+ * `req.user` is filled by AdminAuthGuard; the admin id is null on a route
+ * without it.
  */
 export function getRequestActor(req: Request): RequestActor {
   const user = (req as { user?: { id?: number } }).user;

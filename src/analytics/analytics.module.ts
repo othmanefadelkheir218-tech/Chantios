@@ -1,3 +1,4 @@
+import { TokenModule } from '../auth/token.module';
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { AnalyticsController } from './analytics.controller';
@@ -9,7 +10,7 @@ import { RecordEventHandler } from './handlers/record-event.handler';
 import { AnalyticsRepository } from './repositories/analytics.repository';
 
 @Module({
-  imports: [BullModule.registerQueue({ name: ANALYTICS_QUEUE })],
+  imports: [TokenModule, BullModule.registerQueue({ name: ANALYTICS_QUEUE })],
   controllers: [AnalyticsController],
   providers: [
     AnalyticsService,

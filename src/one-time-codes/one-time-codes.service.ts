@@ -45,6 +45,10 @@ export class OneTimeCodesService {
     return code;
   }
 
+  deleteExpiredOlderThan(date: Date): Promise<number> {
+    return this.codes.deleteExpiredOlderThan(date);
+  }
+
   /** Compares hashes, never raw values (doc/notes/auth-tokens.md § Shared rules). */
   async verify(
     type: OneTimeCodeType,

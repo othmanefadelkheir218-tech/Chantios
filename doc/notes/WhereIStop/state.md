@@ -9,10 +9,32 @@
 
 | | |
 |---|---|
-| **Step** | 02 — Auth & users. **Built this session**: tenant isolation layer, `auth`, `users`, `roles`, `invitations`, `sessions` modules. **Guards exist as code but are deliberately NOT attached to any route** — the user's explicit instruction this session. Step 01 is DONE (see prior recap, kept below) |
-| **File to follow** | [../Phaces/02-auth-users.md](../Phaces/02-auth-users.md) — everything in its Tasks list is done except wiring guards onto routes |
-| **Status** | Builds, lints and type-checks clean. **133/133 unit tests pass** (was 92; +41 new) plus **5/5 e2e tests** (`test/tenant-isolation.e2e-spec.ts`, real DB — the explicit "tenant A cannot read tenant B's rows" acceptance item). Every public flow (register, login, refresh+rotation+replay-revoke, logout, forgot/reset-password, verify-email, mobile login incl. lockout, invitation verify/accept) was curl-verified live against a throwaway instance on a spare port, then the test data was cleaned up. Routes needing an authenticated actor (`users`, `invitations` admin routes, `roles` overrides, `/auth/me`, `/auth/sessions`) could **not** be curl-verified — no guard runs to populate `@CurrentUser()` yet — so those are covered by handler-level Jest specs instead (mocked actor) |
+| **Step** | **02 — Auth & users: DONE** (except 3 items that wait for later steps — see *Next action*). Step 01 is DONE too. **Next to build: step 03 — media.** |
+| **File to follow** | [../Phaces/03-media.md](../Phaces/03-media.md) |
+| **Status** | `yarn build`, `yarn lint` (0 errors, 3 known warnings in `auth.handlers.spec.ts`) and `npx tsc --noEmit` are clean. **143 unit tests** (`yarn test`) and **11 e2e tests** (`yarn test:e2e`, real DB) all pass. The Acceptance list of step 02 was run **live** on the app and ticked in [../Phaces/02-auth-users.md](../Phaces/02-auth-users.md) |
+| **Database** | Reset and re-migrated on 2026-10-05 (4 migrations applied, zero drift), then re-seeded. All earlier data was dropped with the user's consent |
 | **Last updated** | 2026-10-05 |
+
+## Recap of the step 02 session, for a fresh conversation
+
+In order, what was done and what you must know:
+
+1. **Prisma deployed.** The DB held an old `20261004211500_init` history, so `prisma migrate reset` was run (user consented), then `seed:data`, `seed:admin`, `seed:tenants`. `migrate status` = up to date; `migrate diff` = no difference.
+2. **Setup fixes.** `nestjs-cls` was in `package.json` but not installed (`yarn install`; it hit an EPERM on a locked `msgpackr-extract` file — stop running Node processes first if it returns). `.env` lacked `APP_URL` and `PORTAL_BASE_URL` (added). `.env` has `SEED_ADMIN_*` keys **twice** — dotenv uses the first; the user should delete the extra lines. A watcher that still shows `nestjs-cls` errors just needs a restart.
+3. **Platform guard attached.** `AdminAuthGuard` is on all 7 step 01 controllers (`tenants`, `admin-users`, `audit`, `analytics`, `feedback`, `plans`, `subscriptions`) and on `POST /api/admin/auth/logout`. `admin-users` and `audit` also carry `@AdminRoles('super_admin')` (a `staff` admin gets `403`). `TokenHelper` + the guard live in the new leaf module `src/auth/token.module.ts` so step 01 modules can import them without a cycle with `AuthModule`.
+4. **Tenant-side guards attached.** Two composite decorators in `src/auth/decorators/tenant-auth.decorator.ts`: `@TenantAuth()` = `AuthGuard` → `TenantGuard` → `SubscriptionGuard` → `PermissionGuard`; `@SessionAuth()` = `AuthGuard` → `TenantGuard`. Used per route: `users` (`@Module('team')` for reads, `@Roles('admin')` for writes, none for `PATCH /me`), `invitations` (admin routes; `verify`/`accept` stay `@Public()`), `roles`, and `/auth/me|sessions|logout|change-password`. Public: register, login, refresh, forgot/reset-password, verify-email, mobile login.
+5. **Session revoke TODOs closed.** Suspending/banning a tenant revokes every session of its users (`SessionsService.revokeAllForTenant`). Deactivating a platform admin revokes theirs. `GET /auth/sessions` no longer returns `token_hash`.
+6. **Daily cleanup cron.** `src/auth/jobs/cleanup-expired-tokens.job.ts`, 03:00, deletes `refresh_tokens` and `one_time_codes` expired > 30 days. Run it now with `yarn job:cleanup` (`scripts/run-cleanup.ts`).
+7. **Security hole found and fixed: `findUnique` was not tenant-scoped** in `src/common/prisma/tenant-extension.ts`. `findUnique`, `findUniqueOrThrow` and `updateManyAndReturn` are now scoped.
+8. **Isolation proof on every table.** `test/tenant-isolation.e2e-spec.ts` loops over all 44 scoped models (list read from Prisma, so new tables are covered automatically): the SQL of reads/deletes must carry `tenant_id = $n`, an unknown tenant sees nothing, no tenant in context throws. Only `users` and `tenant_subscriptions` hold multi-tenant rows today, so for other tables the proof is the SQL filter.
+9. **Acceptance run live** (register, no-plan, duplicate, login hash, refresh rotation, replay-revoke-all, invite/accept/reuse, other-company invite refused, mobile PIN lock, worker 403, per-tenant override, deactivate, suspend) — all passed. Test data was cleaned.
+10. **Test docs updated** in `doc/notes/test/`: `00-how-to-test.md` (admin login § 2b, automated tests § 6), `06-auth-users.md` (§ 8 admin auth incl. ADMIN-AUTH-03..06, § 9 cleanup job, § 10 tenant guards GRD-01..05, § 11 isolation ISO-01..05, § 12 SCOPE-01). Notes in 01, 02, 05 were corrected (admin cookie needed, `admin_user_id` now filled).
+
+**Gotchas for the next session**
+- The repo stores **LF**; do not run `prettier --write` on whole folders (it flips line endings and floods `git status` with fake changes) — format only the files you edit.
+- `yarn test:e2e` finishes but Jest does not exit: use `npx jest --config test/jest-e2e.json --forceExit`.
+- Registration and mobile login are rate-limited to 5 per minute; a sixth try gives `429` before any lock message.
+- Local test server: `PORT=5391 node dist/main` (build first). Demo logins are below under *Commands*.
 
 ## Recap of the step 01 session, for a fresh conversation
 
@@ -28,11 +50,17 @@ Every item above was verified live against the running app (and, for Stripe, aga
 
 ## Next action
 
-**Wire the guards.** Every new step 02 route is `@Public() // TODO: step 02 wiring — ...` with a comment naming exactly which guard(s) belong there (`AuthGuard`, `TenantGuard`, `SubscriptionGuard`, `PermissionGuard`/`@Module()`/`@Roles()`, `AdminAuthGuard`). So are the step 01 controllers (`tenants`, `admin-users`, `plans`, `subscriptions`, `audit`, `analytics`, `feedback` → `AdminAuthGuard`). Do this in one pass, both steps together, then re-run `doc/notes/test/06-auth-users.md` end to end — several scenarios there are marked as blocked specifically on this. **Do not ship to a public host before that.**
+**Build step 03 — media** (`doc/notes/Phaces/03-media.md`). Read it, then `00-START-HERE.md` § 4 for the build order (04 clients/projects, 05 catalogue/stock, ...).
 
-After guards: `src/users/` still needs `POST /api/users/me/avatar` (needs step 03/media — not built, by design) and an admin-2FA **enrollment** route (none exists yet, so `admin-login.handler.ts` currently skips 2FA whenever `totp_secret` is null — see Decisions below).
+**Step 02 items that still wait for later steps** (do them when that step builds the missing piece):
+- `scope = own` on a real list — only the `WHERE user_id = :current` part (needs `GET /api/tasks`, **step 08**). The guard side is unit-tested. Add a scenario to `doc/notes/test/06-auth-users.md` § 12 then.
+- `categories` / `cost_types` "shared defaults + own rows" dedicated method and test (**step 05**). Note: the generic tenant extension hides `tenant_id IS NULL` rows on these tables, which is why the dedicated method is needed.
+- `POST /api/users/me/avatar` (**step 03**, media) and the admin **2FA enrollment** route (nothing sets `admin_users.totp_secret`, so 2FA is skipped for now).
+- Storage downgrade gate in `set-pending-plan.handler.ts` (**step 03**, `// TODO: step 03`).
 
-Then continue the build order: step 03 media, 04 clients/projects, etc. per `00-START-HERE.md` § 4.
+**Every new module from now on:** attach `@TenantAuth()` (+ `@Module('<key>')` or `@Roles(...)`) on its routes from day one, add a scenario file in `doc/notes/test/`, and the e2e isolation loop covers its table automatically — but check that it passes.
+
+**Do not ship to a public host before a full re-run** of `doc/notes/test/` (the step 01 scenarios `01`–`05` were not replayed with the new admin cookie requirement — do that once).
 
 ## What is already done
 
@@ -50,8 +78,8 @@ Then continue the build order: step 03 media, 04 clients/projects, etc. per `00-
 - **Step 02 — `src/users/`** rebuilt from nothing against the real table: `GET /api/users`, `GET /:id`, `PATCH /:id` (admin: role/rate/active), `PATCH /me`, `DELETE /:id` (deactivate + revoke sessions), `POST /:id/pin`. `POST /me/avatar` intentionally not built (needs step 03 media).
 - **Step 02 — `src/roles/`**: `GET /api/roles`, `GET /roles/permissions` (112 rows: 7 roles × 16 modules, default matrix merged with this tenant's overrides), `PUT`/`DELETE /roles/:roleId/permissions/:module`. The default matrix lives in `src/auth/helpers/permission.helper.ts` (`DEFAULT_PERMISSION_MATRIX`), copied from `roles-permissions.md` — keep the two identical.
 - **Step 02 — `src/invitations/`**: create/list/resend/revoke (admin) + verify/accept (`@Public()`). Enforces the app-wide-unique-open-invitation rule and the same-tenant-replaces / other-tenant-refuses split. `accept` creates the `users` row at acceptance, not at invite time.
-- **Step 02 — `src/auth/`**: `register`, `login`, `refresh` (rotation + replay-theft full-revoke), `logout`, `forgot/reset-password`, `change-password`, `verify-email`, `me`, `sessions` (list/revoke one/revoke all), `/mobile/login` (worker PIN, 5-try lock), `/admin/auth/login` + `verify-2fa` + `logout`. JWT via `@nestjs/jwt` (`TokenHelper`), cookies via `cookie.helper.ts`. All 5 guards (`AuthGuard`, `AdminAuthGuard`, `TenantGuard`, `SubscriptionGuard`, `PermissionGuard`) exist and are unit-correct but **unattached**.
-- **Tests:** `yarn test` → 133 passing (`*.handlers.spec.ts` per module, mocked repositories, same pattern as step 01). `yarn test:e2e` → 5 passing (real-DB tenant isolation). Needed one Jest config fix both suites now share: `transformIgnorePatterns` must allow `otplib`/`@otplib`/`@scure`/`@noble` through (otplib v13 ships ESM-only internals).
+- **Step 02 — `src/auth/`**: `register`, `login`, `refresh` (rotation + replay-theft full-revoke), `logout`, `forgot/reset-password`, `change-password`, `verify-email`, `me`, `sessions` (list/revoke one/revoke all), `/mobile/login` (worker PIN, 5-try lock), `/admin/auth/login` + `verify-2fa` + `logout`. JWT via `@nestjs/jwt` (`TokenHelper`), cookies via `cookie.helper.ts`. All 5 guards (`AuthGuard`, `AdminAuthGuard`, `TenantGuard`, `SubscriptionGuard`, `PermissionGuard`) are **attached** (see the recap above).
+- **Tests:** `yarn test` → 143 passing (`*.handlers.spec.ts` per module, mocked repositories, plus guard and job specs). `yarn test:e2e` → 11 passing (real-DB tenant isolation on all 44 scoped tables). Jest config needs `transformIgnorePatterns` for `otplib`/`@otplib`/`@scure`/`@noble` (otplib v13 is ESM-only).
 
 ## Commands
 
@@ -62,6 +90,9 @@ yarn seed:data              # roles, cost types, categories (safe, idempotent)
 yarn seed:admin             # the super-admin only — email + password from .env, re-synced every run
 yarn seed:tenants           # DEMO plan + 2 tenants + users (dev only; needs seed:data first)
 yarn seed:reset             # DROP everything, re-apply the migration, run all three
+yarn job:cleanup            # run the daily token cleanup once, now
+yarn test                   # 143 unit tests
+npx jest --config test/jest-e2e.json --forceExit   # 11 e2e tests (real DB)
 ```
 
 Dev logins — super-admin: `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` in `.env` (now `admin@chantieros.local` / `Admin@ChantierOS2026`). Demo users share `Demo@12345678`, worker PIN `1234`: `admin@dupont.test` (one user per role: admin, manager, supervisor, leader, worker, sales, accountant) and `admin@verhelst.test`.
@@ -85,10 +116,10 @@ Dev logins — super-admin: `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` in `.env`
 
 ## Blockers
 
+- (2026-10-05, fixed) The DB still held the old `20261004211500_init` history, so `migrate status` showed drift. Fixed with `prisma migrate reset` (user consent) + 3 seeds. Also: `.env` lacked `APP_URL` / `PORTAL_BASE_URL` (added), and `nestjs-cls` was not installed (`yarn install`; it hit an EPERM on a locked `msgpackr-extract` file — stop running Node processes first if it comes back). `test:e2e` passes but Jest does not exit by itself — use `--forceExit`.
 - (Resolved during the step 01 session, worth knowing) `yarn start:dev` (`nest start --watch`) silently died once without exiting, mid-session, while `node dist/main` always booted clean standalone. If it happens again: it's not a code problem — just restart `yarn start:dev`.
 - **`POST /api/admin/tenants` creates the tenant row only.** It creates no `tenant_subscriptions` row and no first `admin` user — the notes describe that only for registration (step 02, now built as `POST /api/auth/register`). A tenant made through the super-admin route **still** has no subscription/first-admin. Not decided, not invented — still open.
 - **Storage downgrade gate** (`subscription-plans.md`) is not built: it needs `media` (step 03). The `// TODO: step 03` sits in `set-pending-plan.handler.ts`.
-- **Guards exist but are not attached anywhere** — see *Next action*. Until then: every step 01 **and** step 02 route is reachable with no auth check at all. Do not run this against a public host.
 - **Admin 2FA has no enrollment route.** `admin_users.totp_secret` is nullable and nothing in this step (or step 01) ever sets it, so `admin-login.handler.ts` skips the 2FA challenge whenever it's null — there is no way to require 2FA yet. Build the enrollment route (likely step 16 or alongside `admin-users`) before relying on 2FA for anything real.
 - `POST /api/users/me/avatar` is not built — needs step 03 media, same as the storage gate above.
 - The old `01-platform.md` listed `audit` as "no controller" and also listed `GET /api/admin/audit-logs`. Resolved: one read-only controller, writes through the service.

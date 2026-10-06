@@ -35,6 +35,14 @@ export class RefreshTokenRepository {
     return count;
   }
 
+  async revokeAllForTenant(tenantId: number): Promise<number> {
+    const { count } = await this.prisma.refreshToken.updateMany({
+      where: { user: { tenantId }, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return count;
+  }
+
   async revokeAllForAdmin(adminUserId: number): Promise<number> {
     const { count } = await this.prisma.refreshToken.updateMany({
       where: { adminUserId, revokedAt: null },

@@ -1,4 +1,4 @@
-# Test guide — Step 01 Platform
+# Test guide — Step 01 Platform + Step 02 Auth
 
 > How to test what is built so far. Read this file first, then follow the scenario files in order.
 > Business rules live in the other notes. This folder only says **what to click** and **what you must see**.
@@ -10,7 +10,7 @@
 | [03-plans.md](03-plans.md) | Plans, features, default plan, versions |
 | [04-subscriptions.md](04-subscriptions.md) | Subscription of a tenant, plan change, usage |
 | [05-audit-analytics-feedback.md](05-audit-analytics-feedback.md) | Audit logs, analytics events, feedback |
-| [06-auth-users.md](06-auth-users.md) | Step 02 — auth, mobile login, users, invitations, roles/permissions |
+| [06-auth-users.md](06-auth-users.md) | Step 02 — auth, mobile login, users, invitations, roles/permissions, admin guard, cleanup job, tenant isolation |
 
 ---
 
@@ -35,16 +35,26 @@ The terminal must show `ChantierOS API (development) running` and a green status
 
 **Easiest: Swagger.** Open `/api/docs`, open a route, click **Try it out**, paste the body, click **Execute**. Read the **status code** and the **response body**.
 
-You can also use Postman, or `curl`:
+You can also use Postman, or `curl` (`-b cookies.txt` sends the admin login cookie from § 2b):
 
 ```bash
-curl -s http://localhost:5300/api/admin/tenants
-curl -s -X POST http://localhost:5300/api/admin/tenants -H "content-type: application/json" -d '{"name":"TEST Alpha","email":"test-alpha@test.invalid"}'
+curl -s -b cookies.txt http://localhost:5300/api/admin/tenants
+curl -s -b cookies.txt -X POST http://localhost:5300/api/admin/tenants -H "content-type: application/json" -d '{"name":"TEST Alpha","email":"test-alpha@test.invalid"}'
 ```
+
+## 2b. Log in as the super-admin (needed for every `/api/admin/...` route)
+
+```bash
+curl -s -c cookies.txt -X POST http://localhost:5300/api/admin/auth/login -H "content-type: application/json" -d '{"email":"admin@chantieros.local","password":"Admin@ChantierOS2026"}'
+```
+
+Expected: `201` and `{ "logged_in": true }`. The cookies `admin_access_token` (15 min) and `admin_refresh_token` are saved in `cookies.txt`. After 15 minutes the token expires and you get `401 Invalid or expired session` — log in again.
+
+**In Swagger:** run the same login route in `/api/docs`. The browser keeps the cookie, so every later "Try it out" call works. **In Postman:** the cookie jar does the same.
 
 ## 3. Things that are true for every route
 
-- **No login yet.** Every route is open. Login comes in step 02. Do not put this on a public server.
+- **Platform routes (`/api/admin/...`) need an admin login.** Without the cookie you get `401 Not authenticated`. Log in first (§ 2b). The **tenant-side** routes (`/api/auth/me`, `/api/users`, `/api/invitations`, `/api/roles`, ...) are still open and have no guards yet. Do not put this on a public server.
 - **Keys are `snake_case`** in and out: `legal_name`, `base_price`, `created_at`.
 - **Money and rates are strings.** A trailing zero is dropped: `"21"` and `"50"`, not `"21.00"`. This is normal.
 - **Lists** answer `{ data, total, page, limit, total_pages }`. Query: `?page=1&limit=20`. `limit` is 1–100.
@@ -60,7 +70,7 @@ curl -s -X POST http://localhost:5300/api/admin/tenants -H "content-type: applic
 | Tenants | `Rénovation Dupont`, `Bouw Verhelst` |
 | Plan | `Demo Starter` — the default plan, 6 features |
 | Subscriptions | Both tenants: `trialing`, 14 days, on `Demo Starter` |
-| Super-admin | `SEED_ADMIN_EMAIL` in `.env` — **not** a route test: there is no login yet |
+| Super-admin | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` in `.env` (the first line wins if a key is repeated) — used to log in at § 2b |
 
 Many scenarios say *"copy the `id`"*. Do that from the response of the previous step.
 
@@ -95,7 +105,25 @@ Check: `Demo Starter` is the only default plan again.
 
 If something is badly broken: `yarn seed:reset` drops the whole database and rebuilds it (ask first — it deletes everything).
 
-## 6. How to read a result
+## 6. Automated tests (run these too)
+
+```bash
+yarn test          # unit tests — no database needed
+yarn test:e2e      # real database — needs docker compose up -d
+```
+
+| Command | Expected | Notes |
+|---|---|---|
+| `yarn test` | `Tests: 143 passed`, 18 suites… all green | If the count is higher, new tests were added. A failure is a bug |
+| `yarn test:e2e` | `Tests: 11 passed` | **Jest does not exit by itself** after the e2e run. Press Ctrl+C once it prints the result, or run `npx jest --config test/jest-e2e.json --forceExit` |
+| `yarn lint` | `0 errors` (3 warnings in `auth.handlers.spec.ts` are known) | |
+| `yarn build` | no output = ok | |
+
+The e2e test prints a line like `Isolation checked on 44 tables; 2 had rows from 2+ tenants: TenantSubscription, User`. The number 44 grows when a table is added to the schema. If a table with a `tenant_id` is **not** protected, the test fails and names it (for example `Task.findUnique`).
+
+The e2e test creates two tenants named `Isolation Test A/B` and deletes them at the end. If it was killed halfway, remove them by hand: `delete from tenants where name like 'Isolation Test%';`.
+
+## 7. How to read a result
 
 Each scenario has an **ID**, the **steps**, and the **Expected** result. Mark it:
 

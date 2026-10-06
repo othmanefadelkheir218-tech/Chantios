@@ -17,6 +17,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { SessionAuth } from './decorators/tenant-auth.decorator';
 import type { AuthenticatedUser } from './decorators/current-user.decorator';
 import {
   ApiChangePassword,
@@ -40,19 +41,20 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 
 @ApiTags('Auth')
-@Public() // TODO: step 02 wiring — AuthGuard + TenantGuard + SubscriptionGuard per route below
 @UseInterceptors(SnakeCaseInterceptor)
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @Public()
   @ApiRegister()
   register(@Body() dto: RegisterTenantDto) {
     return this.authService.register(dto);
   }
 
   @Post('login')
+  @Public()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiLogin()
   login(
@@ -64,18 +66,21 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @Public()
   @ApiRefresh()
   refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     return this.authService.refreshSession(req, res);
   }
 
   @Post('logout')
+  @SessionAuth()
   @ApiLogout()
   logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     return this.authService.signOut(req, res);
   }
 
   @Post('forgot-password')
+  @Public()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiForgotPassword()
   forgotPassword(@Body() dto: ForgotPasswordDto) {
@@ -83,12 +88,14 @@ export class AuthController {
   }
 
   @Post('reset-password')
+  @Public()
   @ApiResetPassword()
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPasswordWith(dto);
   }
 
   @Post('change-password')
+  @SessionAuth()
   @ApiChangePassword()
   changePassword(
     @Body() dto: ChangePasswordDto,
@@ -98,30 +105,35 @@ export class AuthController {
   }
 
   @Post('verify-email')
+  @Public()
   @ApiVerifyEmail()
   verifyEmail(@Body() dto: VerifyEmailDto) {
     return this.authService.verifyOwnEmail(dto);
   }
 
   @Get('me')
+  @SessionAuth()
   @ApiMe()
   me(@CurrentUser() actor: AuthenticatedUser) {
     return this.authService.me(actor);
   }
 
   @Get('sessions')
+  @SessionAuth()
   @ApiListSessions()
   sessions(@CurrentUser() actor: AuthenticatedUser) {
     return this.authService.sessions(actor);
   }
 
   @Delete('sessions')
+  @SessionAuth()
   @ApiRevokeAllSessions()
   revokeAllSessions(@CurrentUser() actor: AuthenticatedUser) {
     return this.authService.revokeEverySession(actor);
   }
 
   @Delete('sessions/:id')
+  @SessionAuth()
   @ApiRevokeSession()
   revokeSession(
     @Param('id', ParseIntPipe) id: number,

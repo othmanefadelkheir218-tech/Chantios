@@ -1,3 +1,4 @@
+import { TokenModule } from '../auth/token.module';
 import { Module } from '@nestjs/common';
 import { AuditController } from './audit.controller';
 import { AuditInterceptor } from './audit.interceptor';
@@ -7,6 +8,7 @@ import { WriteAuditLogHandler } from './handlers/write-audit-log.handler';
 import { AuditRepository } from './repositories/audit.repository';
 
 @Module({
+  imports: [TokenModule],
   controllers: [AuditController],
   providers: [
     AuditService,
