@@ -21,6 +21,7 @@ import { InvitationsModule } from './invitations/invitations.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { CostTypesModule } from './cost-types/cost-types.module';
 import { PurchaseInvoicesModule } from './purchase-invoices/purchase-invoices.module';
+import { ReportsModule } from './reports/reports.module';
 import { SubcontractorsModule } from './subcontractors/subcontractors.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { TasksModule } from './tasks/tasks.module';
@@ -98,6 +99,8 @@ import { UsersModule } from './users/users.module';
     // Step 08 — planning & time
     TasksModule,
     TimeEntriesModule,
+    // Step 09 — site reports
+    ReportsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

@@ -98,8 +98,10 @@ export class StockReservationRepository {
     projectId: number,
     materialId: number,
     quantity: string,
+    tx?: TenantTransactionClient,
   ): Promise<StockReservation | null> {
-    const current = await this.tenantPrisma.db.stockReservation.findFirst({
+    const client = tx ?? this.tenantPrisma.db;
+    const current = await client.stockReservation.findFirst({
       where: { projectId, materialId },
     });
     if (!current) return null;
@@ -108,7 +110,7 @@ export class StockReservationRepository {
       0,
       new Prisma.Decimal(current.remainingQuantity).minus(quantity),
     );
-    return this.tenantPrisma.db.stockReservation.update({
+    return client.stockReservation.update({
       where: { id: current.id },
       data: {
         remainingQuantity: newRemaining,

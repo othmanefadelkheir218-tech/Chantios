@@ -14,6 +14,7 @@ import { RecordAdjustmentHandler } from './handlers/record-adjustment.handler';
 import { RecordConsumptionHandler } from './handlers/record-consumption.handler';
 import { RecordPurchaseHandler } from './handlers/record-purchase.handler';
 import { ReleaseReservationsHandler } from './handlers/release-reservations.handler';
+import { WalkRecipeHandler } from './handlers/walk-recipe.handler';
 import { RecipeLine } from './helpers/recipe.helper';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
@@ -29,6 +30,7 @@ export class StockService {
     private readonly consumeReservation: ConsumeReservationHandler,
     private readonly releaseReservations: ReleaseReservationsHandler,
     private readonly checkCoverage: CheckCoverageHandler,
+    private readonly walkRecipe: WalkRecipeHandler,
   ) {}
 
   purchase(dto: CreateMovementDto, actor: AuthenticatedUser) {
@@ -63,7 +65,11 @@ export class StockService {
     return this.createReservations.execute(projectId, lines, actor, tx);
   }
 
-  /** Step 09 (site report): declares material actually used on site. */
+  /**
+   * Step 09 (site report): declares material actually used on site — the only
+   * way stock leaves. `tx` — `declare-materials` writes every item inside one
+   * transaction; with a `tx` the caller writes the audit row after commit.
+   */
   declareConsumption(
     input: {
       materialId: number;
@@ -73,8 +79,17 @@ export class StockService {
       unitPrice?: string;
     },
     actor: AuthenticatedUser,
+    tx?: TenantTransactionClient,
   ) {
-    return this.recordConsumption.execute(input, actor);
+    return this.recordConsumption.execute(input, actor, tx);
+  }
+
+  /**
+   * Step 09 (site report pre-fill): the recipe walk as a READ — `quantity ×
+   * quantity_per_unit` per material, nothing saved.
+   */
+  walkRecipeFor(lines: RecipeLine[]) {
+    return this.walkRecipe.execute(lines);
   }
 
   /** `projects`' `cancel-project.handler` calls this on cancellation. */

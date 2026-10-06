@@ -15,6 +15,7 @@ import { RecordAdjustmentHandler } from './handlers/record-adjustment.handler';
 import { RecordConsumptionHandler } from './handlers/record-consumption.handler';
 import { RecordPurchaseHandler } from './handlers/record-purchase.handler';
 import { ReleaseReservationsHandler } from './handlers/release-reservations.handler';
+import { WalkRecipeHandler } from './handlers/walk-recipe.handler';
 import { StockMovementRepository } from './repositories/stock-movement.repository';
 import { StockReservationRepository } from './repositories/stock-reservation.repository';
 import { StockController } from './stock.controller';
@@ -50,6 +51,7 @@ import { StockService } from './stock.service';
     ConsumeReservationHandler,
     ReleaseReservationsHandler,
     CheckCoverageHandler,
+    WalkRecipeHandler,
   ],
   // `projects` imports this to call `releaseByProject` on cancellation
   // (through `StockService`, never this module's repositories) — the one

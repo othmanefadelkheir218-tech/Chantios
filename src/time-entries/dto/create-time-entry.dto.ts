@@ -1,14 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsInt,
-  IsNumberString,
-  IsOptional,
-  IsString,
-  Matches,
-} from 'class-validator';
-
-/** A date only, no time part: `2026-11-03`. */
-export const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+import { IsDateOnly } from '../../common/validators/is-date-only.validator';
+import { IsInt, IsNumberString, IsOptional, IsString } from 'class-validator';
 
 /**
  * `POST /api/time-entries` (and `/api/mobile/time-entries`). `hours` must be
@@ -39,9 +31,7 @@ export class CreateTimeEntryDto {
   task_id?: number;
 
   @ApiProperty({ example: '2026-11-03', description: 'Date only, no time' })
-  @Matches(DATE_ONLY_REGEX, {
-    message: 'work_date must be a date like 2026-11-03',
-  })
+  @IsDateOnly()
   work_date: string;
 
   @ApiProperty({ example: '8.00', description: '> 0 and <= 24' })

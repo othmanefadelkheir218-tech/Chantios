@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
+import { TenantTransactionClient } from '../../common/prisma/tenant-prisma.service';
 import { MaterialsService } from '../../materials/materials.service';
 import {
   assertPositiveQuantity,
@@ -11,16 +13,21 @@ import { StockMovementRepository } from '../repositories/stock-movement.reposito
 import { ConsumeReservationHandler } from './consume-reservation.handler';
 
 /**
- * Built here, **no HTTP route** — only step 09 (site reports, not built
- * yet) calls this, through `StockService`, never this handler directly.
+ * No HTTP route of its own — step 09's `declare-materials` (site reports)
+ * calls this, through `StockService`, never this handler directly. It is the
+ * only way stock leaves.
  *
- * JUDGMENT CALL on the input shape, since step 09 doesn't exist to dictate
- * it: `quantity` here is the POSITIVE amount actually used (what a site
- * report would naturally capture — "3 L of paint used"), not the signed
- * ledger value. This handler negates it before writing the movement, so the
- * sign convention (`stock_movements.quantity < 0` for `consumption`) stays
- * internal to the stock module. If step 09's real shape differs, adapt at
- * the call site, not this handler's contract.
+ * `quantity` is the POSITIVE amount actually used (what a site report
+ * captures — "3 L of paint used"), not the signed ledger value. This handler
+ * negates it before writing the movement, so the sign convention
+ * (`stock_movements.quantity < 0` for `consumption`) stays internal to the
+ * stock module. The negation is done with `Prisma.Decimal`, never a JS
+ * `Number`, so `0.1`-style quantities are exact.
+ *
+ * `tx` — `declare-materials` writes every item of a declaration inside one
+ * transaction (a failure on item 3 leaves nothing of items 1 and 2). When a
+ * `tx` is given, the audit rows are NOT written here (see
+ * `consume-reservation.handler.ts`): the caller audits after commit.
  */
 @Injectable()
 export class RecordConsumptionHandler {
@@ -42,6 +49,7 @@ export class RecordConsumptionHandler {
       unitPrice?: string;
     },
     actor: AuthenticatedUser,
+    tx?: TenantTransactionClient,
   ) {
     this.logger.info(
       `Recording consumption of material ${input.materialId} on project ${input.projectId}`,
@@ -57,29 +65,37 @@ export class RecordConsumptionHandler {
     }
 
     const unitPrice = input.unitPrice ?? material.purchasePrice.toString();
-    const signedQuantity = (-Math.abs(Number(input.quantity))).toString();
+    const signedQuantity = new Prisma.Decimal(input.quantity)
+      .abs()
+      .negated()
+      .toString();
 
-    const created = await this.movements.create({
-      tenantId: actor.tenantId,
-      materialId: input.materialId,
-      projectId: input.projectId,
-      reportId: input.reportId,
-      type: 'consumption',
-      quantity: signedQuantity,
-      unitPrice,
-      createdBy: actor.userId,
-    });
+    const created = await this.movements.create(
+      {
+        tenantId: actor.tenantId,
+        materialId: input.materialId,
+        projectId: input.projectId,
+        reportId: input.reportId,
+        type: 'consumption',
+        quantity: signedQuantity,
+        unitPrice,
+        createdBy: actor.userId,
+      },
+      tx,
+    );
     const entity = toMovementEntity(created);
 
-    await this.audit.write({
-      tenantId: actor.tenantId,
-      userId: actor.userId,
-      action: 'consumption',
-      entityType: 'stock_movement',
-      entityId: created.id,
-      newValue: entity,
-      ipAddress: null,
-    });
+    if (!tx) {
+      await this.audit.write({
+        tenantId: actor.tenantId,
+        userId: actor.userId,
+        action: 'consumption',
+        entityType: 'stock_movement',
+        entityId: created.id,
+        newValue: entity,
+        ipAddress: null,
+      });
+    }
     this.logger.info(
       `Consumption recorded: movement ${created.id}, material ${input.materialId}, project ${input.projectId}`,
     );
@@ -89,6 +105,7 @@ export class RecordConsumptionHandler {
       input.materialId,
       input.quantity,
       actor,
+      tx,
     );
     return entity;
   }

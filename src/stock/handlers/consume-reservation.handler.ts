@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
+import { TenantTransactionClient } from '../../common/prisma/tenant-prisma.service';
 import { toReservationEntity } from '../helpers/stock.helper';
 import { StockReservationRepository } from '../repositories/stock-reservation.repository';
 
@@ -15,6 +16,11 @@ import { StockReservationRepository } from '../repositories/stock-reservation.re
  * recipe estimate (doc/notes/catalogue-stock-tables-and-cost-storage.md §
  * "Pre-fill gives speed, editing gives truth"). This is a no-op logged at
  * warn level, not a thrown exception.
+ *
+ * `tx` — step 09's `declare-materials` runs this inside its own transaction.
+ * When a `tx` is given the audit row is NOT written here: the caller writes
+ * its own after the transaction commits, so a rolled-back declaration never
+ * leaves an audit trail for rows that do not exist.
  */
 @Injectable()
 export class ConsumeReservationHandler {
@@ -30,11 +36,13 @@ export class ConsumeReservationHandler {
     materialId: number,
     quantity: string,
     actor: AuthenticatedUser,
+    tx?: TenantTransactionClient,
   ) {
     const updated = await this.reservations.decrementRemaining(
       projectId,
       materialId,
       quantity,
+      tx,
     );
     if (!updated) {
       this.logger.warn(
@@ -44,15 +52,17 @@ export class ConsumeReservationHandler {
     }
 
     const entity = toReservationEntity(updated);
-    await this.audit.write({
-      tenantId: actor.tenantId,
-      userId: actor.userId,
-      action: 'consume_reservation',
-      entityType: 'stock_reservation',
-      entityId: updated.id,
-      newValue: entity,
-      ipAddress: null,
-    });
+    if (!tx) {
+      await this.audit.write({
+        tenantId: actor.tenantId,
+        userId: actor.userId,
+        action: 'consume_reservation',
+        entityType: 'stock_reservation',
+        entityId: updated.id,
+        newValue: entity,
+        ipAddress: null,
+      });
+    }
     this.logger.info(
       `Reservation ${updated.id} consumed by ${quantity}: remaining=${updated.remainingQuantity.toString()}, status=${updated.status}`,
     );

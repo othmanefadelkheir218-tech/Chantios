@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, StockMovement } from '@prisma/client';
-import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
+import {
+  TenantPrismaService,
+  TenantTransactionClient,
+} from '../../common/prisma/tenant-prisma.service';
 
 /**
  * The only place where the stock module talks to the database for
@@ -18,10 +21,16 @@ import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 export class StockMovementRepository {
   constructor(private readonly tenantPrisma: TenantPrismaService) {}
 
+  /**
+   * `tx` — step 09's `declare-materials` writes one consumption row per item
+   * inside a single transaction, so a failure on item 3 leaves nothing of
+   * items 1 and 2.
+   */
   create(
     data: Prisma.StockMovementUncheckedCreateInput,
+    tx?: TenantTransactionClient,
   ): Promise<StockMovement> {
-    return this.tenantPrisma.db.stockMovement.create({ data });
+    return (tx ?? this.tenantPrisma.db).stockMovement.create({ data });
   }
 
   async createMany(

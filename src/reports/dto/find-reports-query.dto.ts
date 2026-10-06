@@ -4,16 +4,8 @@ import { IsInt, IsOptional } from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { IsDateOnly } from '../../common/validators/is-date-only.validator';
 
-/** `GET /api/time-entries?user_id=&project_id=&from=&to=` — `from`/`to` are inclusive work dates. */
-export class FindTimeEntriesQueryDto extends PaginationQueryDto {
-  @ApiPropertyOptional({
-    description: 'Ignored for roles with scope own — they only see their own',
-  })
-  @Type(() => Number)
-  @IsOptional()
-  @IsInt()
-  user_id?: number;
-
+/** `GET /api/reports?project_id=&from=&to=` — `from`/`to` are inclusive report dates. */
+export class FindReportsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional()
   @Type(() => Number)
   @IsOptional()

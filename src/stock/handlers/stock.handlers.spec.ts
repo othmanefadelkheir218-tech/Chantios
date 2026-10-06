@@ -264,13 +264,53 @@ describe('Stock handlers', () => {
           reportId: 7,
           type: 'consumption',
         }),
+        undefined,
       );
       expect(reservationsRepo.decrementRemaining).toHaveBeenCalledWith(
         20,
         5,
         '3',
+        undefined,
       );
       expect(result.type).toBe('consumption');
+    });
+
+    it('negates a fractional quantity exactly (no float drift)', async () => {
+      materials.findByIdRaw.mockResolvedValue(material());
+      movementsRepo.create.mockResolvedValue(movement({ type: 'consumption' }));
+      reservationsRepo.decrementRemaining.mockResolvedValue(null);
+
+      await recordConsumption.execute(
+        { materialId: 5, projectId: 20, reportId: 7, quantity: '0.1' },
+        actor,
+      );
+      expect(movementsRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ quantity: '-0.1' }),
+        undefined,
+      );
+    });
+
+    it('inside a transaction: the tx reaches both writes and no audit row is written', async () => {
+      const tx = {} as never;
+      materials.findByIdRaw.mockResolvedValue(material());
+      movementsRepo.create.mockResolvedValue(movement({ type: 'consumption' }));
+      reservationsRepo.decrementRemaining.mockResolvedValue(
+        reservation({ remainingQuantity: new Prisma.Decimal('27') }),
+      );
+
+      await recordConsumption.execute(
+        { materialId: 5, projectId: 20, reportId: 7, quantity: '3' },
+        actor,
+        tx,
+      );
+      expect(movementsRepo.create).toHaveBeenCalledWith(expect.anything(), tx);
+      expect(reservationsRepo.decrementRemaining).toHaveBeenCalledWith(
+        20,
+        5,
+        '3',
+        tx,
+      );
+      expect(audit.write).not.toHaveBeenCalled();
     });
   });
 

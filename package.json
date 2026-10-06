@@ -26,6 +26,7 @@
     "prisma:studio": "prisma studio --port 51212",
     "job:cleanup": "ts-node --transpile-only scripts/run-cleanup.ts",
     "job:media-purge": "ts-node --transpile-only scripts/run-media-purge.ts",
+    "job:report-alerts": "ts-node --transpile-only scripts/run-report-alerts.ts",
     "seed:admin": "ts-node --transpile-only prisma/seeds/admin.seed.ts",
     "seed:data": "ts-node --transpile-only prisma/seeds/data.seed.ts",
     "seed:tenants": "ts-node --transpile-only prisma/seeds/tenants.seed.ts",

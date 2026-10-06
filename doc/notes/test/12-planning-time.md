@@ -86,6 +86,10 @@ Set the worker's `hourly_rate` to `30.00`. As the worker: `POST /api/time-entrie
 
 All confirmed live. The database also refuses it, straight in Postgres: `hours` `30` or `0` → `violates check constraint "chk_hours_range"`.
 
+### TIME-09 — An impossible date is a `400`, never a `500`
+
+`work_date` `2026-13-45` or `2026-02-30` on `POST /api/time-entries` → `400` `work_date must be a valid date like 2026-11-03`. `?from=2026-13-45` on `GET /api/time-entries` → `400`. The shape `YYYY-MM-DD` alone is not enough, so one shared rule (`IsDateOnly`, `src/common/validators/`) checks it is a real calendar date. Found during step 09's live run, fixed for both steps. Confirmed live.
+
 **The abnormal-hours alert** is flagged in the response (`abnormal_hours`), logged as a warning, and marked `// TODO: step 13` — step 13 raises the notification to the manager.
 
 ### TIME-03 — An edit does not count the edited row twice

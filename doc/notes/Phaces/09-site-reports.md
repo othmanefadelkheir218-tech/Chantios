@@ -132,37 +132,37 @@ The `worker` role never touches stock. A wrong quantity is corrected by a manage
 
 ## Tasks
 
-- [ ] `reports` module, full shape
-- [ ] Upsert on `(project_id, report_date)` — never two rows for one day
-- [ ] Role check on posting (no `worker`, no `sales`, no `accountant`)
-- [ ] `material-prefill` endpoint calling step 05's `recipe.helper`
-- [ ] `declare-materials` → `record-consumption` through the stock **service**, one transaction
-- [ ] `report_id` written on every consumption row
-- [ ] Reservation `remaining_quantity` decremented in the same transaction
-- [ ] `/api/projects/:id/progress` endpoint
-- [ ] Photo upload through step 03's media, `entity_type = 'report'`, images only
-- [ ] Cron: missing-report alert (project `in_progress`, no report for 3 days)
-- [ ] Cron: progress-stalled alert (`progress_pct` unchanged for 7 days)
-- [ ] `// TODO: step 13` at both cron alert points
+- [x] `reports` module, full shape
+- [x] Upsert on `(project_id, report_date)` — never two rows for one day
+- [x] Role check on posting (no `worker`, no `sales`, no `accountant`)
+- [x] `material-prefill` endpoint calling step 05's `recipe.helper`
+- [x] `declare-materials` → `record-consumption` through the stock **service**, one transaction
+- [x] `report_id` written on every consumption row
+- [x] Reservation `remaining_quantity` decremented in the same transaction
+- [x] `/api/projects/:id/progress` endpoint
+- [x] Photo upload through step 03's media, `entity_type = 'report'`, images only
+- [x] Cron: missing-report alert (project `in_progress`, no report for 3 days)
+- [x] Cron: progress-stalled alert (`progress_pct` unchanged for 7 days)
+- [x] `// TODO: step 13` at both cron alert points
 
 ## Acceptance
 
-- [ ] Post a report → row created
-- [ ] Post again the same day for the same project → the **same** row is updated, not a second one
-- [ ] `progress_pct = 150` → rejected by the database
-- [ ] A `worker` posting a report → 403
-- [ ] A `site_supervisor` posting → allowed
-- [ ] `material-prefill` for Painting 20 m² → Paint 3, Tape 1, Filler 0.4. **No row written**
-- [ ] Declare 3.5 L of Paint → one `consumption` row, quantity **−3.5**, `report_id` set, `unit_price` frozen
-- [ ] That project's Paint reservation `remaining_quantity` drops by 3.5; `reserved_quantity` unchanged
-- [ ] A reservation reaching zero → `status = 'consumed'`
-- [ ] `on_hand` in `material_stock_live` falls by 3.5
-- [ ] Force a failure mid-declaration → **nothing** written, no half-applied stock
-- [ ] `/api/projects/:id/progress` returns the newest report's value
-- [ ] Upload a PDF as a report photo → rejected, images only
-- [ ] `projects` still has no progress column
-- [ ] Tenant A cannot see tenant B's reports
-- [ ] Update `../WhereIStop/state.md`
+- [x] Post a report → row created
+- [x] Post again the same day for the same project → the **same** row is updated, not a second one
+- [x] `progress_pct = 150` → rejected by the database
+- [x] A `worker` posting a report → 403
+- [x] A `site_supervisor` posting → allowed
+- [x] `material-prefill` for Painting 20 m² → Paint 3, Tape 1, Filler 0.4. **No row written**
+- [x] Declare 3.5 L of Paint → one `consumption` row, quantity **−3.5**, `report_id` set, `unit_price` frozen
+- [x] That project's Paint reservation `remaining_quantity` drops by 3.5; `reserved_quantity` unchanged
+- [x] A reservation reaching zero → `status = 'consumed'`
+- [x] `on_hand` in `material_stock_live` falls by 3.5
+- [x] Force a failure mid-declaration → **nothing** written, no half-applied stock
+- [x] `/api/projects/:id/progress` returns the newest report's value
+- [x] Upload a PDF as a report photo → rejected, images only
+- [x] `projects` still has no progress column
+- [x] Tenant A cannot see tenant B's reports
+- [x] Update `../WhereIStop/state.md`
 
 ## Notes to read
 
