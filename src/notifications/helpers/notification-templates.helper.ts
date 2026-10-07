@@ -340,6 +340,39 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       () => 'لم تسجل أي ساعات اليوم. يرجى القيام بذلك قبل المغادرة.',
     ),
   },
+  subscription_payment_failed: {
+    en: c(
+      () => 'Your subscription payment failed',
+      (p) =>
+        `We could not charge your card for ${s(p.amount)}. Your account still works, but please update your payment details before the next renewal.`,
+    ),
+    fr: c(
+      () => 'Le paiement de votre abonnement a échoué',
+      (p) =>
+        `Nous n'avons pas pu prélever ${s(p.amount)}. Votre compte reste actif, mais merci de mettre à jour vos informations de paiement avant le prochain renouvellement.`,
+    ),
+    ar: c(
+      () => 'فشل دفع اشتراكك',
+      (p) =>
+        `لم نتمكن من تحصيل ${s(p.amount)}. حسابك لا يزال يعمل، يرجى تحديث بيانات الدفع قبل التجديد القادم.`,
+    ),
+  },
+  subscription_renewal_upcoming: {
+    en: c(
+      () => 'Your subscription renews soon',
+      (p) =>
+        `Your next charge of ${s(p.amount_due)} is coming up on ${s(p.period_end)}.`,
+    ),
+    fr: c(
+      () => 'Votre abonnement se renouvelle bientôt',
+      (p) =>
+        `Votre prochain prélèvement de ${s(p.amount_due)} aura lieu le ${s(p.period_end)}.`,
+    ),
+    ar: c(
+      () => 'سيتجدد اشتراكك قريبا',
+      (p) => `الدفعة القادمة بقيمة ${s(p.amount_due)} في ${s(p.period_end)}.`,
+    ),
+  },
   tenant_signed_up: {
     en: c(
       (p) => `New company: ${s(p.company_name)}`,

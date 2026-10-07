@@ -133,6 +133,18 @@ export class UserRepository {
     });
   }
 
+  /**
+   * The `max_managers` billing dimension (step 14): active users with any
+   * role OTHER than `roleId` (the worker role). Same unscoped-by-design
+   * reasoning as `countActiveByRole` above — the renewal job runs outside
+   * any request, with no tenant in `nestjs-cls`.
+   */
+  countActiveExcludingRole(tenantId: number, roleId: number): Promise<number> {
+    return this.prisma.user.count({
+      where: { tenantId, isActive: true, roleId: { not: roleId } },
+    });
+  }
+
   /** NOT tenant-filtered — `mobile-login` is `@Public()`, same reason as `findByEmail`. */
   async bumpFailedPin(id: number): Promise<number> {
     const user = await this.prisma.user.update({

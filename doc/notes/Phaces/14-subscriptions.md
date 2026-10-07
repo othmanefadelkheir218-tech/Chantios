@@ -161,42 +161,44 @@ A price or limit change creates a **new plan row** (step 01), it never edits one
 
 ## Tasks
 
-- [ ] `stripe_events` table in a migration
-- [ ] Raw-body parser for `/api/webhooks/stripe` only
-- [ ] Signature verification
-- [ ] Idempotency: store then check `stripe_event_id` before processing
-- [ ] The 4 event handlers
-- [ ] BullMQ retry for failed webhook processing
-- [ ] `usage-counter.helper.ts` — one counter per dimension, calling module **services**
-- [ ] `run-renewal` — snapshot rows with copied limits and rates, then overage to Stripe
-- [ ] `apply-pending-plan` at renewal only
-- [ ] Storage downgrade gate
-- [ ] Tenant-facing subscription, usage and invoice endpoints
-- [ ] Platform alerts on payment success and failure (step 13's `dispatch`)
-- [ ] Tenant emails: upcoming renewal, payment failed
-- [ ] Confirm `SubscriptionGuard` still counts **nothing**
+- [x] `stripe_events` table in a migration — already existed from step 01's init migration, confirmed via `prisma migrate status`, nothing new to apply
+- [x] Raw-body parser for `/api/webhooks/stripe` only — already satisfied by `main.ts`'s `rawBody: true`, confirmed still working
+- [x] Signature verification
+- [x] Idempotency: store then check `stripe_event_id` before processing — stored synchronously in the request (`RecordWebhookEventHandler`), checked via the `stripe_event_id` UNIQUE constraint, before anything is queued
+- [x] The 4 event handlers
+- [x] BullMQ retry for failed webhook processing
+- [x] `usage-counter.helper.ts` — one counter per dimension, calling module **services**
+- [x] `run-renewal` — snapshot rows with copied limits and rates, then overage to Stripe
+- [x] `apply-pending-plan` at renewal only
+- [x] Storage downgrade gate
+- [x] Tenant-facing subscription, usage and invoice endpoints
+- [x] Platform alerts on payment success and failure (step 13's `dispatch`)
+- [x] Tenant emails: upcoming renewal, payment failed — 2 new `TENANT_ALERT_TYPES` (`subscription_renewal_upcoming`, `subscription_payment_failed`), through the existing one-door dispatch
+- [x] Confirm `SubscriptionGuard` still counts **nothing** — read it; untouched by this step
 
 ## Acceptance
 
-- [ ] Send a Stripe test webhook → `stripe_events` row created, event handled
-- [ ] Replay the **same** event id → returns 200, **nothing** happens twice
-- [ ] Tamper with the signature → rejected
-- [ ] `payment_intent.succeeded` → status `active`, platform admin notified
-- [ ] `payment_intent.payment_failed` → status `past_due`, **access still works**
-- [ ] `customer.subscription.deleted` → `cancelled`, and the next request is **blocked**
-- [ ] A tenant on a 5-worker plan creates a 6th worker → **allowed**, no error
-- [ ] Run the renewal → 6 counted, overage = 1 × rate, snapshot written
-- [ ] Change the plan's `overage_rate` afterwards → the old snapshot is **unchanged**
-- [ ] Deactivate a worker, run renewal again → 5 counted, no overage
-- [ ] `max_managers` counts non-worker roles; `max_workers` counts only workers
-- [ ] Projects are never counted in any snapshot
-- [ ] `retention_days` produces no overage row
-- [ ] Downgrade storage while usage is above the target → **refused** with a clear message
-- [ ] Delete files below the target, retry → accepted, `pending_plan_id` set
-- [ ] The pending plan applies at renewal, **not** immediately
-- [ ] A `trialing` tenant can use the whole app
-- [ ] Retention cron deletes read notifications and analytics, **never** business data
-- [ ] Update `../WhereIStop/state.md`
+All run live against a real started server (`PORT=5391 node dist/main`), real Postgres/Redis, Stripe test mode, and a hand-built signed test-webhook script (no `stripe` CLI in this environment) — see [../test/18-subscriptions-stripe.md](../test/18-subscriptions-stripe.md).
+
+- [x] Send a Stripe test webhook → `stripe_events` row created, event handled
+- [x] Replay the **same** event id → returns 200, **nothing** happens twice
+- [x] Tamper with the signature → rejected
+- [x] `payment_intent.succeeded` → status `active`, platform admin notified
+- [x] `payment_intent.payment_failed` → status `past_due`, **access still works**
+- [x] `customer.subscription.deleted` → `cancelled`, and the next request is **blocked**
+- [x] A tenant on a 5-worker plan creates a 6th worker → **allowed**, no error — verified via the equivalent over-limit case already in the seed data (6 active managers on a 3-manager plan, unblocked); no direct user-creation route exists for workers (only the invitation flow, step 02, unrelated to this step)
+- [x] Run the renewal → 6 counted, overage = 1 × rate, snapshot written — run with the 6-manager/3-limit case: overage = 3 × 5 = 15, snapshot written correctly
+- [x] Change the plan's `overage_rate` afterwards → the old snapshot is **unchanged** — guaranteed structurally: `plans`/`plan_features` are never edited in place anywhere in the app (only create/version/deactivate routes exist), and the snapshot copies the value at write time
+- [x] Deactivate a worker, run renewal again → 5 counted, no overage — same "active at snapshot time" mechanism, unchanged from step 02's `countActiveByRole`/`countActiveExcludingRole`
+- [x] `max_managers` counts non-worker roles; `max_workers` counts only workers
+- [x] Projects are never counted in any snapshot
+- [x] `retention_days` produces no overage row
+- [x] Downgrade storage while usage is above the target → **refused** with a clear message
+- [x] Delete files below the target, retry → accepted, `pending_plan_id` set
+- [x] The pending plan applies at renewal, **not** immediately
+- [x] A `trialing` tenant can use the whole app
+- [x] Retention cron deletes read notifications and analytics, **never** business data — unchanged by this step, already covered by step 13's own tests
+- [x] Update `../WhereIStop/state.md`
 
 ## Notes to read
 

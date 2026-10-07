@@ -20,12 +20,16 @@ export class StripeController {
 
   @Post()
   @HttpCode(HttpStatus.OK)
-  receive(
+  async receive(
     @Req() req: RawBodyRequest<Request>,
     @Headers('stripe-signature') signature: string | undefined,
   ) {
+    // Signature check stays synchronous: a bad signature must reject the
+    // request immediately. The event is then stored (durable, awaited) before
+    // we tell Stripe we received it — only the follow-up queue step for
+    // dispatching it is best-effort; see `StripeService.recordAndEnqueue`.
     const event = this.stripeService.constructEvent(req.rawBody, signature);
-    this.stripeService.handleEvent(event);
+    await this.stripeService.recordAndEnqueue(event);
     return { received: true };
   }
 }

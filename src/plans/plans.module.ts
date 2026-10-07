@@ -1,5 +1,5 @@
 import { TokenModule } from '../auth/token.module';
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { StripeModule } from '../stripe/stripe.module';
 import { CreatePlanVersionHandler } from './handlers/create-plan-version.handler';
@@ -13,7 +13,7 @@ import { PlansService } from './plans.service';
 import { PlanRepository } from './repositories/plan.repository';
 
 @Module({
-  imports: [TokenModule, AuditModule, StripeModule],
+  imports: [TokenModule, AuditModule, forwardRef(() => StripeModule)],
   controllers: [PlansController],
   providers: [
     PlansService,

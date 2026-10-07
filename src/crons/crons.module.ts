@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AnalyticsModule } from '../analytics/analytics.module';
+import { BillingModule } from '../billing/billing.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PlansModule } from '../plans/plans.module';
 import { PurchaseInvoicesModule } from '../purchase-invoices/purchase-invoices.module';
@@ -8,6 +9,7 @@ import { TasksModule } from '../tasks/tasks.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { TimeEntriesModule } from '../time-entries/time-entries.module';
 import { UsersModule } from '../users/users.module';
+import { BillingRenewalCron } from './billing-renewal.cron';
 import { EndOfDayReminderCron } from './end-of-day-reminder.cron';
 import { MissingTimesheetCron } from './missing-timesheet.cron';
 import { PurchaseDueCron } from './purchase-due.cron';
@@ -37,6 +39,7 @@ import { TenantRunner } from './tenant-runner.service';
     SubscriptionsModule,
     PlansModule,
     AnalyticsModule,
+    BillingModule,
   ],
   providers: [
     TenantRunner,
@@ -46,6 +49,7 @@ import { TenantRunner } from './tenant-runner.service';
     EndOfDayReminderCron,
     MissingTimesheetCron,
     RetentionCron,
+    BillingRenewalCron,
   ],
 })
 export class CronsModule {}

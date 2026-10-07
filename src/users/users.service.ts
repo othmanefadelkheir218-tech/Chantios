@@ -124,4 +124,9 @@ export class UsersService {
   countActiveByRole(tenantId: number, roleId: number): Promise<number> {
     return this.users.countActiveByRole(tenantId, roleId);
   }
+
+  /** The `max_managers` billing dimension (step 14): active, any role but this one. */
+  countActiveExcludingRole(tenantId: number, roleId: number): Promise<number> {
+    return this.users.countActiveExcludingRole(tenantId, roleId);
+  }
 }

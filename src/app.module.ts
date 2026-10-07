@@ -9,6 +9,7 @@ import { AdminUsersModule } from './admin-users/admin-users.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
+import { BillingModule } from './billing/billing.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ClientsModule } from './clients/clients.module';
 import { validateEnv } from './config/env.config';
@@ -117,6 +118,8 @@ import { UsersModule } from './users/users.module';
     // Step 13 — alerts & notifications
     NotificationsModule,
     CronsModule,
+    // Step 14 — subscriptions & Stripe
+    BillingModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

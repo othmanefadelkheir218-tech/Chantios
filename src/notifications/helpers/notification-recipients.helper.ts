@@ -41,6 +41,8 @@ const STAFF_MODULE: Partial<Record<NotificationType, PermissionModule>> = {
   project_cancelled: 'projects',
   missing_report: 'reports',
   progress_stalled: 'reports',
+  subscription_payment_failed: 'settings',
+  subscription_renewal_upcoming: 'settings',
 };
 
 export function recipientRule(type: NotificationType): RecipientRule {
