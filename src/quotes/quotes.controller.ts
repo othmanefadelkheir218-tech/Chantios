@@ -8,9 +8,11 @@ import {
   Post,
   Put,
   Query,
+  Res,
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
 import { Module } from '../auth/decorators/module.decorator';
@@ -47,6 +49,34 @@ export class QuotesController {
   @Module('quotes')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.quotesService.findOne(id);
+  }
+
+  /**
+   * `draft` -> streams the rendered PDF bytes directly. `sent`+ -> a `302`
+   * to the frozen file's CDN URL (same pattern as the portal's document
+   * route). `@Res()` without `passthrough`, same as
+   * `PortalController#document`: the binary body must never pass through
+   * `SnakeCaseInterceptor`, which would try to turn a `Buffer`'s own
+   * numeric-indexed bytes into object keys.
+   */
+  @Get(':id/pdf')
+  @TenantAuth()
+  @Module('quotes')
+  async downloadPdf(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    const result = await this.quotesService.renderPdf(id, actor);
+    if (result.mode === 'redirect') {
+      res.redirect(302, result.url);
+      return;
+    }
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="${result.filename}"`,
+    });
+    res.send(result.buffer);
   }
 
   @Patch(':id')

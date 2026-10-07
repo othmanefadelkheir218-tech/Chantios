@@ -13,6 +13,7 @@ import { FindInvoicesHandler } from './handlers/find-invoices.handler';
 import { FindPaymentsHandler } from './handlers/find-payments.handler';
 import { InvoiceCoverageHandler } from './handlers/invoice-coverage.handler';
 import { RecordPaymentHandler } from './handlers/record-payment.handler';
+import { RenderInvoicePdfHandler } from './handlers/render-invoice-pdf.handler';
 import { SendInvoiceHandler } from './handlers/send-invoice.handler';
 import { SendReminderHandler } from './handlers/send-reminder.handler';
 import { SetInvoiceLinesHandler } from './handlers/set-invoice-lines.handler';
@@ -35,6 +36,7 @@ export class InvoicesService {
     private readonly sendReminder: SendReminderHandler,
     private readonly invoiceCoverage: InvoiceCoverageHandler,
     private readonly invoices: InvoiceRepository,
+    private readonly renderInvoicePdf: RenderInvoicePdfHandler,
   ) {}
 
   create(dto: CreateInvoiceDto, actor: AuthenticatedUser) {
@@ -83,6 +85,11 @@ export class InvoicesService {
 
   coverageForProject(projectId: number) {
     return this.invoiceCoverage.execute(projectId);
+  }
+
+  /** `GET /api/invoices/:id/pdf` — `draft` renders live, `sent`+ redirects to the frozen file. */
+  renderPdf(id: number, actor: AuthenticatedUser) {
+    return this.renderInvoicePdf.execute(id, actor);
   }
 
   // ---- Internal API for step 12 (client portal) ----

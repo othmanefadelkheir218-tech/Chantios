@@ -8,14 +8,23 @@ import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
 import { ClientsService } from '../../clients/clients.service';
 import { NotificationsService } from '../../notifications/notifications.service';
+import { FreezeQuotePdfHandler } from './freeze-quote-pdf.handler';
 import { toQuoteEntity } from '../helpers/quote.helper';
 import { QuoteRepository } from '../repositories/quote.repository';
 
 /**
  * `POST /api/quotes/:id/send` — `draft -> sent`, `sent_at` set. Lines and
  * totals are locked from here (doc/notes/Phaces/06-quotes-invoices.md).
- * Refuses (400) a quote with zero lines, then emails the client. Attaching
- * the frozen PDF to that email is step 15's job.
+ * Refuses (400) a quote with zero lines, then emails the client with the
+ * frozen PDF attached (step 15).
+ *
+ * Ordering matters (doc/notes/Phaces/15-documents.md "Wiring into send"):
+ * the PDF is rendered and uploaded to `media` (`is_locked = true`) WHILE the
+ * quote is still `draft`, BEFORE `setStatus('sent', ...)`. If the render or
+ * the ImageKit upload throws, it propagates — the whole send fails, the
+ * quote stays `draft`, no status change, no email. This guarantees "send ->
+ * exactly one `media` row" is a hard guarantee of a successful send, never a
+ * maybe.
  */
 @Injectable()
 export class SendQuoteHandler {
@@ -26,6 +35,7 @@ export class SendQuoteHandler {
     private readonly audit: AuditService,
     private readonly clients: ClientsService,
     private readonly notifications: NotificationsService,
+    private readonly freezePdf: FreezeQuotePdfHandler,
   ) {}
 
   async execute(id: number, actor: AuthenticatedUser) {
@@ -47,17 +57,24 @@ export class SendQuoteHandler {
       throw new BadRequestException('Cannot send a quote with no lines');
     }
 
+    // Freeze the PDF BEFORE the status flips — see the class doc comment.
+    const { buffer } = await this.freezePdf.execute(quote, lines, actor);
+
     const updated = await this.quotes.setStatus(id, 'sent', {
       sentAt: new Date(),
     });
 
-    // The "please review" email. Attaching the frozen PDF is step 15's job.
+    // The "please review" email, the frozen PDF attached.
     const client = await this.clients.findByIdRaw(quote.clientId);
     if (client) {
       await this.notifications.dispatch('client_quote_sent', {
         tenantId: actor.tenantId,
         clientEmail: client.email,
         payload: { quote_ref: quote.number },
+        attachment: {
+          filename: `${quote.number}.pdf`,
+          content: buffer.toString('base64'),
+        },
       });
     }
 

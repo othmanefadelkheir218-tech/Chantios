@@ -17,7 +17,11 @@ export class NotificationProcessor extends WorkerHost {
   }
 
   async process(job: Job<EmailJob>): Promise<void> {
-    const { to, subject, html } = job.data;
-    await this.email.send(to, subject, html);
+    const { to, subject, html, attachment } = job.data;
+    if (attachment) {
+      await this.email.send(to, subject, html, [attachment]);
+    } else {
+      await this.email.send(to, subject, html);
+    }
   }
 }

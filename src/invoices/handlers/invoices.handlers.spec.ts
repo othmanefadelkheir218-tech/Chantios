@@ -18,6 +18,7 @@ import { CreateInvoiceHandler } from './create-invoice.handler';
 import { FindInvoiceHandler } from './find-invoice.handler';
 import { FindInvoicesHandler } from './find-invoices.handler';
 import { FindPaymentsHandler } from './find-payments.handler';
+import { FreezeInvoicePdfHandler } from './freeze-invoice-pdf.handler';
 import { InvoiceCoverageHandler } from './invoice-coverage.handler';
 import { LateInvoicesHandler } from './late-invoices.handler';
 import { RecordPaymentHandler } from './record-payment.handler';
@@ -125,6 +126,12 @@ describe('Invoices handlers', () => {
   const tenantsService = { findOne: jest.fn() };
   const documentsService = { allocateNumber: jest.fn() };
   const audit = { write: jest.fn() };
+  const freezeInvoicePdf = {
+    execute: jest.fn().mockResolvedValue({
+      media: { id: 999, fileUrl: 'https://cdn.test/invoice.pdf' },
+      buffer: Buffer.from('pdf'),
+    }),
+  };
   const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn() };
   const txMock = {};
   const tenantPrisma = {
@@ -149,6 +156,10 @@ describe('Invoices handlers', () => {
     tenantPrisma.db.$transaction.mockImplementation(
       (cb: (tx: unknown) => unknown) => cb(txMock),
     );
+    freezeInvoicePdf.execute.mockResolvedValue({
+      media: { id: 999, fileUrl: 'https://cdn.test/invoice.pdf' },
+      buffer: Buffer.from('pdf'),
+    });
     const handlers = [
       CreateInvoiceHandler,
       FindInvoicesHandler,
@@ -176,6 +187,7 @@ describe('Invoices handlers', () => {
         { provide: DocumentsService, useValue: documentsService },
         { provide: AuditService, useValue: audit },
         { provide: TenantPrismaService, useValue: tenantPrisma },
+        { provide: FreezeInvoicePdfHandler, useValue: freezeInvoicePdf },
         ...handlers.map((h) => ({
           provide: getLoggerToken(h.name),
           useValue: logger,

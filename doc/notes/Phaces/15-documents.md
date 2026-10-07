@@ -115,35 +115,39 @@ Remove the `// TODO: step 15` markers left in step 06.
 
 ## Tasks
 
-- [ ] `pdf.service.ts` — the pdfmake wrapper, fonts registered
-- [ ] `letterhead.layout.ts` — logo, tenant block, client block, footer
-- [ ] `document.layout.ts` — lines table, totals, the **per-rate VAT block**
-- [ ] `quote.renderer.ts` and `invoice.renderer.ts` on the shared layout
-- [ ] Totals read from `document-totals.helper` — **no arithmetic in the PDF layer**
-- [ ] `GET /api/quotes/:id/pdf` and `GET /api/invoices/:id/pdf`
-- [ ] `freeze-document` → media upload with `is_locked = true`
-- [ ] Wire freezing into step 06's `send-quote` / `send-invoice`
-- [ ] Attach the PDF to the Resend email
-- [ ] Portal download route + the `download` tracking row (step 12)
-- [ ] Graceful fallback when the logo is missing
-- [ ] `grep -rn "TODO: step 15" src/` returns nothing
+- [x] `pdf.service.ts` — the pdfmake wrapper, fonts registered
+- [x] `letterhead.layout.ts` — logo, tenant block, client block, footer
+- [x] `document.layout.ts` — lines table, totals, the **per-rate VAT block**
+- [x] `quote.renderer.ts` and `invoice.renderer.ts` on the shared layout
+- [x] Totals read from `document-totals.helper` — **no arithmetic in the PDF layer**
+- [x] `GET /api/quotes/:id/pdf` and `GET /api/invoices/:id/pdf`
+- [x] `freeze-document` → media upload with `is_locked = true` — as `freeze-quote-pdf.handler.ts`/`freeze-invoice-pdf.handler.ts` inside `quotes`/`invoices` (not `documents/handlers/` — see the note below)
+- [x] Wire freezing into step 06's `send-quote` / `send-invoice`
+- [x] Attach the PDF to the Resend email
+- [x] Portal download route + the `download` tracking row (step 12) — already built, confirmed live it now serves a real frozen file
+- [x] Graceful fallback when the logo is missing
+- [x] `grep -rn "TODO: step 15" src/` returns nothing
+
+**One deviation from this file's own "Modules to create" sketch, forced by the architecture, not a shortcut:** `render-*`/`freeze-*` handlers live in `src/quotes/handlers/` and `src/invoices/handlers/`, not `src/documents/handlers/`. `documents` cannot import `quotes`/`invoices`/`media`/`clients`/`tenants` back — they already import `DocumentsModule` today, so the reverse would be a real cycle. `DocumentsService` stays a leaf with exactly 2 new pure methods (`renderQuotePdf`/`renderInvoicePdf`, taking already-fetched plain data); the status check, frozen-file lookup and media upload live in the calling module, same fix already used by `ProjectBudgetHistoryController` (step 10, lives in `quotes`) and `ProjectLabourCostController` (step 08, lives in `time-entries`).
 
 ## Acceptance
 
-- [ ] `draft` quote PDF → renders, **no `media` row created**
-- [ ] Edit a line on the draft, download again → the new number appears
-- [ ] Send the quote → **one** `media` row, `entity_type = 'quote'`, `is_locked = true`
-- [ ] Download the sent quote → the **frozen** file, byte-identical each time
-- [ ] Try to delete that media row → **refused**
-- [ ] A quote with 6% and 21% lines → the VAT block shows two rows and they sum to `vat_amount`
-- [ ] The PDF total matches `amount_incl_vat` on the row **exactly**, to the cent
-- [ ] A tenant with no logo → renders with the company name, no crash
-- [ ] A tenant with a logo → the image appears
-- [ ] Invoice PDF shows `due_date` and the payment block
-- [ ] The client receives the email with the PDF attached
-- [ ] Portal download → the frozen file **and** a `portal_tracking` row with `event_type = 'download'`
-- [ ] Tenant A cannot download tenant B's document by guessing an id
-- [ ] Update `../WhereIStop/state.md`
+All run live against a real started server (`PORT=5391 node dist/main`), the real Postgres/Redis/ImageKit/Resend — see [../test/19-documents.md](../test/19-documents.md).
+
+- [x] `draft` quote PDF → renders, **no `media` row created**
+- [x] Edit a line on the draft, download again → the new number appears
+- [x] Send the quote → **one** `media` row, `entity_type = 'quote'`, `is_locked = true`
+- [x] Download the sent quote → the **frozen** file, byte-identical each time
+- [x] Try to delete that media row → **refused**
+- [x] A quote with 6% and 21% lines → the VAT block shows two rows and they sum to `vat_amount`
+- [x] The PDF total matches `amount_incl_vat` on the row **exactly**, to the cent
+- [x] A tenant with no logo → renders with the company name, no crash
+- [x] A tenant with a logo → the image appears
+- [x] Invoice PDF shows `due_date` and the payment block
+- [x] The client receives the email with the PDF attached — confirmed via the server log (`Email sent to <client>: ...`, no error from Resend); no real inbox was read to visually confirm the attachment opens, the pipeline wiring (`DispatchContext.attachment` → queue → `EmailService.send(..., attachments)`) was verified end to end instead
+- [x] Portal download → the frozen file **and** a `portal_tracking` row with `event_type = 'download'`
+- [x] Tenant A cannot download tenant B's document by guessing an id
+- [x] Update `../WhereIStop/state.md`
 
 ## Notes to read
 

@@ -28,6 +28,8 @@ export interface EmailJob {
   to: string;
   subject: string;
   html: string;
+  /** Step 15: the frozen quote/invoice PDF, base64-encoded (BullMQ JSON-serializes job data). */
+  attachment?: { filename: string; content: string };
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -144,7 +146,12 @@ export class DispatchNotificationHandler {
     }
     const payload = { company_name: tenant.name, ...context.payload };
     const { subject, html } = renderNotification(type, payload, tenant.locale);
-    await this.queueEmail({ to: context.clientEmail, subject, html });
+    await this.queueEmail({
+      to: context.clientEmail,
+      subject,
+      html,
+      attachment: context.attachment,
+    });
     return 1;
   }
 

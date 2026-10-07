@@ -14,6 +14,7 @@ import { CreateQuoteHandler } from './handlers/create-quote.handler';
 import { FindQuoteHandler } from './handlers/find-quote.handler';
 import { FindQuotesHandler } from './handlers/find-quotes.handler';
 import { RefuseQuoteHandler } from './handlers/refuse-quote.handler';
+import { RenderQuotePdfHandler } from './handlers/render-quote-pdf.handler';
 import { SendQuoteHandler } from './handlers/send-quote.handler';
 import { SetQuoteLinesHandler } from './handlers/set-quote-lines.handler';
 import { UpdateQuoteHandler } from './handlers/update-quote.handler';
@@ -33,6 +34,7 @@ export class QuotesService {
     private readonly refuseQuote: RefuseQuoteHandler,
     private readonly quotes: QuoteRepository,
     private readonly budgetHistoryHandler: BudgetHistoryHandler,
+    private readonly renderQuotePdf: RenderQuotePdfHandler,
   ) {}
 
   create(dto: CreateQuoteDto, actor: AuthenticatedUser) {
@@ -65,6 +67,11 @@ export class QuotesService {
 
   refuse(id: number, actor: ActingParty) {
     return this.refuseQuote.execute(id, actor);
+  }
+
+  /** `GET /api/quotes/:id/pdf` — `draft` renders live, `sent`+ redirects to the frozen file. */
+  renderPdf(id: number, actor: AuthenticatedUser) {
+    return this.renderQuotePdf.execute(id, actor);
   }
 
   // ---- Internal API for `invoices` (coverage) and step 10 (budget) ----

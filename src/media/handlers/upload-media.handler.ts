@@ -28,10 +28,18 @@ export class UploadMediaHandler {
     private readonly audit: AuditService,
   ) {}
 
+  /**
+   * `isLocked` is never a DTO field — a client can never set it through
+   * `POST /api/media`. It exists only for internal callers: step 15's
+   * `freeze-quote-pdf.handler`/`freeze-invoice-pdf.handler` pass `true` when
+   * they freeze a sent quote/invoice's PDF (doc/notes/media-files.md,
+   * `is_locked` = the frozen copy of a sent quote/invoice).
+   */
   async execute(
     file: Express.Multer.File,
     dto: UploadMediaDto,
     actor: AuthenticatedUser,
+    isLocked = false,
   ) {
     if (!file) {
       throw new BadRequestException('No file was sent');
@@ -70,6 +78,7 @@ export class UploadMediaHandler {
       fileType: file.mimetype,
       fileSize: BigInt(file.size),
       uploadedBy: actor.userId,
+      isLocked,
     });
     const entity = toMediaEntity(created);
 

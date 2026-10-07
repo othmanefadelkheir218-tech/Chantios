@@ -11,12 +11,25 @@ export class EmailService {
     private readonly logger: PinoLogger,
   ) {}
 
-  async send(to: string, subject: string, html: string): Promise<void> {
+  /**
+   * `attachments`: `{ filename, content }[]` where `content` is a base64
+   * string — matches Resend SDK's own `Attachment` interface
+   * (`node_modules/resend/dist/index.d.cts`, `content?: string | Buffer`).
+   * Step 15 is the first caller: the frozen quote/invoice PDF on
+   * `client_quote_sent`/`client_invoice_sent`.
+   */
+  async send(
+    to: string,
+    subject: string,
+    html: string,
+    attachments?: { filename: string; content: string }[],
+  ): Promise<void> {
     const { error } = await resend.emails.send({
       from: env.EMAIL,
       to,
       subject,
       html,
+      ...(attachments && attachments.length > 0 && { attachments }),
     });
 
     if (error) {

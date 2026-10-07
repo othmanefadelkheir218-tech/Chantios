@@ -7,6 +7,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { VatLine } from '../../documents/helpers/document-totals.helper';
+import { MediaService } from '../../media/media.service';
 
 /** What may leave the module. */
 export function toInvoiceEntity(invoice: Invoice, lines?: InvoiceLine[]) {
@@ -103,4 +104,20 @@ export function addDays(date: Date, days: number): Date {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
+}
+
+/**
+ * Step 15: `tenants.logo_media_id` is only an FK — the ImageKit URL lives on
+ * the `media` row. Shared by `render-invoice-pdf.handler` and
+ * `freeze-invoice-pdf.handler` so this lookup (and its not-found fallback)
+ * isn't written twice inside this module. A missing/deleted logo row is not
+ * an error — the PDF falls back to the company name as text.
+ */
+export async function resolveLogoUrl(
+  media: MediaService,
+  logoMediaId: number | null,
+): Promise<string | null> {
+  if (!logoMediaId) return null;
+  const logo = await media.findOne(logoMediaId).catch(() => null);
+  return logo?.fileUrl ?? null;
 }

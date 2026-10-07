@@ -150,6 +150,8 @@
 
 - [ ] **Stalled project — how many days?** — found in step 13 (2026-10-07): `planning-time-entries.md` says "several days" with no number. Built as **5** (`STALLED_PROJECT_DAYS` in `src/time-entries/helpers/stalled-project.helper.ts`), one line to change. Owner to confirm.
 
+- [ ] **No tenant bank details field** — found in step 15 (2026-10-07): the invoice PDF's payment block was specified as "tenant bank details + `due_date`," but `tenants` has no IBAN/bank-name column anywhere in the schema. Built with `due_date` and `invoices.note` only, no bank details, since there is nothing to print. See `doc/Schema Proposal.md` Open questions § 11.
+
 - [ ] **Frontend** — not started, backend first.
 
 ## Related notes

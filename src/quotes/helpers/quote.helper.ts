@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Prisma, Quote, QuoteLine, QuoteStatus } from '@prisma/client';
 import { VatLine } from '../../documents/helpers/document-totals.helper';
+import { MediaService } from '../../media/media.service';
 
 /** What may leave the module. */
 export function toQuoteEntity(quote: Quote, lines?: QuoteLine[]) {
@@ -79,4 +80,20 @@ export function isPastValidUntil(validUntil: Date | null): boolean {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return validUntil.getTime() < today.getTime();
+}
+
+/**
+ * Step 15: `tenants.logo_media_id` is only an FK — the ImageKit URL lives on
+ * the `media` row. Shared by `render-quote-pdf.handler` and
+ * `freeze-quote-pdf.handler` so this lookup (and its not-found fallback)
+ * isn't written twice inside this module. A missing/deleted logo row is not
+ * an error — the PDF falls back to the company name as text.
+ */
+export async function resolveLogoUrl(
+  media: MediaService,
+  logoMediaId: number | null,
+): Promise<string | null> {
+  if (!logoMediaId) return null;
+  const logo = await media.findOne(logoMediaId).catch(() => null);
+  return logo?.fileUrl ?? null;
 }

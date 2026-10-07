@@ -36,12 +36,18 @@ export class MediaService {
     private readonly mediaRepository: MediaRepository,
   ) {}
 
+  /**
+   * `isLocked`: internal-only, never set from the HTTP body (see
+   * `upload-media.handler.ts`) — step 15's `freeze-quote-pdf.handler`/
+   * `freeze-invoice-pdf.handler` are today's only callers passing `true`.
+   */
   upload(
     file: Express.Multer.File,
     dto: UploadMediaDto,
     actor: AuthenticatedUser,
+    isLocked = false,
   ) {
-    return this.uploadMedia.execute(file, dto, actor);
+    return this.uploadMedia.execute(file, dto, actor, isLocked);
   }
 
   findAll(

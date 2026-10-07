@@ -3,6 +3,7 @@ import { AuditModule } from '../audit/audit.module';
 import { TokenModule } from '../auth/token.module';
 import { ClientsModule } from '../clients/clients.module';
 import { DocumentsModule } from '../documents/documents.module';
+import { MediaModule } from '../media/media.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { QuotesModule } from '../quotes/quotes.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -14,9 +15,11 @@ import { CreateInvoiceHandler } from './handlers/create-invoice.handler';
 import { FindInvoiceHandler } from './handlers/find-invoice.handler';
 import { FindInvoicesHandler } from './handlers/find-invoices.handler';
 import { FindPaymentsHandler } from './handlers/find-payments.handler';
+import { FreezeInvoicePdfHandler } from './handlers/freeze-invoice-pdf.handler';
 import { InvoiceCoverageHandler } from './handlers/invoice-coverage.handler';
 import { LateInvoicesHandler } from './handlers/late-invoices.handler';
 import { RecordPaymentHandler } from './handlers/record-payment.handler';
+import { RenderInvoicePdfHandler } from './handlers/render-invoice-pdf.handler';
 import { SendInvoiceHandler } from './handlers/send-invoice.handler';
 import { SendReminderHandler } from './handlers/send-reminder.handler';
 import { SetInvoiceLinesHandler } from './handlers/set-invoice-lines.handler';
@@ -46,8 +49,13 @@ import { ProjectInvoiceCoverageController } from './project-invoice-coverage.con
     // `invoice-coverage.handler` reads `sumAcceptedByProject` — both through
     // `QuotesService`, never its repository.
     QuotesModule,
-    // The shared document-number counter and VAT-totals helper.
+    // The shared document-number counter and VAT-totals helper, and (step
+    // 15) `DocumentsService.renderInvoicePdf`.
     DocumentsModule,
+    // Step 15: `freeze-invoice-pdf.handler` uploads the frozen PDF with
+    // `is_locked = true`; `render-invoice-pdf.handler` reads the tenant logo
+    // and the frozen file through `MediaService`.
+    MediaModule,
   ],
   controllers: [InvoicesController, ProjectInvoiceCoverageController],
   providers: [
@@ -67,6 +75,8 @@ import { ProjectInvoiceCoverageController } from './project-invoice-coverage.con
     LateInvoicesHandler,
     InvoiceCoverageHandler,
     LateInvoicesJob,
+    RenderInvoicePdfHandler,
+    FreezeInvoicePdfHandler,
   ],
   exports: [InvoicesService],
 })

@@ -16,6 +16,7 @@ import { AcceptQuoteHandler } from './accept-quote.handler';
 import { CreateQuoteHandler } from './create-quote.handler';
 import { FindQuoteHandler } from './find-quote.handler';
 import { FindQuotesHandler } from './find-quotes.handler';
+import { FreezeQuotePdfHandler } from './freeze-quote-pdf.handler';
 import { RefuseQuoteHandler } from './refuse-quote.handler';
 import { SendQuoteHandler } from './send-quote.handler';
 import { SetQuoteLinesHandler } from './set-quote-lines.handler';
@@ -101,6 +102,12 @@ describe('Quotes handlers', () => {
   const stockService = { reserveForProject: jest.fn() };
   const margins = { checkProjectThresholds: jest.fn() };
   const audit = { write: jest.fn() };
+  const freezeQuotePdf = {
+    execute: jest.fn().mockResolvedValue({
+      media: { id: 999, fileUrl: 'https://cdn.test/quote.pdf' },
+      buffer: Buffer.from('pdf'),
+    }),
+  };
   const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn() };
   const txMock = {};
   const tenantPrisma = {
@@ -121,6 +128,10 @@ describe('Quotes handlers', () => {
     tenantPrisma.db.$transaction.mockImplementation(
       (cb: (tx: unknown) => unknown) => cb(txMock),
     );
+    freezeQuotePdf.execute.mockResolvedValue({
+      media: { id: 999, fileUrl: 'https://cdn.test/quote.pdf' },
+      buffer: Buffer.from('pdf'),
+    });
     const handlers = [
       CreateQuoteHandler,
       FindQuotesHandler,
@@ -144,6 +155,7 @@ describe('Quotes handlers', () => {
         { provide: AuditService, useValue: audit },
         { provide: MarginsService, useValue: margins },
         { provide: TenantPrismaService, useValue: tenantPrisma },
+        { provide: FreezeQuotePdfHandler, useValue: freezeQuotePdf },
         ...handlers.map((h) => ({
           provide: getLoggerToken(h.name),
           useValue: logger,

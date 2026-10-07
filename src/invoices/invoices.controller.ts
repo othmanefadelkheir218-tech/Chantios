@@ -8,9 +8,11 @@ import {
   Post,
   Put,
   Query,
+  Res,
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
 import { Module } from '../auth/decorators/module.decorator';
@@ -51,6 +53,27 @@ export class InvoicesController {
   @Module('invoices')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.invoicesService.findOne(id);
+  }
+
+  /** Same shape as `QuotesController#downloadPdf` — see its comment. */
+  @Get(':id/pdf')
+  @TenantAuth()
+  @Module('invoices')
+  async downloadPdf(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    const result = await this.invoicesService.renderPdf(id, actor);
+    if (result.mode === 'redirect') {
+      res.redirect(302, result.url);
+      return;
+    }
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="${result.filename}"`,
+    });
+    res.send(result.buffer);
   }
 
   @Patch(':id')

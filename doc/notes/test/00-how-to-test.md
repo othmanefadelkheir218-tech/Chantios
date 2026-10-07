@@ -23,6 +23,7 @@
 | [16-client-portal.md](16-client-portal.md) | Step 12 — the portal link (hash only, regenerate / revoke / expire), the three checks and the one generic answer, the allow-listed views, accept / refuse through the same handlers as staff, documents, tracking, the client's messages, tenant isolation, the rate limit |
 | [17-notifications.md](17-notifications.md) | Step 13 — `dispatch` as the one door, recipients by role + overrides, low stock, margin 80/95 once + reset, abnormal hours, per-timezone end-of-day, late/paid invoices, task alerts, client emails in the tenant locale, platform alerts (`tenant_id` NULL), own-rows-only marking, mail provider down, retention |
 | [18-subscriptions-stripe.md](18-subscriptions-stripe.md) | Step 14 — tenant-facing subscription/usage/invoices, the storage downgrade gate, Stripe webhook signature + idempotency, the 4 events, the renewal job (snapshot, overage, period roll, pending-plan apply), `past_due` keeps access |
+| [19-documents.md](19-documents.md) | Step 15 — draft vs. sent PDFs, freezing on send (`is_locked`, byte-identical re-downloads, undeletable), the per-rate VAT block, no PDF-layer arithmetic, the letterhead with/without a logo, the email attachment, the portal download, tenant isolation |
 
 ---
 

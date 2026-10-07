@@ -64,6 +64,10 @@ export type NotificationRecipient =
  *   `entity_id` is the key `dedupeDays` looks at.
  * - `dedupeDays`: skip a recipient who already got the same type + `entity_id`
  *   inside that window (a daily cron must not repeat itself every morning).
+ * - `attachment`: step 15 — the frozen quote/invoice PDF to attach to a
+ *   `client_quote_sent`/`client_invoice_sent` email. `content` travels as a
+ *   base64 string, never a raw `Buffer`, because this whole context is
+ *   JSON-serialized onto a BullMQ job.
  */
 export interface DispatchContext {
   tenantId?: number | null;
@@ -72,6 +76,7 @@ export interface DispatchContext {
   clientEmail?: string;
   payload?: Record<string, unknown>;
   dedupeDays?: number;
+  attachment?: { filename: string; content: string };
 }
 
 export interface NotificationJob {

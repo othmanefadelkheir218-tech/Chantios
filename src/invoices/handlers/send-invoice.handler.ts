@@ -8,6 +8,7 @@ import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
 import { ClientsService } from '../../clients/clients.service';
 import { NotificationsService } from '../../notifications/notifications.service';
+import { FreezeInvoicePdfHandler } from './freeze-invoice-pdf.handler';
 import { toInvoiceEntity } from '../helpers/invoice.helper';
 import { InvoiceRepository } from '../repositories/invoice.repository';
 
@@ -16,6 +17,11 @@ import { InvoiceRepository } from '../repositories/invoice.repository';
  * totals are locked from here. Refuses (400) with zero lines or no (active)
  * client — `client_id` is required at creation, so this re-check only
  * matters if the client was archived in the meantime.
+ *
+ * Ordering matters (doc/notes/Phaces/15-documents.md "Wiring into send"):
+ * the PDF is rendered and uploaded to `media` (`is_locked = true`) WHILE the
+ * invoice is still `draft`, BEFORE `setStatus('sent', ...)`. A render/upload
+ * failure propagates — the invoice stays `draft`, no email sent.
  */
 @Injectable()
 export class SendInvoiceHandler {
@@ -26,6 +32,7 @@ export class SendInvoiceHandler {
     private readonly clients: ClientsService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    private readonly freezePdf: FreezeInvoicePdfHandler,
   ) {}
 
   async execute(id: number, actor: AuthenticatedUser) {
@@ -58,17 +65,24 @@ export class SendInvoiceHandler {
       throw new BadRequestException('Cannot send an invoice with no lines');
     }
 
+    // Freeze the PDF BEFORE the status flips — see the class doc comment.
+    const { buffer } = await this.freezePdf.execute(invoice, lines, actor);
+
     const updated = await this.invoices.setStatus(id, 'sent', {
       sentAt: new Date(),
     });
 
-    // The "please pay" email. Attaching the frozen PDF is step 15's job.
+    // The "please pay" email, the frozen PDF attached.
     await this.notifications.dispatch('client_invoice_sent', {
       tenantId: actor.tenantId,
       clientEmail: client.email,
       payload: {
         invoice_ref: updated.number,
         amount: updated.amountInclVat.toString(),
+      },
+      attachment: {
+        filename: `${updated.number}.pdf`,
+        content: buffer.toString('base64'),
       },
     });
 
