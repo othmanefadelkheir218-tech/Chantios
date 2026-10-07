@@ -76,6 +76,23 @@ export class ConversationRepository {
     });
   }
 
+  /**
+   * One ticket's `support` conversation, for the TENANT side (the extension
+   * scopes it to the caller's own tenant automatically) — step 16's
+   * `GET /api/support/tickets/:id`, so the response can carry its
+   * `conversation_id`. The cross-tenant admin equivalent is
+   * `findByTicketForAdmin` below.
+   */
+  findByTicket(
+    ticketId: number,
+    type: ConversationType,
+  ): Promise<ConversationWithMembers | null> {
+    return this.tenantPrisma.db.conversation.findFirst({
+      where: { supportTicketId: ticketId, type },
+      include: WITH_MEMBERS,
+    });
+  }
+
   /** Archive, never delete. */
   setArchived(id: number, value: boolean): Promise<ConversationWithMembers> {
     return this.tenantPrisma.db.conversation.update({

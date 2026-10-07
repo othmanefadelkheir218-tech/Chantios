@@ -134,6 +134,22 @@ export class UserRepository {
   }
 
   /**
+   * The tenant's own active user of this role, first by id — used by
+   * impersonation (step 16) to find the `admin`-role user to act as. Same
+   * unscoped-by-design reasoning as `countActiveByRole`: the admin route runs
+   * with no tenant in `nestjs-cls`.
+   */
+  findFirstActiveByRole(
+    tenantId: number,
+    roleId: number,
+  ): Promise<User | null> {
+    return this.prisma.user.findFirst({
+      where: { tenantId, roleId, isActive: true },
+      orderBy: { id: 'asc' },
+    });
+  }
+
+  /**
    * The `max_managers` billing dimension (step 14): active users with any
    * role OTHER than `roleId` (the worker role). Same unscoped-by-design
    * reasoning as `countActiveByRole` above — the renewal job runs outside

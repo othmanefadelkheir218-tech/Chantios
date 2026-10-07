@@ -59,6 +59,9 @@ import { RenewalProcessor } from './processors/renewal.processor';
     RunRenewalHandler,
     RenewalProcessor,
   ],
-  exports: [BillingService],
+  // `UsageCounterHelper` is also used directly by `CronsModule` (step 16's
+  // usage-spike cron) — the SAME live-usage computation the billing read and
+  // the renewal snapshot already use, so all three can never disagree.
+  exports: [BillingService, UsageCounterHelper],
 })
 export class BillingModule {}

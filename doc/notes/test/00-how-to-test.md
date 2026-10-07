@@ -24,6 +24,7 @@
 | [17-notifications.md](17-notifications.md) | Step 13 — `dispatch` as the one door, recipients by role + overrides, low stock, margin 80/95 once + reset, abnormal hours, per-timezone end-of-day, late/paid invoices, task alerts, client emails in the tenant locale, platform alerts (`tenant_id` NULL), own-rows-only marking, mail provider down, retention |
 | [18-subscriptions-stripe.md](18-subscriptions-stripe.md) | Step 14 — tenant-facing subscription/usage/invoices, the storage downgrade gate, Stripe webhook signature + idempotency, the 4 events, the renewal job (snapshot, overage, period roll, pending-plan apply), `past_due` keeps access |
 | [19-documents.md](19-documents.md) | Step 15 — draft vs. sent PDFs, freezing on send (`is_locked`, byte-identical re-downloads, undeletable), the per-rate VAT block, no PDF-layer arithmetic, the letterhead with/without a logo, the email attachment, the portal download, tenant isolation |
+| [20-support-feedback.md](20-support-feedback.md) | Step 16 — support tickets (one transaction with their conversation), the `admin`-only check, the DB's `chk_support_has_ticket`, assign/reply/close, tenant feedback (one-way), the analytics fire-and-forget emitter, platform-admin impersonation (two audit rows, the admin's own session survives) |
 
 ---
 
@@ -127,7 +128,7 @@ yarn test:e2e      # real database — needs docker compose up -d
 
 | Command | Expected | Notes |
 |---|---|---|
-| `yarn test` | `Tests: 685 passed`, 47 suites… all green | If the count is higher, new tests were added. A failure is a bug |
+| `yarn test` | `Tests: 713 passed`, 49 suites… all green | If the count is higher, new tests were added. A failure is a bug |
 | `yarn test:e2e` | `Tests: 11 passed`, 44 tables checked | **Jest does not exit by itself** after the e2e run. Press Ctrl+C once it prints the result, or run `npx jest --config test/jest-e2e.json --forceExit` |
 | `yarn lint` | `0 errors` (4 warnings — 3 in `auth.handlers.spec.ts`, 1 in `stripe.controller.spec.ts` — are known) | |
 | `yarn build` | no output = ok | |

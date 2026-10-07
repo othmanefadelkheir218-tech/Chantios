@@ -17,6 +17,7 @@ import { RetentionCron } from './retention.cron';
 import { StalledProjectCron } from './stalled-project.cron';
 import { TaskStartingCron } from './task-starting.cron';
 import { TenantRunner } from './tenant-runner.service';
+import { UsageSpikeCron } from './usage-spike.cron';
 
 /**
  * The schedulers that raise alerts across every company. They hold no
@@ -50,6 +51,7 @@ import { TenantRunner } from './tenant-runner.service';
     MissingTimesheetCron,
     RetentionCron,
     BillingRenewalCron,
+    UsageSpikeCron,
   ],
 })
 export class CronsModule {}

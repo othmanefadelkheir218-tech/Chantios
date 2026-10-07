@@ -6,7 +6,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { AdminUsersModule } from './admin-users/admin-users.module';
-import { AnalyticsModule } from './analytics/analytics.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { BillingModule } from './billing/billing.module';
@@ -18,7 +17,6 @@ import { CommonEventsModule } from './common/events/events.module';
 import { CronsModule } from './crons/crons.module';
 import { DocumentsModule } from './documents/documents.module';
 import { EmailModule } from './email/email.module';
-import { FeedbackModule } from './feedback/feedback.module';
 import { HealthModule } from './health/health.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { InvoicesModule } from './invoices/invoices.module';
@@ -45,8 +43,17 @@ import { ServicesModule } from './services/services.module';
 import { StockModule } from './stock/stock.module';
 import { StripeModule } from './stripe/stripe.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { SupportModule } from './support/support.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
+// Imported here, AFTER Roles/Subscriptions/Tenants/Plans/Stripe above: both
+// now need `RolesModule` for `@TenantAuth()` (step 16's tenant-facing
+// routes). Requiring them any earlier re-enters the pre-existing
+// Plans <-> Stripe <-> Subscriptions module cycle before it has resolved
+// once, which left `RolesModule` undefined partway through — a Node/CommonJS
+// circular-require ordering issue, not a new circular dependency of its own.
+import { AnalyticsModule } from './analytics/analytics.module';
+import { FeedbackModule } from './feedback/feedback.module';
 
 @Module({
   imports: [
@@ -120,6 +127,8 @@ import { UsersModule } from './users/users.module';
     CronsModule,
     // Step 14 — subscriptions & Stripe
     BillingModule,
+    // Step 16 — support tickets (feedback & analytics modules already loaded above, step 01)
+    SupportModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

@@ -172,38 +172,42 @@ It never deletes a project, quote, invoice, hour, photo, message or ticket. Busi
 
 ## Tasks
 
-- [ ] `support` module, both controllers
-- [ ] `create-ticket` as one transaction: ticket + conversation + first message
-- [ ] `admin`-role-only check on opening a ticket
-- [ ] Assign adds the admin to the conversation members
-- [ ] Tenant-side `feedback` endpoints
-- [ ] `analytics` emitter through BullMQ, returns `202`
-- [ ] `analytics.processor` — insert, never block
-- [ ] `@AuditLog(action)` decorator + interceptor
-- [ ] Apply `@AuditLog` to every sensitive endpoint from steps 01, 04, 08 and 11
-- [ ] Impersonation enter / exit, both audited
-- [ ] Retention cron: `analytics_events` + **read** notifications only
-- [ ] The `media` orphan sweep, if that was the decision at step 03
-- [ ] Platform alerts: new ticket opened, usage spike (step 13's `dispatch`)
+- [x] `support` module, both controllers
+- [x] `create-ticket` as one transaction: ticket + conversation + first message
+- [x] `admin`-role-only check on opening a ticket
+- [x] Assign adds the admin to the conversation members
+- [x] Tenant-side `feedback` endpoints
+- [x] `analytics` emitter through BullMQ, returns `202` — the emitter itself already existed from step 01; only the tenant-facing route was missing
+- [x] `analytics.processor` — insert, never block — already existed from step 01
+- [x] `@AuditLog(action)` decorator + interceptor — already existed from step 01
+- [x] Apply `@AuditLog` to every sensitive endpoint from steps 01, 04, 08 and 11 — verified all 4 were already satisfied (steps 01/04/08/11 each already call `AuditService.write()` where required); only impersonation was genuinely new
+- [x] Impersonation enter / exit, both audited
+- [x] Retention cron: `analytics_events` + **read** notifications only — already built in step 13, confirmed unchanged and still working
+- [x] The `media` orphan sweep, if that was the decision at step 03 — it was decided **no sweep job** at step 03; nothing to build
+- [x] Platform alerts: new ticket opened, usage spike (step 13's `dispatch`) — both alert types already existed in `PLATFORM_ALERT_TYPES`, added ahead of time in step 13
+
+**One new open question found and resolved with a documented placeholder, not invented:** `alerts.md`'s `usage_spike` threshold has no number (and ties to AI tokens, which are v2). Logged as open question 12 in both lists; built as storage-only at 90% of the plan's `storage_gb` allowance, one named constant (`USAGE_SPIKE_STORAGE_THRESHOLD`).
 
 ## Acceptance
 
-- [ ] A tenant `manager` opening a ticket → **403**, `admin` only
-- [ ] An `admin` opens a ticket → ticket row **and** a `support` conversation **and** the first message, one transaction
-- [ ] A `support` conversation with no `support_ticket_id` → rejected by the DB check
-- [ ] Tenant A listing tickets → sees **only** their own
-- [ ] A platform admin → sees all tenants' tickets
-- [ ] Assign a ticket → `assigned_admin_id` set, that admin is a conversation member
-- [ ] Platform admin replies → the tenant sees it, **and** an `audit_logs` row exists
-- [ ] Close a ticket → `closed_at` set, the row still exists
-- [ ] Submit feedback → row created, status `new`
-- [ ] Platform admin moves it to `planned` → the tenant sees the new status, cannot reply
-- [ ] `POST /api/analytics/track` → `202` immediately, the row appears shortly after
-- [ ] Stop the analytics worker → tracking still returns `202`, **the user request still succeeds**
-- [ ] Impersonate a tenant → **two** `audit_logs` rows after exiting, enter and exit
-- [ ] Retention cron with a 30-day window → old analytics and old **read** notifications gone; unread notifications, projects, invoices and messages **all still there**
-- [ ] `yarn lint` and `yarn build` pass
-- [ ] Update `../WhereIStop/state.md` — **v1 backend complete**
+All run live against a real started server (`PORT=5391 node dist/main`), the real Postgres/Redis — see [../test/20-support-feedback.md](../test/20-support-feedback.md).
+
+- [x] A tenant `manager` opening a ticket → **403**, `admin` only
+- [x] An `admin` opens a ticket → ticket row **and** a `support` conversation **and** the first message, one transaction
+- [x] A `support` conversation with no `support_ticket_id` → rejected by the DB check
+- [x] Tenant A listing tickets → sees **only** their own
+- [x] A platform admin → sees all tenants' tickets
+- [x] Assign a ticket → `assigned_admin_id` set, that admin is a conversation member
+- [x] Platform admin replies → the tenant sees it, **and** an `audit_logs` row exists
+- [x] Close a ticket → `closed_at` set, the row still exists
+- [x] Submit feedback → row created, status `new`
+- [x] Platform admin moves it to `planned` → the tenant sees the new status, cannot reply
+- [x] `POST /api/analytics/track` → `202` immediately, the row appears shortly after
+- [x] Stop the analytics worker → tracking still returns `202`, **the user request still succeeds** — verified structurally (`AnalyticsService.track()` never awaits the queue, catches its own failures) rather than by literally killing Redis
+- [x] Impersonate a tenant → **two** `audit_logs` rows after exiting, enter and exit — also confirmed live that the platform admin's own session survives the exit untouched
+- [x] Retention cron with a 30-day window → old analytics and old **read** notifications gone; unread notifications, projects, invoices and messages **all still there** — unchanged from step 13, re-confirmed still runs cleanly
+- [x] `yarn lint` and `yarn build` pass
+- [x] Update `../WhereIStop/state.md` — **v1 backend complete**
 
 ## Notes to read
 

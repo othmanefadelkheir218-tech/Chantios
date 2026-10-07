@@ -6,6 +6,7 @@ import { PurchaseDueCron } from '../src/crons/purchase-due.cron';
 import { RetentionCron } from '../src/crons/retention.cron';
 import { StalledProjectCron } from '../src/crons/stalled-project.cron';
 import { TaskStartingCron } from '../src/crons/task-starting.cron';
+import { UsageSpikeCron } from '../src/crons/usage-spike.cron';
 import { LateInvoicesJob } from '../src/invoices/jobs/late-invoices.job';
 import { ReportAlertsJob } from '../src/reports/jobs/report-alerts.job';
 
@@ -30,6 +31,7 @@ async function main(): Promise<void> {
     'task-starting': () => app.get(TaskStartingCron).run(),
     'purchase-due': () => app.get(PurchaseDueCron).run(),
     retention: () => app.get(RetentionCron).run(now),
+    'usage-spike': () => app.get(UsageSpikeCron).run(),
     'late-invoices': () => app.get(LateInvoicesJob).run(),
     'report-alerts': () => app.get(ReportAlertsJob).run(),
   };

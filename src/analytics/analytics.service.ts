@@ -2,8 +2,13 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
 import { FindAnalyticsQueryDto } from './dto/find-analytics-query.dto';
-import { ANALYTICS_QUEUE, TrackEventInput } from './dto/track-event.dto';
+import {
+  ANALYTICS_QUEUE,
+  TrackEventDto,
+  TrackEventInput,
+} from './dto/track-event.dto';
 import { FindAnalyticsHandler } from './handlers/find-analytics.handler';
 import { AnalyticsRepository } from './repositories/analytics.repository';
 
@@ -40,6 +45,22 @@ export class AnalyticsService {
   /** Retention cron: deletes this company's events older than `before`. */
   purgeBefore(tenantId: number, before: Date): Promise<number> {
     return this.analytics.deleteOlderThan(tenantId, before);
+  }
+
+  /**
+   * `POST /api/analytics/track` (step 16) — any authenticated tenant user.
+   * A straight translation of the validated body into a `TrackEventInput`,
+   * no business decision to make (same spirit as `track()` itself having no
+   * handler of its own): reuses the SAME fire-and-forget emitter above, so
+   * there is exactly one queueing implementation, not two.
+   */
+  trackEvent(dto: TrackEventDto, actor: AuthenticatedUser): void {
+    this.track({
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      eventName: dto.event_name,
+      payload: dto.payload,
+    });
   }
 
   findAll(query: FindAnalyticsQueryDto) {

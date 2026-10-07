@@ -152,6 +152,8 @@
 
 - [ ] **No tenant bank details field** — found in step 15 (2026-10-07): the invoice PDF's payment block was specified as "tenant bank details + `due_date`," but `tenants` has no IBAN/bank-name column anywhere in the schema. Built with `due_date` and `invoices.note` only, no bank details, since there is nothing to print. See `doc/Schema Proposal.md` Open questions § 11.
 
+- [ ] **Usage-spike threshold — no number** — found in step 16 (2026-10-07): `alerts.md` says `usage_spike` fires when "storage or AI tokens exceed a threshold," no number given (and AI tokens are v2). Built as storage only, at 90% of the plan's `storage_gb` allowance, one constant to change. Owner to confirm, or decide this alert waits for v2. See `doc/Schema Proposal.md` Open questions § 12.
+
 - [ ] **Frontend** — not started, backend first.
 
 ## Related notes

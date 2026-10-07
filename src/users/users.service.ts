@@ -125,6 +125,14 @@ export class UsersService {
     return this.users.countActiveByRole(tenantId, roleId);
   }
 
+  /** The tenant's own active admin-role user, or null — used by impersonation (step 16). */
+  findFirstActiveByRole(
+    tenantId: number,
+    roleId: number,
+  ): Promise<User | null> {
+    return this.users.findFirstActiveByRole(tenantId, roleId);
+  }
+
   /** The `max_managers` billing dimension (step 14): active, any role but this one. */
   countActiveExcludingRole(tenantId: number, roleId: number): Promise<number> {
     return this.users.countActiveExcludingRole(tenantId, roleId);

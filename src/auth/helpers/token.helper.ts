@@ -14,6 +14,12 @@ export interface AccessTokenPayload {
   roleId: number;
   email: string;
   kind: 'user';
+  /**
+   * Set only for an impersonation session (step 16): the platform
+   * `admin_users.id` acting through this token. Purely additive — every
+   * existing caller of `signAccessToken`/`verifyAccessToken` is unaffected.
+   */
+  impersonatedBy?: number;
 }
 
 export interface RefreshTokenPayload {

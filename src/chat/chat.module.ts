@@ -14,6 +14,7 @@ import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './gateways/chat.gateway';
 import { AddMemberHandler } from './handlers/add-member.handler';
+import { AdminAddSupportMemberHandler } from './handlers/admin-add-support-member.handler';
 import { AdminFindSupportMessagesHandler } from './handlers/admin-find-support-messages.handler';
 import { AdminJoinSupportHandler } from './handlers/admin-join-support.handler';
 import { AdminSendSupportMessageHandler } from './handlers/admin-send-support-message.handler';
@@ -21,9 +22,11 @@ import { ArchiveConversationHandler } from './handlers/archive-conversation.hand
 import { CheckAccessHandler } from './handlers/check-access.handler';
 import { ClientMessagesHandler } from './handlers/client-messages.handler';
 import { CreateConversationHandler } from './handlers/create-conversation.handler';
+import { CreateSupportConversationHandler } from './handlers/create-support-conversation.handler';
 import { EnsureProjectConversationHandler } from './handlers/ensure-project-conversation.handler';
 import { FindConversationsHandler } from './handlers/find-conversations.handler';
 import { FindMessagesHandler } from './handlers/find-messages.handler';
+import { FindSupportConversationHandler } from './handlers/find-support-conversation.handler';
 import { MarkReadHandler } from './handlers/mark-read.handler';
 import { SendMessageHandler } from './handlers/send-message.handler';
 import { UnreadCountHandler } from './handlers/unread-count.handler';
@@ -66,8 +69,13 @@ import { MessageRepository } from './repositories/message.repository';
     AdminFindSupportMessagesHandler,
     AdminSendSupportMessageHandler,
     AdminJoinSupportHandler,
+    CreateSupportConversationHandler,
+    FindSupportConversationHandler,
+    AdminAddSupportMemberHandler,
   ],
   // Step 12 (client portal) calls `ChatService.ensureProjectConversation`.
+  // Step 16 (support) calls `createSupportConversation` /
+  // `findSupportConversationByTicket` / `addAdminToSupportConversation`.
   exports: [ChatService],
 })
 export class ChatModule {}

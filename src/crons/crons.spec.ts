@@ -12,6 +12,10 @@ import { RetentionCron } from './retention.cron';
 import { StalledProjectCron } from './stalled-project.cron';
 import { TaskStartingCron } from './task-starting.cron';
 import { TenantRunner } from './tenant-runner.service';
+import {
+  USAGE_SPIKE_STORAGE_THRESHOLD,
+  UsageSpikeCron,
+} from './usage-spike.cron';
 
 const logger = {
   info: jest.fn(),
@@ -431,6 +435,76 @@ describe('RetentionCron — only read notifications and analytics events', () =>
     plans.findOne.mockResolvedValue({ features: [] });
     await cron().run(NOW);
     expect(notifications.purgeReadBefore).not.toHaveBeenCalled();
+  });
+});
+
+describe('UsageSpikeCron — storage only, 90% of the plan allowance', () => {
+  const subscriptions = { findByTenant: jest.fn() };
+  const plans = { findOne: jest.fn() };
+  const usageCounter = { countAll: jest.fn() };
+  const notifications = { dispatch: jest.fn() };
+
+  const cron = () =>
+    new UsageSpikeCron(
+      logger as never,
+      runnerOf([tenant()]),
+      usageCounter as never,
+      subscriptions as never,
+      plans as never,
+      notifications as never,
+    );
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    subscriptions.findByTenant.mockResolvedValue({ planId: 2 });
+    plans.findOne.mockResolvedValue({
+      features: [{ featureKey: 'storage_gb', limitValue: 20 }],
+    });
+  });
+
+  it('the named constant is 0.9 (90%)', () => {
+    expect(USAGE_SPIKE_STORAGE_THRESHOLD).toBe(0.9);
+  });
+
+  it('fires right AT the threshold (18/20 = exactly 90%)', async () => {
+    usageCounter.countAll.mockResolvedValue({ storage_gb: 18 });
+    const result = await cron().run();
+    expect(result).toEqual({ alerts: 1 });
+    expect(notifications.dispatch).toHaveBeenCalledWith(
+      'usage_spike',
+      expect.objectContaining({
+        payload: containing({
+          tenant_id: 1,
+          company_name: 'Dupont',
+          metric: 'storage',
+          storage_gb: 18,
+          limit_gb: 20,
+        }),
+      }),
+    );
+  });
+
+  it('just under the threshold does not fire (17.9/20 = 89.5%)', async () => {
+    usageCounter.countAll.mockResolvedValue({ storage_gb: 17.9 });
+    const result = await cron().run();
+    expect(result).toEqual({ alerts: 0 });
+    expect(notifications.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('a plan with no storage_gb feature is skipped, never a divide-by-zero', async () => {
+    plans.findOne.mockResolvedValue({ features: [] });
+    usageCounter.countAll.mockResolvedValue({ storage_gb: 999 });
+    const result = await cron().run();
+    expect(result).toEqual({ alerts: 0 });
+    expect(usageCounter.countAll).not.toHaveBeenCalled();
+    expect(notifications.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('does not pass dedupeDays — platform alerts have no dedup today (toPlatform never calls dropRecentlyNotified)', async () => {
+    usageCounter.countAll.mockResolvedValue({ storage_gb: 20 });
+    await cron().run();
+    const call = callArg<Record<string, unknown>>(notifications.dispatch, 0, 1);
+    expect(call.dedupeDays).toBeUndefined();
   });
 });
 

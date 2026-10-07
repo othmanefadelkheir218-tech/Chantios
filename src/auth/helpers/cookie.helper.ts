@@ -33,6 +33,24 @@ export function clearAuthCookies(res: Response): void {
   res.clearCookie('refresh_token', BASE_OPTIONS);
 }
 
+/**
+ * Impersonation (step 16): the SAME `access_token` cookie a real login sets
+ * — same name, same options, same short lifetime — and deliberately NO
+ * `refresh_token`. The session is meant to end when the access token expires
+ * naturally, not be renewable like a real login. The admin's own
+ * `admin_access_token`/`admin_refresh_token` cookies are untouched, so they
+ * can always get back to their own session.
+ */
+export function setImpersonationCookie(
+  res: Response,
+  accessToken: string,
+): void {
+  res.cookie('access_token', accessToken, {
+    ...BASE_OPTIONS,
+    maxAge: ACCESS_MAX_AGE,
+  });
+}
+
 export function setAdminAuthCookies(
   res: Response,
   accessToken: string,

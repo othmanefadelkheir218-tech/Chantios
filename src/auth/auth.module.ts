@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AdminUsersModule } from '../admin-users/admin-users.module';
+import { AuditModule } from '../audit/audit.module';
 import { EmailModule } from '../email/email.module';
 import { OneTimeCodesModule } from '../one-time-codes/one-time-codes.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -21,6 +22,8 @@ import { AdminLogoutHandler } from './handlers/admin-logout.handler';
 import { ChangePasswordHandler } from './handlers/change-password.handler';
 import { ForgotPasswordHandler } from './handlers/forgot-password.handler';
 import { GetMeHandler } from './handlers/get-me.handler';
+import { ImpersonateEnterHandler } from './handlers/impersonate-enter.handler';
+import { ImpersonateExitHandler } from './handlers/impersonate-exit.handler';
 import { ListSessionsHandler } from './handlers/list-sessions.handler';
 import { LoginHandler } from './handlers/login.handler';
 import { LogoutHandler } from './handlers/logout.handler';
@@ -32,6 +35,7 @@ import { RevokeAllSessionsHandler } from './handlers/revoke-all-sessions.handler
 import { RevokeSessionHandler } from './handlers/revoke-session.handler';
 import { Verify2faHandler } from './handlers/verify-2fa.handler';
 import { VerifyEmailHandler } from './handlers/verify-email.handler';
+import { ImpersonateController } from './impersonate.controller';
 import { MobileAuthController } from './mobile-auth.controller';
 import { CleanupExpiredTokensJob } from './jobs/cleanup-expired-tokens.job';
 import { TokenModule } from './token.module';
@@ -54,8 +58,14 @@ import { TokenModule } from './token.module';
     TenantsModule,
     PlansModule,
     NotificationsModule, // tenant_signed_up
+    AuditModule, // impersonate_enter / impersonate_exit
   ],
-  controllers: [AuthController, MobileAuthController, AdminAuthController],
+  controllers: [
+    AuthController,
+    MobileAuthController,
+    AdminAuthController,
+    ImpersonateController,
+  ],
   providers: [
     AuthService,
     CleanupExpiredTokensJob,
@@ -79,6 +89,8 @@ import { TokenModule } from './token.module';
     AdminLoginHandler,
     Verify2faHandler,
     AdminLogoutHandler,
+    ImpersonateEnterHandler,
+    ImpersonateExitHandler,
   ],
   exports: [AuthService, TokenModule],
 })
