@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { NotificationsService } from '../../notifications/notifications.service';
 import {
   MISSING_REPORT_DAYS,
   STALLED_PROGRESS_DAYS,
@@ -12,8 +13,9 @@ import { ReportRepository } from '../repositories/report.repository';
  *  - **missing report** — a project `in_progress` with no report for 3 days;
  *  - **progress stalled** — a project `in_progress` whose `progress_pct` has
  *    not moved for 7 days.
- * It fires an alert only and writes nothing. Real alert delivery is step 13's
- * job; a warning log is the placeholder, same as `late-invoices.handler.ts`.
+ * It raises an alert through `NotificationsService.dispatch` and writes
+ * nothing else. The alert repeats at most once per window (`dedupeDays`), so a
+ * project that stays stalled is not mailed every morning.
  */
 @Injectable()
 export class ReportAlertsHandler {
@@ -21,6 +23,7 @@ export class ReportAlertsHandler {
     @InjectPinoLogger(ReportAlertsHandler.name)
     private readonly logger: PinoLogger,
     private readonly reports: ReportRepository,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async checkMissingReports() {
@@ -30,7 +33,16 @@ export class ReportAlertsHandler {
       this.logger.warn(
         `Project ${row.projectId} (tenant ${row.tenantId}) has had no site report for ${MISSING_REPORT_DAYS} days`,
       );
-      // TODO: step 13 — fire the "missing report" alert to the project manager here
+      await this.notifications.dispatch('missing_report', {
+        tenantId: row.tenantId,
+        dedupeDays: MISSING_REPORT_DAYS,
+        payload: {
+          entity_id: row.projectId,
+          project_id: row.projectId,
+          project_name: row.projectName,
+          days: MISSING_REPORT_DAYS,
+        },
+      });
     }
     this.logger.info(`Missing-report check: ${rows.length} project(s)`);
     return { count: rows.length };
@@ -44,7 +56,16 @@ export class ReportAlertsHandler {
       this.logger.warn(
         `Project ${row.projectId} (tenant ${row.tenantId}) has not moved its progress for ${STALLED_PROGRESS_DAYS} days`,
       );
-      // TODO: step 13 — fire the "progress stalled" alert to the project manager here
+      await this.notifications.dispatch('progress_stalled', {
+        tenantId: row.tenantId,
+        dedupeDays: STALLED_PROGRESS_DAYS,
+        payload: {
+          entity_id: row.projectId,
+          project_id: row.projectId,
+          project_name: row.projectName,
+          days: STALLED_PROGRESS_DAYS,
+        },
+      });
     }
     this.logger.info(`Stalled-progress check: ${rows.length} project(s)`);
     return { count: rows.length };

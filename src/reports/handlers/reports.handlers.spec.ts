@@ -1,3 +1,4 @@
+import { NotificationsService } from '../../notifications/notifications.service';
 import {
   BadRequestException,
   ForbiddenException,
@@ -48,6 +49,8 @@ const movement = (materialId: number, quantity: string) => ({
   unitPrice: '6',
 });
 
+const notifications = { dispatch: jest.fn() };
+
 describe('Reports handlers', () => {
   const repo = {
     create: jest.fn(),
@@ -64,7 +67,11 @@ describe('Reports handlers', () => {
     db: { $transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)) },
   };
   const projects = { findOne: jest.fn() };
-  const stock = { declareConsumption: jest.fn(), walkRecipeFor: jest.fn() };
+  const stock = {
+    declareConsumption: jest.fn(),
+    walkRecipeFor: jest.fn(),
+    checkMaterialCoverage: jest.fn(),
+  };
   const services = { findOne: jest.fn() };
   const media = { findAll: jest.fn() };
   const margins = { checkProjectThresholds: jest.fn() };
@@ -93,6 +100,7 @@ describe('Reports handlers', () => {
     ];
     const module = await Test.createTestingModule({
       providers: [
+        { provide: NotificationsService, useValue: notifications },
         ...handlers,
         { provide: ReportRepository, useValue: repo },
         { provide: TenantPrismaService, useValue: tenantPrisma },
@@ -286,6 +294,10 @@ describe('Reports handlers', () => {
       expect(result.movements).toHaveLength(2);
       // one audit row, after the commit
       expect(audit.write).toHaveBeenCalledTimes(1);
+      // stock left: low-stock / unmet-reservation is checked once per material
+      expect(stock.checkMaterialCoverage).toHaveBeenCalledTimes(2);
+      expect(stock.checkMaterialCoverage).toHaveBeenCalledWith(1, 1);
+      expect(stock.checkMaterialCoverage).toHaveBeenCalledWith(2, 1);
       // the material cost rose: the 80 % / 95 % levels are re-checked
       expect(margins.checkProjectThresholds).toHaveBeenCalledWith(12, actor);
       expect(audit.write).toHaveBeenCalledWith(
@@ -370,13 +382,47 @@ describe('Reports handlers', () => {
   describe('ReportAlertsHandler', () => {
     it('missing-report check uses 3 days, stalled check uses 7', async () => {
       repo.findProjectsWithNoReportSince.mockResolvedValue([
-        { projectId: 12, tenantId: 1 },
+        { projectId: 12, tenantId: 1, projectName: 'Site A' },
       ]);
       repo.findProgressUnchangedSince.mockResolvedValue([]);
       expect(await alerts.checkMissingReports()).toEqual({ count: 1 });
       expect(await alerts.checkStalledProgress()).toEqual({ count: 0 });
       expect(repo.findProjectsWithNoReportSince).toHaveBeenCalledWith(3);
       expect(repo.findProgressUnchangedSince).toHaveBeenCalledWith(7);
+    });
+
+    it('missing report -> missing_report, repeated at most every 3 days', async () => {
+      repo.findProjectsWithNoReportSince.mockResolvedValue([
+        { projectId: 12, tenantId: 4, projectName: 'Site A' },
+      ]);
+      await alerts.checkMissingReports();
+      expect(notifications.dispatch).toHaveBeenCalledWith('missing_report', {
+        tenantId: 4,
+        dedupeDays: 3,
+        payload: {
+          entity_id: 12,
+          project_id: 12,
+          project_name: 'Site A',
+          days: 3,
+        },
+      });
+    });
+
+    it('progress unchanged -> progress_stalled, repeated at most every 7 days', async () => {
+      repo.findProgressUnchangedSince.mockResolvedValue([
+        { projectId: 13, tenantId: 4, projectName: 'Site B' },
+      ]);
+      await alerts.checkStalledProgress();
+      expect(notifications.dispatch).toHaveBeenCalledWith('progress_stalled', {
+        tenantId: 4,
+        dedupeDays: 7,
+        payload: {
+          entity_id: 13,
+          project_id: 13,
+          project_name: 'Site B',
+          days: 7,
+        },
+      });
     });
   });
 });

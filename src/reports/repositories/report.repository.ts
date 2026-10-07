@@ -6,6 +6,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 export interface ProjectAlertRow {
   projectId: number;
   tenantId: number;
+  projectName: string;
 }
 
 /** The only place where the reports module talks to the database. */
@@ -82,7 +83,7 @@ export class ReportRepository {
    */
   findProjectsWithNoReportSince(days: number): Promise<ProjectAlertRow[]> {
     return this.prisma.$queryRaw<ProjectAlertRow[]>`
-      SELECT p.id AS "projectId", p.tenant_id AS "tenantId"
+      SELECT p.id AS "projectId", p.tenant_id AS "tenantId", p.name AS "projectName"
       FROM projects p
       WHERE p.status = 'in_progress'
         AND COALESCE(
@@ -107,7 +108,7 @@ export class ReportRepository {
    */
   findProgressUnchangedSince(days: number): Promise<ProjectAlertRow[]> {
     return this.prisma.$queryRaw<ProjectAlertRow[]>`
-      SELECT l."projectId", l."tenantId"
+      SELECT l."projectId", l."tenantId", p.name AS "projectName"
       FROM (
         SELECT DISTINCT ON (r.project_id)
                r.project_id AS "projectId", r.tenant_id AS "tenantId",

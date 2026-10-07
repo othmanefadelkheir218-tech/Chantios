@@ -4,6 +4,7 @@ import { TokenModule } from '../auth/token.module';
 import { ClientsModule } from '../clients/clients.module';
 import { MarginsModule } from '../margins/margins.module';
 import { MediaModule } from '../media/media.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { RolesModule } from '../roles/roles.module';
 import { StockModule } from '../stock/stock.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
@@ -47,6 +48,7 @@ import { ProjectsService } from './projects.service';
     // on a reopen) through `MarginsService`. One-directional: `margins` is a
     // leaf module and imports nothing from `projects`.
     MarginsModule,
+    NotificationsModule, // the project-cancelled reminder
   ],
   controllers: [ProjectsController, ClientProjectsController],
   providers: [

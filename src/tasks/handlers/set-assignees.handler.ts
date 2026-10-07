@@ -4,9 +4,12 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
+import { NotificationsService } from '../../notifications/notifications.service';
+import { ProjectsService } from '../../projects/projects.service';
 import { UsersService } from '../../users/users.service';
 import { SetAssigneesDto } from '../dto/set-assignees.dto';
 import { assertValidAssignees } from '../helpers/assignees.helper';
+import { taskAlertContext } from '../helpers/task-alert.helper';
 import { assertFullScope, toTaskEntity } from '../helpers/task.helper';
 import { TaskRepository } from '../repositories/task.repository';
 
@@ -23,6 +26,8 @@ export class SetAssigneesHandler {
     private readonly tasks: TaskRepository,
     private readonly users: UsersService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
+    private readonly projects: ProjectsService,
   ) {}
 
   async execute(
@@ -62,6 +67,22 @@ export class SetAssigneesHandler {
       newValue: { assigneeIds: entity.assigneeIds },
       ipAddress: null,
     });
+    const before = new Set(current.assignees.map((a) => a.userId));
+    const added = dto.user_ids.filter((userId) => !before.has(userId));
+    if (added.length > 0) {
+      const project = await this.projects.findOne(current.projectId);
+      await this.notifications.dispatch(
+        'task_assigned',
+        taskAlertContext(
+          actor.tenantId,
+          current,
+          project.name,
+          added,
+          {},
+          actor.userId,
+        ),
+      );
+    }
     this.logger.info(`Task ${id} now has ${dto.user_ids.length} assignee(s)`);
     return entity;
   }

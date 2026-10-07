@@ -66,11 +66,10 @@ export class RecordAdjustmentHandler {
       `Adjustment recorded: movement ${created.id}, material ${dto.material_id}, qty ${dto.quantity}`,
     );
 
-    // A positive adjustment can also cover a shortfall, same as a purchase —
-    // run the same soft coverage check.
-    if (Number(dto.quantity) > 0) {
-      await this.checkCoverage.execute(dto.material_id);
-    }
+    // Either sign moves the level: a positive adjustment can cover a shortfall
+    // (like a purchase), a negative one can drop the material to its minimum.
+    // Same soft check, both ways — it is where `low_stock` is raised.
+    await this.checkCoverage.execute(dto.material_id, actor.tenantId);
     return entity;
   }
 }

@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { TokenModule } from '../auth/token.module';
 import { MediaModule } from '../media/media.module';
+import { ClientsModule } from '../clients/clients.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { RolesModule } from '../roles/roles.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
@@ -35,6 +37,8 @@ import { MessageRepository } from './repositories/message.repository';
     UsersModule, // members must be active users of this tenant
     ProjectsModule, // validates `project_id`; the project's client + manager
     MediaModule, // message attachments (`entity_type = 'message'`)
+    ClientsModule, // the client's name and email for message alerts
+    NotificationsModule, // new_message / support_reply / client email
     // What `@TenantAuth()` / `AdminAuthGuard` / the socket handshake need.
     TokenModule,
     RolesModule,

@@ -115,6 +115,10 @@ export class DeclareMaterialsHandler {
     this.logger.info(
       `${movements.length} consumption row(s) written for report ${reportId}`,
     );
+    // Stock just left: low stock / reservation unmet, once per material.
+    for (const item of dto.items) {
+      await this.stock.checkMaterialCoverage(item.material_id, actor.tenantId);
+    }
     // The material cost just rose: fire each alert level once, or reset one.
     await this.margins.checkProjectThresholds(report.projectId, actor);
     return { reportId, serviceId: dto.service_id ?? null, movements };

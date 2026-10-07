@@ -1,3 +1,5 @@
+import { containing } from '../../common/testing/spec-helpers';
+import { NotificationsService } from '../../notifications/notifications.service';
 import {
   BadRequestException,
   ForbiddenException,
@@ -52,6 +54,8 @@ const client = (over: Record<string, unknown> = {}) => ({
   isActive: true,
   ...over,
 });
+
+const notifications = { dispatch: jest.fn() };
 
 describe('Projects handlers', () => {
   const repo = {
@@ -108,6 +112,7 @@ describe('Projects handlers', () => {
     ];
     const module = await Test.createTestingModule({
       providers: [
+        { provide: NotificationsService, useValue: notifications },
         ...handlers,
         { provide: ProjectRepository, useValue: repo },
         { provide: ProjectStatusHistoryRepository, useValue: history },
@@ -416,6 +421,14 @@ describe('Projects handlers', () => {
         tx,
       );
       expect(result.status).toBe('cancelled');
+      // "remember to invoice the client for the work already done"
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'project_cancelled',
+        expect.objectContaining({
+          tenantId: actor.tenantId,
+          payload: containing({ entity_id: 10 }),
+        }),
+      );
     });
   });
 

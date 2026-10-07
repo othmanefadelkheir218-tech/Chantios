@@ -1,3 +1,5 @@
+import { containing } from '../../common/testing/spec-helpers';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
@@ -54,6 +56,8 @@ const snapshot = (over: Record<string, unknown> = {}) => ({
   ],
   ...over,
 });
+
+const notifications = { dispatch: jest.fn() };
 
 describe('margin-threshold.helper — the 80 / 95 logic', () => {
   it('no accepted quote -> a ratio of null, never a divide-by-zero', () => {
@@ -125,6 +129,7 @@ describe('Margins handlers', () => {
     ];
     const module = await Test.createTestingModule({
       providers: [
+        { provide: NotificationsService, useValue: notifications },
         ...handlers,
         { provide: MarginRepository, useValue: margins },
         { provide: ClosureSnapshotRepository, useValue: snapshots },
@@ -294,6 +299,15 @@ describe('Margins handlers', () => {
 
       expect(alerts.createIfAbsent).toHaveBeenCalledWith(10, 'warning', 1);
       expect(result.fired).toEqual(['warning']);
+      // ...and the warning really goes out, to admin + manager (the margins module)
+      expect(notifications.dispatch).toHaveBeenCalledTimes(1);
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'margin_warning',
+        expect.objectContaining({
+          tenantId: 1,
+          payload: containing({ entity_id: 10, cost_pct: '81' }),
+        }),
+      );
     });
 
     it('saves again at 83 % -> the row exists, NOTHING is sent', async () => {
@@ -306,6 +320,8 @@ describe('Margins handlers', () => {
 
       expect(result.reached).toEqual(['warning']);
       expect(result.fired).toEqual([]);
+      // the row already existed: NOT ONE alert is sent (no mail on every save)
+      expect(notifications.dispatch).not.toHaveBeenCalled();
     });
 
     it('later crosses 95 % -> only the critical is new', async () => {
@@ -319,6 +335,24 @@ describe('Margins handlers', () => {
       const result = await check.execute(10, 1);
 
       expect(result.fired).toEqual(['critical']);
+      expect(notifications.dispatch).toHaveBeenCalledTimes(1);
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'margin_critical',
+        expect.objectContaining({
+          payload: containing({ cost_pct: '96' }),
+        }),
+      );
+    });
+
+    it('both levels new in one save (jump to 96 %) -> one warning and one critical', async () => {
+      margins.findByProject.mockResolvedValue(
+        margin({ totalCost: d(9600), budgetExclVat: d(10000) }),
+      );
+      alerts.createIfAbsent.mockResolvedValue(true);
+      await check.execute(10, 1);
+      expect(
+        notifications.dispatch.mock.calls.map((call: unknown[]) => call[0]),
+      ).toEqual(['margin_warning', 'margin_critical']);
     });
 
     it('an extra accepted quote drops the cost under 80 % -> both rows deleted, levels can fire again', async () => {

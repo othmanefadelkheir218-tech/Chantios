@@ -1,14 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { MaterialsService } from '../../materials/materials.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 
 /**
- * Runs after every purchase/positive adjustment: reads the live stock level
- * and decides whether this material's active reservations are now covered
- * (`available >= 0`). The decision itself is real and testable; the actual
- * alert side-effect (firing/clearing a `project_margin_alerts`-style row)
- * does not exist yet — `// TODO: step 13`. Soft only, never a hard block
- * (doc/notes/qa-project-quote-stock-invoices.md § "Alert style").
+ * Runs after every purchase, adjustment and declared consumption: reads the
+ * live stock level and raises the two stock alerts through
+ * `NotificationsService.dispatch` (soft only, never a hard block —
+ * doc/notes/qa-project-quote-stock-invoices.md § "Alert style"):
+ *
+ *   - `low_stock`         — `on_hand <= minimum_stock`
+ *   - `reservation_unmet` — `available < 0`, the reservations are not covered
+ *
+ * Each repeats at most once a day per material, so a material that stays low
+ * does not alert on every movement. Once the stock is back above the minimum
+ * nothing fires — the alert clears by itself, there is no state to reset.
  */
 @Injectable()
 export class CheckCoverageHandler {
@@ -16,18 +22,39 @@ export class CheckCoverageHandler {
     @InjectPinoLogger(CheckCoverageHandler.name)
     private readonly logger: PinoLogger,
     private readonly materials: MaterialsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
-  async execute(materialId: number) {
+  async execute(materialId: number, tenantId: number) {
     const level = await this.materials.getStockLevel(materialId);
     const covered = level.available.gte(0);
     this.logger.info(
       `Coverage check for material ${materialId}: available=${level.available.toString()}, covered=${covered}`,
     );
 
-    // TODO: step 13 — clear the low-stock / coverage alert for this material
-    // here once the alerts module exists. Firing the alert in the first
-    // place also belongs there, at the point `available` goes negative.
+    const material = await this.materials.findByIdRaw(materialId);
+    if (material?.isActive) {
+      const payload = {
+        entity_id: materialId,
+        material_id: materialId,
+        material_name: material.description,
+        unit: material.unit,
+      };
+      if (level.onHand.lte(material.minimumStock)) {
+        await this.notifications.dispatch('low_stock', {
+          tenantId,
+          dedupeDays: 1,
+          payload: { ...payload, on_hand: level.onHand.toString() },
+        });
+      }
+      if (!covered) {
+        await this.notifications.dispatch('reservation_unmet', {
+          tenantId,
+          dedupeDays: 1,
+          payload: { ...payload, short_by: level.available.abs().toString() },
+        });
+      }
+    }
 
     return {
       materialId,

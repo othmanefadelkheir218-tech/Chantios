@@ -100,9 +100,9 @@ export class StockService {
     return this.releaseReservations.execute(projectId, actor);
   }
 
-  /** The (currently soft-only) coverage check, exposed for other callers. */
-  checkMaterialCoverage(materialId: number) {
-    return this.checkCoverage.execute(materialId);
+  /** The soft stock alerts (low stock, reservation unmet) — also called after a declared consumption. */
+  checkMaterialCoverage(materialId: number, tenantId: number) {
+    return this.checkCoverage.execute(materialId, tenantId);
   }
 
   /** Lowers `remaining_quantity` directly — for a caller that already has the amount. */

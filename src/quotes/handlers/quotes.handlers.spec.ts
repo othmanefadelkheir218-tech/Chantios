@@ -1,3 +1,4 @@
+import { NotificationsService } from '../../notifications/notifications.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
@@ -76,6 +77,8 @@ const quoteLine = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+const notifications = { dispatch: jest.fn() };
+
 describe('Quotes handlers', () => {
   const repo = {
     create: jest.fn(),
@@ -130,6 +133,7 @@ describe('Quotes handlers', () => {
     ];
     const module = await Test.createTestingModule({
       providers: [
+        { provide: NotificationsService, useValue: notifications },
         ...handlers,
         { provide: QuoteRepository, useValue: repo },
         { provide: ClientsService, useValue: clients },
@@ -345,8 +349,20 @@ describe('Quotes handlers', () => {
       repo.setStatus.mockResolvedValue(
         quote({ status: 'sent', sentAt: FIXED_DATE }),
       );
+      clients.findByIdRaw.mockResolvedValue({
+        id: 1,
+        email: 'client@test.local',
+      });
       const result = await sendQuote.execute(10, actor);
       expect(result.status).toBe('sent');
+      // the "please review" email goes to the client
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'client_quote_sent',
+        expect.objectContaining({
+          tenantId: 1,
+          clientEmail: 'client@test.local',
+        }),
+      );
     });
   });
 

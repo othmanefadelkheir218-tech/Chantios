@@ -90,6 +90,15 @@ export class TaskRepository {
     });
   }
 
+  /** Planned tasks of the CURRENT tenant that start on `date`, with their assignees and project name. */
+  findStartingOn(date: Date) {
+    return this.tenantPrisma.db.task.findMany({
+      where: { startDate: date, status: 'planned' },
+      include: { assignees: true, project: { select: { name: true } } },
+      orderBy: { id: 'asc' },
+    });
+  }
+
   /** Is this user an assignee on at least one task of the project? (the worker hour-scope rule) */
   async isAssignedToProject(
     userId: number,

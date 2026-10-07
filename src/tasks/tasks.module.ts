@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { TokenModule } from '../auth/token.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { RolesModule } from '../roles/roles.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
@@ -23,6 +24,7 @@ import { TasksService } from './tasks.service';
     AuditModule,
     ProjectsModule, // validates `project_id` through `ProjectsService`
     UsersModule, // validates assignees through `UsersService`
+    NotificationsModule, // task_assigned / task_status_changed
     // What `@TenantAuth()`'s guards need to resolve their own dependencies.
     TokenModule,
     RolesModule,

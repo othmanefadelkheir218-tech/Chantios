@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TokenModule } from '../auth/token.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { RolesModule } from '../roles/roles.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantsModule } from '../tenants/tenants.module';
@@ -30,6 +31,7 @@ import { MarginRepository } from './repositories/margin.repository';
     RolesModule,
     SubscriptionsModule,
     TenantsModule,
+    NotificationsModule,
   ],
   controllers: [MarginsController],
   providers: [

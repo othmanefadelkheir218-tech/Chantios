@@ -83,6 +83,11 @@ export class TasksService {
   // ---- Internal API for `time-entries` ----
 
   /** The worker hour-scope rule: assignee on at least one task of the project. */
+  /** The `task_starting` cron: planned tasks of this tenant starting on `date`. */
+  findStartingOn(date: Date) {
+    return this.tasks.findStartingOn(date);
+  }
+
   isAssignedToProject(userId: number, projectId: number): Promise<boolean> {
     return this.tasks.isAssignedToProject(userId, projectId);
   }

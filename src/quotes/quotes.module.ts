@@ -4,6 +4,7 @@ import { TokenModule } from '../auth/token.module';
 import { ClientsModule } from '../clients/clients.module';
 import { DocumentsModule } from '../documents/documents.module';
 import { MarginsModule } from '../margins/margins.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { RolesModule } from '../roles/roles.module';
 import { StockModule } from '../stock/stock.module';
@@ -32,6 +33,7 @@ import { QuotesService } from './quotes.service';
     TenantsModule,
     // `create-quote.handler` validates `client_id` through `ClientsService`.
     ClientsModule,
+    NotificationsModule, // the "please review" client email
     // `create-quote.handler` validates `project_id`; `accept-quote.handler`
     // flips the project to `in_progress` through `ProjectsService` — never
     // either module's repository.

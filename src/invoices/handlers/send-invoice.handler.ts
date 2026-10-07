@@ -7,6 +7,7 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
 import { ClientsService } from '../../clients/clients.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { toInvoiceEntity } from '../helpers/invoice.helper';
 import { InvoiceRepository } from '../repositories/invoice.repository';
 
@@ -24,6 +25,7 @@ export class SendInvoiceHandler {
     private readonly invoices: InvoiceRepository,
     private readonly clients: ClientsService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async execute(id: number, actor: AuthenticatedUser) {
@@ -60,7 +62,15 @@ export class SendInvoiceHandler {
       sentAt: new Date(),
     });
 
-    // TODO: step 15 — email the client with the frozen PDF attached.
+    // The "please pay" email. Attaching the frozen PDF is step 15's job.
+    await this.notifications.dispatch('client_invoice_sent', {
+      tenantId: actor.tenantId,
+      clientEmail: client.email,
+      payload: {
+        invoice_ref: updated.number,
+        amount: updated.amountInclVat.toString(),
+      },
+    });
 
     const entity = toInvoiceEntity(updated, lines);
     await this.audit.write({

@@ -7,9 +7,11 @@ import {
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import { RequestActor } from '../../common/decorators/actor.decorator';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { AdminSendSupportMessageDto } from '../dto/admin-send-support-message.dto';
 import { ChatGateway } from '../gateways/chat.gateway';
 import { toMessageEntity } from '../helpers/chat.helper';
+import { employeeMemberIds, previewOf } from '../helpers/message-alert.helper';
 import { ConversationRepository } from '../repositories/conversation.repository';
 import { MessageRepository } from '../repositories/message.repository';
 
@@ -30,6 +32,7 @@ export class AdminSendSupportMessageHandler {
     private readonly messages: MessageRepository,
     private readonly audit: AuditService,
     private readonly gateway: ChatGateway,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async execute(
@@ -84,7 +87,15 @@ export class AdminSendSupportMessageHandler {
       ipAddress: actor.ip,
     });
     this.gateway.emitNewMessage(conversation.id, entity);
-    // TODO: step 13 — notify + email the tenant's members of this support thread
+    await this.notifications.dispatch('support_reply', {
+      tenantId,
+      userIds: employeeMemberIds(conversation),
+      payload: {
+        entity_id: conversation.id,
+        conversation_id: conversation.id,
+        preview: previewOf(content),
+      },
+    });
     this.logger.info(
       `Admin ${actor.adminUserId} replied on support ticket ${ticketId} of tenant ${tenantId}`,
     );

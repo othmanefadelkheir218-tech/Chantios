@@ -13,6 +13,14 @@ export class AnalyticsRepository {
     return this.prisma.analyticsEvent.create({ data });
   }
 
+  /** Retention: the events of one company older than `before` (and nothing else). */
+  async deleteOlderThan(tenantId: number, before: Date): Promise<number> {
+    const { count } = await this.prisma.analyticsEvent.deleteMany({
+      where: { tenantId, createdAt: { lt: before } },
+    });
+    return count;
+  }
+
   async findMany(
     where: Prisma.AnalyticsEventWhereInput,
     skip: number,

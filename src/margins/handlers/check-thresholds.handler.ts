@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
-import { levelsReached } from '../helpers/margin-threshold.helper';
+import { NotificationsService } from '../../notifications/notifications.service';
+import {
+  costRatioPct,
+  levelsReached,
+} from '../helpers/margin-threshold.helper';
 import { MarginAlertRepository } from '../repositories/margin-alert.repository';
 import { MarginRepository } from '../repositories/margin.repository';
 
@@ -27,6 +31,7 @@ export class CheckThresholdsHandler {
     private readonly logger: PinoLogger,
     private readonly margins: MarginRepository,
     private readonly alerts: MarginAlertRepository,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async execute(projectId: number, tenantId: number) {
@@ -51,7 +56,21 @@ export class CheckThresholdsHandler {
         this.logger.warn(
           `Margin alert ${level.toUpperCase()}: project ${projectId} cost ${margin.totalCost.toString()} of budget ${margin.budgetExclVat.toString()}`,
         );
-        // TODO: step 13 — send the warning / critical alert to the tenant's admin + manager here
+        await this.notifications.dispatch(
+          level === 'critical' ? 'margin_critical' : 'margin_warning',
+          {
+            tenantId,
+            payload: {
+              entity_id: projectId,
+              project_id: projectId,
+              project_name: margin.name,
+              cost_pct: costRatioPct(
+                margin.totalCost,
+                margin.budgetExclVat,
+              )?.toFixed(0),
+            },
+          },
+        );
       }
       return { reached, fired };
     } catch (err: unknown) {

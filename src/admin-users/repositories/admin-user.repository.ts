@@ -27,6 +27,15 @@ export class AdminUserRepository {
     ]);
   }
 
+  /** Every active platform staff member — the recipients of a platform alert. */
+  findActive(): Promise<Array<Pick<AdminUser, 'id' | 'email'>>> {
+    return this.prisma.adminUser.findMany({
+      where: { isActive: true },
+      select: { id: true, email: true },
+      orderBy: { id: 'asc' },
+    });
+  }
+
   findById(id: number): Promise<AdminUser | null> {
     return this.prisma.adminUser.findUnique({ where: { id } });
   }

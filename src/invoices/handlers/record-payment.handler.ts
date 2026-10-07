@@ -6,6 +6,7 @@ import {
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 import { RecordPaymentDto } from '../dto/record-payment.dto';
 import {
@@ -37,6 +38,7 @@ export class RecordPaymentHandler {
     private readonly invoices: InvoiceRepository,
     private readonly payments: PaymentRepository,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async execute(
@@ -122,6 +124,17 @@ export class RecordPaymentHandler {
       },
       ipAddress: null,
     });
+    if (updatedInvoice.status === 'paid' && invoice.status !== 'paid') {
+      await this.notifications.dispatch('invoice_paid', {
+        tenantId: actor.tenantId,
+        payload: {
+          entity_id: invoiceId,
+          invoice_id: invoiceId,
+          invoice_ref: updatedInvoice.number,
+          amount: updatedInvoice.amountInclVat.toString(),
+        },
+      });
+    }
     this.logger.info(
       `Payment ${payment.id} recorded on invoice ${invoiceId}: status now ${updatedInvoice.status}`,
     );

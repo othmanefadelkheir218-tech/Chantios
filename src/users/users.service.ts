@@ -82,6 +82,21 @@ export class UsersService {
     return user && user.tenantId === tenantId && user.isActive ? user : null;
   }
 
+  /**
+   * Active users of the current tenant with their role — the pool
+   * notifications picks its recipients from (`ids` = named users only).
+   */
+  async findActiveWithRole(ids?: number[]) {
+    const rows = await this.users.findActiveWithRole(ids);
+    return rows.map((row) => ({
+      id: row.id,
+      email: row.email,
+      name: row.name,
+      roleId: row.roleId,
+      roleName: row.role.name,
+    }));
+  }
+
   /** `tx` — step 02 registration runs this inside its own transaction. */
   create(
     data: Prisma.UserCreateInput,

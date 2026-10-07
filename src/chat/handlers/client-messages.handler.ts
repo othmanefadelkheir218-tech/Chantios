@@ -5,10 +5,13 @@ import {
 } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { toPaginated, toSkip } from '../../common/helpers/pagination.helper';
+import { NotificationsService } from '../../notifications/notifications.service';
+import { ClientsService } from '../../clients/clients.service';
 import { MediaService } from '../../media/media.service';
 import { FindMessagesQueryDto } from '../dto/find-messages-query.dto';
 import { ChatGateway } from '../gateways/chat.gateway';
 import { toMessageEntity } from '../helpers/chat.helper';
+import { newMessageContext } from '../helpers/message-alert.helper';
 import { ConversationRepository } from '../repositories/conversation.repository';
 import { MessageReadRepository } from '../repositories/message-read.repository';
 import { MessageRepository } from '../repositories/message.repository';
@@ -35,6 +38,8 @@ export class ClientMessagesHandler {
     private readonly access: CheckAccessHandler,
     private readonly media: MediaService,
     private readonly gateway: ChatGateway,
+    private readonly notifications: NotificationsService,
+    private readonly clients: ClientsService,
   ) {}
 
   /** The project's messages, newest first. Opening them marks the client's unread ones as read. */
@@ -96,7 +101,11 @@ export class ClientMessagesHandler {
     const entity = toMessageEntity(created);
 
     this.gateway.emitNewMessage(conversation.id, entity);
-    // TODO: step 13 — notify + email the employees of this project conversation
+    const client = await this.clients.findByIdRaw(clientId);
+    await this.notifications.dispatch(
+      'new_message',
+      newMessageContext(conversation, client?.name ?? 'Client', text),
+    );
     this.logger.info(
       `Client ${clientId} wrote message ${created.id} on project ${projectId}`,
     );

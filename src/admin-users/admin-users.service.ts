@@ -19,6 +19,11 @@ export class AdminUsersService {
     private readonly deactivateAdminUser: DeactivateAdminUserHandler,
   ) {}
 
+  /** Every active platform staff member — used by notifications. */
+  findActiveRecipients() {
+    return this.adminUsers.findActive();
+  }
+
   /** A plain lookup, no business logic to put in a handler — used by `auth` for admin login. */
   findByEmail(email: string) {
     return this.adminUsers.findByEmail(email);

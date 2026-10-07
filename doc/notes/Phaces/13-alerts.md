@@ -171,39 +171,39 @@ Recipient resolution lives in **one** helper. A module must never hard-code "sen
 
 ## Tasks
 
-- [ ] `notifications` module, full shape
-- [ ] Socket.io gateway, one room per user and per admin user, Redis adapter
-- [ ] `notification-recipients.helper.ts` — type → recipients, one implementation
-- [ ] `notification-templates.helper.ts` — subject + body per type, per locale
-- [ ] BullMQ queue + processor: socket first, then email
-- [ ] `dispatch()` on the service; **no module writes a notification row directly**
-- [ ] `crons` module with all 9 crons
-- [ ] End-of-day cron runs hourly and respects each tenant's timezone
-- [ ] Wire every `// TODO: step 13` marker from steps 04–12 — grep for it
-- [ ] Margin dedup check before sending, and the reset that deletes the rows
-- [ ] Client emails (quote sent, invoice sent, late, new message) in the tenant's locale
-- [ ] Retention cron: read notifications + `analytics_events` only
-- [ ] `grep -rn "TODO: step 13" src/` returns nothing
+- [x] `notifications` module, full shape
+- [x] Socket.io gateway, one room per user and per admin user, Redis adapter
+- [x] `notification-recipients.helper.ts` — type → recipients, one implementation
+- [x] `notification-templates.helper.ts` — subject + body per type, per locale
+- [x] BullMQ queue + processor: socket first, then email
+- [x] `dispatch()` on the service; **no module writes a notification row directly**
+- [x] `crons` module — 6 new crons here (purchase-due, stalled-project, task-starting, end-of-day, missing-timesheet, retention); the other 5 already ran in their own modules (late invoices, missing report + progress stalled, portal expiry, token cleanup, media purge) and were kept, not duplicated
+- [x] End-of-day cron runs hourly and respects each tenant's timezone
+- [x] Wire every `// TODO: step 13` marker from steps 04–12 — grep for it
+- [x] Margin dedup check before sending, and the reset that deletes the rows
+- [x] Client emails (quote sent, invoice sent, late, new message) in the tenant's locale
+- [x] Retention cron: read notifications + `analytics_events` only
+- [x] `grep -rn "TODO: step 13" src/` returns nothing
 
 ## Acceptance
 
-- [ ] Consume stock below `minimum_stock` → `low_stock` row **and** email
-- [ ] Cost crosses 80% → one `margin_warning`. Save again at 83% → **nothing new**
-- [ ] Cost crosses 95% → one `margin_critical`
-- [ ] An extra quote drops cost under 80% → the dedup rows are deleted
-- [ ] Log 13h in one day across two projects → `abnormal_hours` to the manager
-- [ ] An invoice past `due_date` with a balance → `invoice_late` fires, **no row's status changed**
-- [ ] A new company registers → a notification with `admin_user_id` set and `tenant_id` `NULL`
-- [ ] Try to insert a notification with **both** `user_id` and `admin_user_id` → rejected
-- [ ] Try with **neither** → rejected
-- [ ] A user marking another user's notification read → 403
-- [ ] Two tenants with different `end_of_day_reminder_time` → each fires at its own local hour
-- [ ] A tenant in a different timezone → fires at its local 18:00, not UTC 18:00
-- [ ] Break the email provider → the in-app notification still arrives
-- [ ] Retention cron → read notifications deleted, **projects and invoices untouched**
-- [ ] A client gets the quote-sent email in the tenant's locale
-- [ ] Tenant A never receives a notification about tenant B
-- [ ] Update `../WhereIStop/state.md`
+- [x] Consume stock below `minimum_stock` → `low_stock` row **and** email
+- [x] Cost crosses 80% → one `margin_warning`. Save again at 83% → **nothing new**
+- [x] Cost crosses 95% → one `margin_critical`
+- [x] An extra quote drops cost under 80% → the dedup rows are deleted
+- [x] Log 13h in one day across two projects → `abnormal_hours` to the manager
+- [x] An invoice past `due_date` with a balance → `invoice_late` fires, **no row's status changed**
+- [x] A new company registers → a notification with `admin_user_id` set and `tenant_id` `NULL`
+- [x] Try to insert a notification with **both** `user_id` and `admin_user_id` → rejected
+- [x] Try with **neither** → rejected
+- [x] A user marking another user's notification read → 403
+- [x] Two tenants with different `end_of_day_reminder_time` → each fires at its own local hour
+- [x] A tenant in a different timezone → fires at its local 18:00, not UTC 18:00
+- [x] Break the email provider → the in-app notification still arrives
+- [x] Retention cron → read notifications deleted, **projects and invoices untouched**
+- [x] A client gets the quote-sent email in the tenant's locale
+- [x] Tenant A never receives a notification about tenant B
+- [x] Update `../WhereIStop/state.md`
 
 ## Notes to read
 

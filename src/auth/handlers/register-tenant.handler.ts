@@ -3,6 +3,7 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { hashPassword } from '../../common/helpers/password.helper';
 import { tenantEmailVerificationTemplate } from '../../email/templates/tenant-email-verification.template';
 import { EmailService } from '../../email/email.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { OneTimeCodesService } from '../../one-time-codes/one-time-codes.service';
 import { PlansService } from '../../plans/plans.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -33,6 +34,7 @@ export class RegisterTenantHandler {
     private readonly plans: PlansService,
     private readonly codes: OneTimeCodesService,
     private readonly email: EmailService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async execute(dto: RegisterTenantDto) {
@@ -88,6 +90,17 @@ export class RegisterTenantHandler {
       );
 
       return { tenant, user };
+    });
+
+    // ChantierOS staff hear about the new company (platform alert, no tenant row).
+    // Right after the commit and BEFORE the verification email: a mail provider
+    // that is down must not hide a company that really exists.
+    await this.notifications.dispatch('tenant_signed_up', {
+      payload: {
+        entity_id: tenant.id,
+        tenant_id: tenant.id,
+        company_name: dto.company_name,
+      },
     });
 
     // This verifies the registering user's OWN email (`users.email_verified_at`)

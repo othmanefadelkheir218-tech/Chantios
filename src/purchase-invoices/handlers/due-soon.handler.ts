@@ -6,7 +6,8 @@ import { PurchaseInvoiceRepository } from '../repositories/purchase-invoice.repo
 /**
  * `GET /api/purchase-invoices/due-soon` — the query behind the
  * "purchase bill due" alert: unpaid bills due within `days`, overdue ones
- * included.
+ * included. A read only — the daily `purchase-due` cron
+ * (`src/crons/purchase-due.cron.ts`) raises the alert from the same query.
  */
 @Injectable()
 export class DueSoonHandler {
@@ -19,7 +20,6 @@ export class DueSoonHandler {
   async execute(days: number) {
     this.logger.debug(`Looking for purchase invoices due within ${days} days`);
     const rows = await this.invoices.findDueSoon(days);
-    // TODO: step 13 — raise the "purchase bill due" alert for these rows
     return rows.map(toPurchaseInvoiceEntity);
   }
 }

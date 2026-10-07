@@ -1,3 +1,5 @@
+import { containing } from '../../common/testing/spec-helpers';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
@@ -30,6 +32,7 @@ const actor = { userId: 1, tenantId: 1, roleId: 1, email: 'admin@test.local' };
 const client = (over: Record<string, unknown> = {}) => ({
   id: 1,
   tenantId: 1,
+  email: 'client@test.local',
   isActive: true,
   ...over,
 });
@@ -92,6 +95,8 @@ const payment = (over: Record<string, unknown> = {}) => ({
   createdAt: FIXED_DATE,
   ...over,
 });
+
+const notifications = { dispatch: jest.fn() };
 
 describe('Invoices handlers', () => {
   const repo = {
@@ -160,6 +165,7 @@ describe('Invoices handlers', () => {
     ];
     const module = await Test.createTestingModule({
       providers: [
+        { provide: NotificationsService, useValue: notifications },
         ...handlers,
         { provide: InvoiceRepository, useValue: repo },
         { provide: PaymentRepository, useValue: paymentsRepo },
@@ -385,6 +391,23 @@ describe('Invoices handlers', () => {
       );
       const result = await sendInvoice.execute(50, actor);
       expect(result.status).toBe('sent');
+      // the "please pay" email goes to the client, in the tenant's locale
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'client_invoice_sent',
+        expect.objectContaining({
+          tenantId: 1,
+          clientEmail: 'client@test.local',
+          payload: containing({ invoice_ref: 'INV-2026-0001' }),
+        }),
+      );
+    });
+
+    it('a refused send emails nobody', async () => {
+      repo.findById.mockResolvedValue(invoice({ status: 'sent' }));
+      await expect(sendInvoice.execute(50, actor)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(notifications.dispatch).not.toHaveBeenCalled();
     });
   });
 
@@ -448,6 +471,14 @@ describe('Invoices handlers', () => {
 
       expect(repo.setStatus).toHaveBeenCalledWith(50, 'paid', {}, txMock);
       expect(result.status).toBe('paid');
+      // the billing staff hear that it is paid
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'invoice_paid',
+        expect.objectContaining({
+          tenantId: 1,
+          payload: containing({ invoice_ref: 'INV-2026-0001' }),
+        }),
+      );
     });
 
     it('pays part -> status partially_paid', async () => {
@@ -479,6 +510,8 @@ describe('Invoices handlers', () => {
         txMock,
       );
       expect(result.status).toBe('partially_paid');
+      // a part payment is not "paid": no invoice_paid alert
+      expect(notifications.dispatch).not.toHaveBeenCalled();
     });
 
     it('never writes overdue', async () => {
@@ -537,6 +570,23 @@ describe('Invoices handlers', () => {
       const result = await sendReminder.execute(50, actor);
       expect(result.reminderCount).toBe(1);
     });
+
+    it('emails the client the reminder with the balance still due', async () => {
+      repo.findById.mockResolvedValue(invoice({ status: 'sent' }));
+      repo.bumpReminder.mockResolvedValue(invoice({ reminderCount: 1 }));
+      clients.findByIdRaw.mockResolvedValue(client());
+      repo.findWithBalance.mockResolvedValue({
+        balanceDue: new Prisma.Decimal('710.00'),
+      });
+      await sendReminder.execute(50, actor);
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'client_invoice_late',
+        expect.objectContaining({
+          clientEmail: 'client@test.local',
+          payload: { invoice_ref: 'INV-2026-0001', balance_due: '710' },
+        }),
+      );
+    });
   });
 
   describe('LateInvoicesHandler', () => {
@@ -549,12 +599,26 @@ describe('Invoices handlers', () => {
           amountPaid: new Prisma.Decimal('0'),
           balanceDue: new Prisma.Decimal('1210.00'),
           isLate: true,
+          invoiceRef: 'INV-2026-0001',
         },
       ]);
       const result = await lateInvoices.execute();
       expect(result.lateCount).toBe(1);
+      // an alert only: no status, no row is ever written
       expect(repo.setStatus).not.toHaveBeenCalled();
       expect(repo.update).not.toHaveBeenCalled();
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'invoice_late',
+        expect.objectContaining({
+          tenantId: 1,
+          dedupeDays: 7,
+          payload: containing({
+            entity_id: 50,
+            invoice_ref: 'INV-2026-0001',
+            balance_due: '1210',
+          }),
+        }),
+      );
     });
   });
 

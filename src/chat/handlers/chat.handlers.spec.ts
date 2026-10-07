@@ -1,3 +1,5 @@
+import { callArg, containing } from '../../common/testing/spec-helpers';
+import { NotificationsService } from '../../notifications/notifications.service';
 import {
   BadRequestException,
   ConflictException,
@@ -13,6 +15,7 @@ import { TenantContextService } from '../../common/cls/tenant-context.service';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 import { MediaService } from '../../media/media.service';
 import { ProjectsService } from '../../projects/projects.service';
+import { ClientsService } from '../../clients/clients.service';
 import { UsersService } from '../../users/users.service';
 import { ChatGateway } from '../gateways/chat.gateway';
 import {
@@ -130,7 +133,9 @@ describe('Chat handlers', () => {
   const tenantPrisma = {
     db: { $transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)) },
   };
-  const users = { findActiveInTenant: jest.fn() };
+  const users = { findActiveInTenant: jest.fn(), findByIdRaw: jest.fn() };
+  const clients = { findByIdRaw: jest.fn() };
+  const notifications = { dispatch: jest.fn() };
   const projects = { findOne: jest.fn() };
   const media = { attachToEntity: jest.fn(), findByEntityIds: jest.fn() };
   const audit = { write: jest.fn() };
@@ -177,6 +182,8 @@ describe('Chat handlers', () => {
     ];
     const module = await Test.createTestingModule({
       providers: [
+        { provide: NotificationsService, useValue: notifications },
+        { provide: ClientsService, useValue: clients },
         ...handlers,
         { provide: ConversationRepository, useValue: conversations },
         { provide: MessageRepository, useValue: messages },
@@ -379,6 +386,71 @@ describe('Chat handlers', () => {
         tx,
       );
       expect(gateway.emitNewMessage).toHaveBeenCalledWith(30, result);
+    });
+
+    it('tells the OTHER employees of the thread (new_message), never the sender', async () => {
+      conversations.findById.mockResolvedValue(
+        conversation({
+          members: [
+            member({ userId: 1 }),
+            member({ userId: 2 }),
+            member({ userId: 3 }),
+          ],
+        }),
+      );
+      messages.create.mockResolvedValue(message());
+      users.findByIdRaw.mockResolvedValue({ id: 1, name: 'Sara' });
+      await send.execute(30, { content: 'hello team' }, actor);
+      expect(notifications.dispatch).toHaveBeenCalledTimes(1);
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'new_message',
+        expect.objectContaining({
+          tenantId: 1,
+          userIds: [2, 3],
+          payload: containing({
+            entity_id: 30,
+            sender_name: 'Sara',
+            preview: 'hello team',
+          }),
+        }),
+      );
+    });
+
+    it('a project_client thread also emails the client (client_portal_message)', async () => {
+      conversations.findById.mockResolvedValue(
+        conversation({
+          type: 'project_client',
+          members: [member({ userId: 1 }), member({ clientId: 8 })],
+        }),
+      );
+      messages.create.mockResolvedValue(message());
+      users.findByIdRaw.mockResolvedValue({ id: 1, name: 'Sara' });
+      clients.findByIdRaw.mockResolvedValue({
+        id: 8,
+        email: 'client@test.local',
+      });
+      await send.execute(30, { content: 'a reply' }, actor);
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'client_portal_message',
+        expect.objectContaining({
+          tenantId: 1,
+          clientEmail: 'client@test.local',
+          payload: { preview: 'a reply' },
+        }),
+      );
+    });
+
+    it('a long message is cut to a preview', async () => {
+      conversations.findById.mockResolvedValue(conversation());
+      messages.create.mockResolvedValue(message());
+      users.findByIdRaw.mockResolvedValue({ id: 1, name: 'Sara' });
+      await send.execute(30, { content: 'x'.repeat(500) }, actor);
+      const context = callArg<{ payload: { preview: string } }>(
+        notifications.dispatch,
+        0,
+        1,
+      );
+      expect(context.payload.preview.length).toBeLessThanOrEqual(123);
     });
 
     it('a bad attachment rolls the message back: nothing is emitted', async () => {
@@ -660,6 +732,18 @@ describe('Chat handlers', () => {
         expect.objectContaining({ action: 'support_reply', adminUserId: 9 }),
       );
       expect(gateway.emitNewMessage).toHaveBeenCalledTimes(1);
+      // the tenant's own people (not the platform admin) are told: support_reply
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'support_reply',
+        expect.objectContaining({
+          tenantId: 1,
+          userIds: expect.any(Array) as unknown[],
+          payload: containing({
+            entity_id: 30,
+            preview: 'on it',
+          }),
+        }),
+      );
     });
 
     it('a reply on an archived thread, or to another tenant, is refused', async () => {
@@ -734,6 +818,7 @@ describe('ChatGateway', () => {
     cls.run.mockImplementation((fn: () => Promise<unknown>) => fn());
     const module = await Test.createTestingModule({
       providers: [
+        { provide: NotificationsService, useValue: { dispatch: jest.fn() } },
         ChatGateway,
         { provide: TokenHelper, useValue: tokens },
         { provide: ClsService, useValue: cls },

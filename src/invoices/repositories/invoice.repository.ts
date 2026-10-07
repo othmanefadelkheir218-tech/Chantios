@@ -21,6 +21,7 @@ export interface InvoiceBalanceRow {
   amountPaid: Prisma.Decimal;
   balanceDue: Prisma.Decimal;
   isLate: boolean;
+  invoiceRef?: string;
 }
 
 /**
@@ -193,11 +194,13 @@ export class InvoiceRepository {
    */
   findLate(): Promise<InvoiceBalanceRow[]> {
     return this.prisma.$queryRaw<InvoiceBalanceRow[]>`
-      SELECT invoice_id AS "invoiceId", tenant_id AS "tenantId",
-             amount_incl_vat AS "amountInclVat", amount_paid AS "amountPaid",
-             balance_due AS "balanceDue", is_late AS "isLate"
-      FROM invoice_balance
-      WHERE is_late = true
+      SELECT b.invoice_id AS "invoiceId", b.tenant_id AS "tenantId",
+             b.amount_incl_vat AS "amountInclVat", b.amount_paid AS "amountPaid",
+             b.balance_due AS "balanceDue", b.is_late AS "isLate",
+             i.number AS "invoiceRef"
+      FROM invoice_balance b
+      JOIN invoices i ON i.id = b.invoice_id AND i.tenant_id = b.tenant_id
+      WHERE b.is_late = true
     `;
   }
 

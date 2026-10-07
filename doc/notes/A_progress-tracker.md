@@ -148,6 +148,8 @@
 
 - [ ] **Payments cannot actually go negative** — found during step 06's build (2026-10-06): `payments.amount` carries a DB `CHECK (amount > 0)` (`doc/Schema Proposal.md` § 6), but the decided Overpayment rule describes "a positive top-up or a negative correction" and a correction "naturally reopening `paid → partially_paid`". Under the real constraint, `amount_paid` can only ever increase, so `balance_due` can only ever fall — a `paid` invoice can never reopen. Either the CHECK needs relaxing (a migration) or the "negative correction" language needs rewriting to describe what's actually buildable. Not decided, not invented — see \[\[phase-05-quotes-invoices\]\] § Overpayment and `doc/notes/test/10-quotes-invoices.md` § 4.
 
+- [ ] **Stalled project — how many days?** — found in step 13 (2026-10-07): `planning-time-entries.md` says "several days" with no number. Built as **5** (`STALLED_PROJECT_DAYS` in `src/time-entries/helpers/stalled-project.helper.ts`), one line to change. Owner to confirm.
+
 - [ ] **Frontend** — not started, backend first.
 
 ## Related notes

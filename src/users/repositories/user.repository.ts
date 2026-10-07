@@ -48,6 +48,25 @@ export class UserRepository {
     return this.prisma.user.findUnique({ where: { id } });
   }
 
+  /**
+   * Active users of the CURRENT tenant with their role name — what the
+   * notifications module needs to pick recipients. `ids` narrows it to named
+   * users (a worker's task, the members of a conversation).
+   */
+  findActiveWithRole(ids?: number[]) {
+    return this.tenantPrisma.db.user.findMany({
+      where: { isActive: true, ...(ids && { id: { in: ids } }) },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        roleId: true,
+        role: { select: { name: true } },
+      },
+      orderBy: { id: 'asc' },
+    });
+  }
+
   async findMany(
     where: Prisma.UserWhereInput,
     skip: number,

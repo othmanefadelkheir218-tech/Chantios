@@ -5,10 +5,12 @@ import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
 import { assertDateOrder } from '../../common/helpers/date-range.helper';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { ProjectsService } from '../../projects/projects.service';
 import { UsersService } from '../../users/users.service';
 import { CreateTaskDto } from '../dto/create-task.dto';
 import { assertValidAssignees } from '../helpers/assignees.helper';
+import { taskAlertContext } from '../helpers/task-alert.helper';
 import { assertFullScope, toTaskEntity } from '../helpers/task.helper';
 import { TaskRepository } from '../repositories/task.repository';
 
@@ -28,6 +30,7 @@ export class CreateTaskHandler {
     private readonly projects: ProjectsService,
     private readonly users: UsersService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async execute(
@@ -86,6 +89,19 @@ export class CreateTaskHandler {
       newValue: entity,
       ipAddress: null,
     });
+    if (assigneeIds.length > 0) {
+      await this.notifications.dispatch(
+        'task_assigned',
+        taskAlertContext(
+          actor.tenantId,
+          created,
+          project.name,
+          assigneeIds,
+          {},
+          actor.userId,
+        ),
+      );
+    }
     this.logger.info(
       `Task created: ${created.id} with ${assigneeIds.length} assignee(s)`,
     );

@@ -5,6 +5,7 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { FindAnalyticsQueryDto } from './dto/find-analytics-query.dto';
 import { ANALYTICS_QUEUE, TrackEventInput } from './dto/track-event.dto';
 import { FindAnalyticsHandler } from './handlers/find-analytics.handler';
+import { AnalyticsRepository } from './repositories/analytics.repository';
 
 @Injectable()
 export class AnalyticsService {
@@ -13,6 +14,7 @@ export class AnalyticsService {
     private readonly logger: PinoLogger,
     @InjectQueue(ANALYTICS_QUEUE) private readonly queue: Queue,
     private readonly findAnalytics: FindAnalyticsHandler,
+    private readonly analytics: AnalyticsRepository,
   ) {}
 
   /**
@@ -33,6 +35,11 @@ export class AnalyticsService {
           `Analytics event ${event.eventName} dropped: ${String(error)}`,
         ),
       );
+  }
+
+  /** Retention cron: deletes this company's events older than `before`. */
+  purgeBefore(tenantId: number, before: Date): Promise<number> {
+    return this.analytics.deleteOlderThan(tenantId, before);
   }
 
   findAll(query: FindAnalyticsQueryDto) {

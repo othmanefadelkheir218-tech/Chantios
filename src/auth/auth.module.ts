@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AdminUsersModule } from '../admin-users/admin-users.module';
 import { EmailModule } from '../email/email.module';
 import { OneTimeCodesModule } from '../one-time-codes/one-time-codes.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { PlansModule } from '../plans/plans.module';
 import { RolesModule } from '../roles/roles.module';
 import { SessionsModule } from '../sessions/sessions.module';
@@ -52,6 +53,7 @@ import { TokenModule } from './token.module';
     SubscriptionsModule,
     TenantsModule,
     PlansModule,
+    NotificationsModule, // tenant_signed_up
   ],
   controllers: [AuthController, MobileAuthController, AdminAuthController],
   providers: [

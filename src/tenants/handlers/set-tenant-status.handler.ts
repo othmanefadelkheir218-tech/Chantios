@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
+import { AppEventsService } from '../../common/events/app-events.service';
 import { SessionsService } from '../../sessions/sessions.service';
 import { RequestActor } from '../../common/decorators/actor.decorator';
 import { SetTenantStatusDto } from '../dto/suspend-tenant.dto';
@@ -19,6 +20,7 @@ export class SetTenantStatusHandler {
     private readonly tenants: TenantRepository,
     private readonly audit: AuditService,
     private readonly sessions: SessionsService,
+    private readonly events: AppEventsService,
   ) {}
 
   async execute(id: number, dto: SetTenantStatusDto, actor: RequestActor) {
@@ -47,6 +49,12 @@ export class SetTenantStatusHandler {
       oldValue: { status: current.status },
       newValue: { status: updated.status, reason: dto.reason ?? null },
       ipAddress: actor.ip,
+    });
+    // ChantierOS staff are told by `notifications` (it listens; this module must not import it).
+    this.events.emit('tenant.status_changed', {
+      tenantId: id,
+      companyName: updated.name,
+      status: updated.status,
     });
     this.logger.info(`Tenant ${id}: ${current.status} -> ${updated.status}`);
     return toTenantEntity(updated);

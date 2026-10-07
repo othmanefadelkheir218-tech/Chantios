@@ -1,3 +1,5 @@
+import { containing } from '../../common/testing/spec-helpers';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getLoggerToken } from 'nestjs-pino';
@@ -57,6 +59,7 @@ describe('Tasks handlers', () => {
   const projects = { findOne: jest.fn() };
   const users = { findActiveInTenant: jest.fn() };
   const audit = { write: jest.fn() };
+  const notifications = { dispatch: jest.fn() };
   const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn() };
 
   let create: CreateTaskHandler;
@@ -77,6 +80,7 @@ describe('Tasks handlers', () => {
     ];
     const module = await Test.createTestingModule({
       providers: [
+        { provide: NotificationsService, useValue: notifications },
         ...handlers,
         { provide: TaskRepository, useValue: repo },
         { provide: TenantPrismaService, useValue: tenantPrisma },
@@ -177,6 +181,7 @@ describe('Tasks handlers', () => {
         .mockResolvedValueOnce(
           task({ status: 'in_progress', assignees: [{ userId: 3 }] }),
         );
+      projects.findOne.mockResolvedValue({ name: 'Site' });
       const result = await setStatus.execute(
         5,
         { status: 'in_progress' },
@@ -185,6 +190,20 @@ describe('Tasks handlers', () => {
       );
       expect(repo.setStatus).toHaveBeenCalledWith(5, 'in_progress');
       expect(result.status).toBe('in_progress');
+      // the assignees hear about it — never the person who made the change
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'task_status_changed',
+        expect.objectContaining({
+          tenantId: 1,
+          userIds: [3],
+          excludeUserIds: [actor.userId],
+          payload: containing({
+            entity_id: 5,
+            status: 'in_progress',
+            project_name: 'Site',
+          }),
+        }),
+      );
     });
   });
 
@@ -194,6 +213,7 @@ describe('Tasks handlers', () => {
         .mockResolvedValueOnce(task({ assignees: [{ userId: 3 }] }))
         .mockResolvedValueOnce(task({ assignees: [{ userId: 7 }] }));
       users.findActiveInTenant.mockResolvedValue({ id: 7 });
+      projects.findOne.mockResolvedValue({ name: 'Site' });
       const result = await setAssignees.execute(
         5,
         { user_ids: [7] },
@@ -202,6 +222,31 @@ describe('Tasks handlers', () => {
       );
       expect(repo.replaceAssignees).toHaveBeenCalledWith(5, 1, [7], tx);
       expect(result.assigneeIds).toEqual([7]);
+    });
+
+    it('only the NEWLY added assignees are told (user 3 stays, user 7 is new)', async () => {
+      repo.findById
+        .mockResolvedValueOnce(task({ assignees: [{ userId: 3 }] }))
+        .mockResolvedValueOnce(
+          task({ assignees: [{ userId: 3 }, { userId: 7 }] }),
+        );
+      users.findActiveInTenant.mockResolvedValue({ id: 7 });
+      projects.findOne.mockResolvedValue({ name: 'Site' });
+      await setAssignees.execute(5, { user_ids: [3, 7] }, actor, 'all');
+      expect(notifications.dispatch).toHaveBeenCalledTimes(1);
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'task_assigned',
+        expect.objectContaining({ userIds: [7] }),
+      );
+    });
+
+    it('nobody new -> no alert', async () => {
+      repo.findById
+        .mockResolvedValueOnce(task({ assignees: [{ userId: 3 }] }))
+        .mockResolvedValueOnce(task({ assignees: [{ userId: 3 }] }));
+      users.findActiveInTenant.mockResolvedValue({ id: 3 });
+      await setAssignees.execute(5, { user_ids: [3] }, actor, 'all');
+      expect(notifications.dispatch).not.toHaveBeenCalled();
     });
 
     it('refuses duplicates', async () => {

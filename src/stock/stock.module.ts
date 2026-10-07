@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { TokenModule } from '../auth/token.module';
 import { MaterialsModule } from '../materials/materials.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { RolesModule } from '../roles/roles.module';
 import { ServicesModule } from '../services/services.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
@@ -33,6 +34,7 @@ import { StockService } from './stock.service';
     // `check-coverage` reads the live stock level the same way — never this
     // module reaching into `materials`' repository.
     MaterialsModule,
+    NotificationsModule, // low_stock / reservation_unmet from `check-coverage`
     // `create-reservations.handler` walks the recipe through
     // `ServicesService` (never its repository).
     ServicesModule,

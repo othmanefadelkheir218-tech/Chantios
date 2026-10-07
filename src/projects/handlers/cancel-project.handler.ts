@@ -5,6 +5,7 @@ import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 import { MarginsService } from '../../margins/margins.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { StockService } from '../../stock/stock.service';
 import { toProjectEntity } from '../helpers/project.helper';
 import { ProjectStatusHistoryRepository } from '../repositories/project-status-history.repository';
@@ -32,6 +33,7 @@ export class CancelProjectHandler {
     private readonly audit: AuditService,
     private readonly tenantPrisma: TenantPrismaService,
     private readonly margins: MarginsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async execute(
@@ -75,8 +77,15 @@ export class CancelProjectHandler {
     // § "When a project is cancelled").
     await this.stock.releaseByProject(project.id, actor);
 
-    // TODO: step 13 — fire the "don't forget to invoice the client for
-    // completed work" alert here, once the alerts module exists.
+    // "Remember to invoice the client for the work already done."
+    await this.notifications.dispatch('project_cancelled', {
+      tenantId: actor.tenantId,
+      payload: {
+        entity_id: project.id,
+        project_id: project.id,
+        project_name: project.name,
+      },
+    });
 
     const entity = toProjectEntity(updated);
     await this.audit.write({

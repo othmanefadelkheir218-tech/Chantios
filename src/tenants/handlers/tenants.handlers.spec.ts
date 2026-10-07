@@ -13,6 +13,7 @@ import { CreateTenantHandler } from './create-tenant.handler';
 import { RestoreTenantHandler } from './restore-tenant.handler';
 import { RestoreTenantsHandler } from './restore-tenants.handler';
 import { SendTenantVerificationEmailHandler } from './send-tenant-verification-email.handler';
+import { AppEventsService } from '../../common/events/app-events.service';
 import { SessionsService } from '../../sessions/sessions.service';
 import { SetTenantStatusHandler } from './set-tenant-status.handler';
 import { SoftDeleteTenantHandler } from './soft-delete-tenant.handler';
@@ -33,6 +34,7 @@ const tenant = (over: Record<string, unknown> = {}) => ({
 });
 
 const revokeAllForTenant = jest.fn();
+const emitEvent = jest.fn();
 
 describe('Tenants handlers', () => {
   const repo = {
@@ -74,6 +76,7 @@ describe('Tenants handlers', () => {
       VerifyTenantEmailHandler,
     ];
     revokeAllForTenant.mockReset();
+    emitEvent.mockReset();
     const module = await Test.createTestingModule({
       providers: [
         ...handlers,
@@ -81,6 +84,7 @@ describe('Tenants handlers', () => {
         { provide: AuditService, useValue: audit },
         { provide: OneTimeCodesService, useValue: codes },
         { provide: EmailService, useValue: email },
+        { provide: AppEventsService, useValue: { emit: emitEvent } },
         {
           provide: SessionsService,
           useValue: { revokeAllForTenant: revokeAllForTenant },
@@ -170,6 +174,25 @@ describe('Tenants handlers', () => {
         oldValue: { status: 'active' },
         newValue: { status: 'suspended', reason: 'unpaid' },
       });
+    });
+
+    it('announces the change on the event bus (platform staff are told by notifications)', async () => {
+      repo.findById.mockResolvedValue(tenant());
+      repo.setStatus.mockResolvedValue(tenant({ status: 'suspended' }));
+      await setStatus.execute(1, { status: 'suspended' }, actor);
+      expect(emitEvent).toHaveBeenCalledWith('tenant.status_changed', {
+        tenantId: 1,
+        companyName: 'Dupont',
+        status: 'suspended',
+      });
+    });
+
+    it('announces nothing when the change is refused', async () => {
+      repo.findById.mockResolvedValue(tenant());
+      await expect(
+        setStatus.execute(1, { status: 'active' }, actor),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(emitEvent).not.toHaveBeenCalled();
     });
 
     it('refuses an unchanged status', async () => {

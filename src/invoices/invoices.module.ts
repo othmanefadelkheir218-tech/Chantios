@@ -5,6 +5,7 @@ import { ClientsModule } from '../clients/clients.module';
 import { DocumentsModule } from '../documents/documents.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { QuotesModule } from '../quotes/quotes.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { RolesModule } from '../roles/roles.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantsModule } from '../tenants/tenants.module';
@@ -34,6 +35,7 @@ import { ProjectInvoiceCoverageController } from './project-invoice-coverage.con
     RolesModule,
     SubscriptionsModule,
     TenantsModule,
+    NotificationsModule, // late-invoice alert, client emails, invoice paid
     // `create-invoice.handler` validates `client_id` through `ClientsService`.
     ClientsModule,
     // `create-invoice.handler` validates `project_id`;

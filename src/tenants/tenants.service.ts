@@ -86,6 +86,16 @@ export class TenantsService {
     return this.verifyEmail.execute(id, dto, actor);
   }
 
+  /** Locale, timezone and end-of-day time of one company — used by notifications. */
+  findForNotifications(id: number) {
+    return this.tenants.findById(id);
+  }
+
+  /** The companies the crons walk (status `active`, not deleted). */
+  findAllActive() {
+    return this.tenants.findAllActive();
+  }
+
   /**
    * One-line passthrough, no business decision to make (same spirit as the
    * other internal methods on `UsersService`). Called by the media module

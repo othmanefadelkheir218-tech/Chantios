@@ -1,3 +1,5 @@
+import { containing } from '../../common/testing/spec-helpers';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
@@ -81,6 +83,7 @@ describe('Stock handlers', () => {
   const materials = { findByIdRaw: jest.fn(), getStockLevel: jest.fn() };
   const services = { getRecipeRaw: jest.fn() };
   const audit = { write: jest.fn() };
+  const notifications = { dispatch: jest.fn() };
   const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn() };
 
   let recordPurchase: RecordPurchaseHandler;
@@ -108,6 +111,7 @@ describe('Stock handlers', () => {
     ];
     const module = await Test.createTestingModule({
       providers: [
+        { provide: NotificationsService, useValue: notifications },
         ...handlers,
         { provide: StockMovementRepository, useValue: movementsRepo },
         { provide: StockReservationRepository, useValue: reservationsRepo },
@@ -220,7 +224,29 @@ describe('Stock handlers', () => {
           type: 'adjustment',
         }),
       );
-      expect(materials.getStockLevel).not.toHaveBeenCalled();
+      // a negative adjustment can drop the stock to its minimum: it is checked too
+      expect(materials.getStockLevel).toHaveBeenCalledWith(5);
+    });
+
+    it('a negative adjustment that reaches the minimum raises low_stock', async () => {
+      materials.findByIdRaw.mockResolvedValue(material());
+      movementsRepo.create.mockResolvedValue(
+        movement({ type: 'adjustment', quantity: new Prisma.Decimal('-90') }),
+      );
+      materials.getStockLevel.mockResolvedValue({
+        materialId: 5,
+        onHand: new Prisma.Decimal(10),
+        reserved: new Prisma.Decimal(0),
+        available: new Prisma.Decimal(10),
+      });
+      await recordAdjustment.execute(
+        { material_id: 5, quantity: '-90', note: 'stock count' },
+        actor,
+      );
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'low_stock',
+        expect.objectContaining({ tenantId: 1 }),
+      );
     });
 
     it('runs the coverage check for a positive adjustment', async () => {
@@ -399,9 +425,80 @@ describe('Stock handlers', () => {
 
   describe('CheckCoverageHandler', () => {
     it('reports covered when available >= 0', async () => {
-      const result = await checkCoverage.execute(5);
+      materials.findByIdRaw.mockResolvedValue(material());
+      const result = await checkCoverage.execute(5, 1);
       expect(result.covered).toBe(true);
       expect(result.available.toString()).toBe('70');
+      expect(notifications.dispatch).not.toHaveBeenCalled();
+    });
+
+    it('raises low_stock when on_hand is at or below minimum_stock', async () => {
+      materials.findByIdRaw.mockResolvedValue(material());
+      materials.getStockLevel.mockResolvedValue({
+        materialId: 5,
+        onHand: new Prisma.Decimal(10),
+        reserved: new Prisma.Decimal(0),
+        available: new Prisma.Decimal(10),
+      });
+      await checkCoverage.execute(5, 1);
+      expect(notifications.dispatch).toHaveBeenCalledTimes(1);
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'low_stock',
+        expect.objectContaining({
+          tenantId: 1,
+          dedupeDays: 1,
+          payload: containing({
+            entity_id: 5,
+            material_name: 'Paint',
+            on_hand: '10',
+          }),
+        }),
+      );
+    });
+
+    it('raises reservation_unmet when available < 0', async () => {
+      materials.findByIdRaw.mockResolvedValue(material());
+      materials.getStockLevel.mockResolvedValue({
+        materialId: 5,
+        onHand: new Prisma.Decimal(50),
+        reserved: new Prisma.Decimal(80),
+        available: new Prisma.Decimal(-30),
+      });
+      await checkCoverage.execute(5, 1);
+      expect(notifications.dispatch).toHaveBeenCalledTimes(1);
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'reservation_unmet',
+        expect.objectContaining({
+          payload: containing({ short_by: '30' }),
+        }),
+      );
+    });
+
+    it('raises both when stock is low AND the reservations are not covered', async () => {
+      materials.findByIdRaw.mockResolvedValue(material());
+      materials.getStockLevel.mockResolvedValue({
+        materialId: 5,
+        onHand: new Prisma.Decimal(4),
+        reserved: new Prisma.Decimal(9),
+        available: new Prisma.Decimal(-5),
+      });
+      await checkCoverage.execute(5, 1);
+      const types = notifications.dispatch.mock.calls.map(
+        (call: unknown[]) => call[0],
+      );
+      expect(types).toEqual(['low_stock', 'reservation_unmet']);
+    });
+
+    it('stays silent for an archived material', async () => {
+      materials.findByIdRaw.mockResolvedValue(material({ isActive: false }));
+      materials.getStockLevel.mockResolvedValue({
+        materialId: 5,
+        onHand: new Prisma.Decimal(0),
+        reserved: new Prisma.Decimal(0),
+        available: new Prisma.Decimal(0),
+      });
+      await checkCoverage.execute(5, 1);
+      expect(notifications.dispatch).not.toHaveBeenCalled();
     });
 
     it('reports not covered when available < 0', async () => {
@@ -411,7 +508,8 @@ describe('Stock handlers', () => {
         reserved: new Prisma.Decimal(40),
         available: new Prisma.Decimal(-30),
       });
-      const result = await checkCoverage.execute(5);
+      materials.findByIdRaw.mockResolvedValue(material());
+      const result = await checkCoverage.execute(5, 1);
       expect(result.covered).toBe(false);
     });
   });

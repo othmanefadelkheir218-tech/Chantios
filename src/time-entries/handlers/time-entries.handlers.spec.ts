@@ -1,3 +1,5 @@
+import { containing } from '../../common/testing/spec-helpers';
+import { NotificationsService } from '../../notifications/notifications.service';
 import {
   BadRequestException,
   ForbiddenException,
@@ -44,6 +46,8 @@ const body = (over: Record<string, unknown> = {}) => ({
   hours: '8',
   ...over,
 });
+
+const notifications = { dispatch: jest.fn() };
 
 describe('daily-hours.helper — the day rule', () => {
   const d = (n: string) => new Prisma.Decimal(n);
@@ -110,6 +114,7 @@ describe('Time entries handlers', () => {
     ];
     const module = await Test.createTestingModule({
       providers: [
+        { provide: NotificationsService, useValue: notifications },
         ...handlers,
         { provide: TimeEntryRepository, useValue: repo },
         { provide: ProjectsService, useValue: projects },
@@ -132,6 +137,7 @@ describe('Time entries handlers', () => {
     projects.findOne.mockResolvedValue({ id: 12 });
     users.findActiveInTenant.mockResolvedValue({
       id: 7,
+      name: 'Omar',
       hourlyRate: new Prisma.Decimal('30'),
     });
     repo.findByUserProjectDate.mockResolvedValue(null);
@@ -163,6 +169,25 @@ describe('Time entries handlers', () => {
       const result = await create.execute(body({ hours: '6' }), worker, 'own');
       expect(result.abnormalHours).toBe(true);
       expect(result.dailyTotalHours).toBe('13.00');
+      // the manager is told, once a day per employee
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'abnormal_hours',
+        expect.objectContaining({
+          tenantId: worker.tenantId,
+          dedupeDays: 1,
+          payload: containing({
+            entity_id: 7,
+            employee_name: 'Omar',
+            hours: '13.00',
+          }),
+        }),
+      );
+    });
+
+    it('a normal day sends no alert', async () => {
+      repo.create.mockResolvedValue(entry());
+      await create.execute(body(), worker, 'own');
+      expect(notifications.dispatch).not.toHaveBeenCalled();
     });
 
     it('20h + 20h on two projects: the second is rejected', async () => {

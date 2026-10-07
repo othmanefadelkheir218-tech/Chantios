@@ -1,3 +1,4 @@
+import { NotificationsService } from '../../notifications/notifications.service';
 import {
   BadRequestException,
   ForbiddenException,
@@ -56,6 +57,8 @@ jest.mock('../../common/helpers/password.helper', () => ({
   ),
 }));
 
+const notifications = { dispatch: jest.fn() };
+
 describe('Auth handlers', () => {
   const users = {
     findByEmail: jest.fn(),
@@ -109,6 +112,7 @@ describe('Auth handlers', () => {
     ];
     const module = await Test.createTestingModule({
       providers: [
+        { provide: NotificationsService, useValue: notifications },
         ...handlers,
         { provide: UsersService, useValue: users },
         { provide: TenantsService, useValue: tenants },
@@ -375,6 +379,10 @@ describe('Auth handlers', () => {
         expect.anything(),
       );
       expect(email.send).toHaveBeenCalledTimes(1);
+      // ChantierOS staff are told about the new company (a platform alert)
+      expect(notifications.dispatch).toHaveBeenCalledWith('tenant_signed_up', {
+        payload: { entity_id: 10, tenant_id: 10, company_name: 'Acme' },
+      });
       expect(result.tenant_id).toBe(10);
     });
   });

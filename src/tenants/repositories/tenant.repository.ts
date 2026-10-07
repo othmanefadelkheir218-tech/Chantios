@@ -35,6 +35,14 @@ export class TenantRepository {
     return this.prisma.tenant.findFirst({ where: { id, deletedAt: null } });
   }
 
+  /** Every live, active company — the daily and hourly crons walk this list. */
+  findAllActive(): Promise<Tenant[]> {
+    return this.prisma.tenant.findMany({
+      where: { status: 'active', deletedAt: null },
+      orderBy: { id: 'asc' },
+    });
+  }
+
   /** Bypasses the soft-delete filter — restore needs to find an already-deleted row. */
   findByIdIncludingDeleted(id: number): Promise<Tenant | null> {
     return this.prisma.tenant.findUnique({ where: { id } });

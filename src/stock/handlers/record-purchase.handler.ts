@@ -68,7 +68,7 @@ export class RecordPurchaseHandler {
       `Purchase recorded: movement ${created.id}, material ${dto.material_id}, qty ${dto.quantity}`,
     );
 
-    await this.checkCoverage.execute(dto.material_id);
+    await this.checkCoverage.execute(dto.material_id, actor.tenantId);
     return entity;
   }
 }

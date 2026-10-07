@@ -4,6 +4,7 @@ import { TokenModule } from '../auth/token.module';
 import { MarginsModule } from '../margins/margins.module';
 import { MediaModule } from '../media/media.module';
 import { ProjectsModule } from '../projects/projects.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { RolesModule } from '../roles/roles.module';
 import { ServicesModule } from '../services/services.module';
 import { StockModule } from '../stock/stock.module';
@@ -31,6 +32,7 @@ import { ReportsService } from './reports.service';
     ServicesModule, // validates `service_id`
     MediaModule, // the report's photos
     MarginsModule, // the 80 % / 95 % check after declared material
+    NotificationsModule, // the missing-report / progress-stalled alerts
     // What `@TenantAuth()`'s guards need to resolve their own dependencies.
     TokenModule,
     RolesModule,

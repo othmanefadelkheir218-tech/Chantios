@@ -9,6 +9,7 @@ import { DeleteTimeEntryHandler } from './handlers/delete-time-entry.handler';
 import { FindTimeEntriesHandler } from './handlers/find-time-entries.handler';
 import { ProjectLabourCostHandler } from './handlers/project-labour-cost.handler';
 import { UpdateTimeEntryHandler } from './handlers/update-time-entry.handler';
+import { TimeEntryRepository } from './repositories/time-entry.repository';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
 @Injectable()
@@ -19,6 +20,7 @@ export class TimeEntriesService {
     private readonly updateEntry: UpdateTimeEntryHandler,
     private readonly deleteEntry: DeleteTimeEntryHandler,
     private readonly labourCost: ProjectLabourCostHandler,
+    private readonly entries: TimeEntryRepository,
   ) {}
 
   create(
@@ -56,6 +58,23 @@ export class TimeEntriesService {
 
   remove(id: number, actor: AuthenticatedUser, scope: PermissionScope) {
     return this.deleteEntry.execute(id, actor, scope);
+  }
+
+  // ---- Internal API for the alert crons ----
+
+  /** `stalled_project`: in-progress projects with no hours for `days` days. */
+  findStalledProjects(days: number, tenantId: number) {
+    return this.entries.findProjectsWithNoEntriesSince(days, tenantId);
+  }
+
+  /** `missing_timesheet`: employees with a task in progress and no hours on `date` (`YYYY-MM-DD`). */
+  findMissingTimesheets(date: string, tenantId: number) {
+    return this.entries.findMissingTimesheets(date, tenantId);
+  }
+
+  /** The users who logged hours on `date` — the end-of-day reminder skips them. */
+  findUserIdsWithHoursOn(date: Date) {
+    return this.entries.findUserIdsWithEntryOn(date);
   }
 
   projectLabourCost(projectId: number, actor: AuthenticatedUser) {

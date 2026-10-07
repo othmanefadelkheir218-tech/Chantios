@@ -2,10 +2,18 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
+import { NotificationsService } from '../../notifications/notifications.service';
+import { ClientsService } from '../../clients/clients.service';
+import { UsersService } from '../../users/users.service';
 import { MediaService } from '../../media/media.service';
 import { ChatGateway } from '../gateways/chat.gateway';
 import { SendMessageDto } from '../dto/send-message.dto';
 import { toMessageEntity } from '../helpers/chat.helper';
+import {
+  clientMemberId,
+  newMessageContext,
+  previewOf,
+} from '../helpers/message-alert.helper';
 import { MessageRepository } from '../repositories/message.repository';
 import { CheckAccessHandler } from './check-access.handler';
 
@@ -28,6 +36,9 @@ export class SendMessageHandler {
     private readonly access: CheckAccessHandler,
     private readonly media: MediaService,
     private readonly gateway: ChatGateway,
+    private readonly notifications: NotificationsService,
+    private readonly users: UsersService,
+    private readonly clients: ClientsService,
   ) {}
 
   async execute(
@@ -74,10 +85,41 @@ export class SendMessageHandler {
     const entity = toMessageEntity(created, files.get(created.id) ?? []);
 
     this.gateway.emitNewMessage(conversationId, entity);
-    // TODO: step 13 — queue the notification + email to every other member of this conversation
+    await this.notifyMembers(conversation, actor, content);
     this.logger.info(
       `Message ${created.id} sent to conversation ${conversationId}`,
     );
     return entity;
+  }
+
+  /**
+   * `new_message` to every other employee of the thread, and — in a
+   * `project_client` thread — the "you have a reply" email to the client.
+   */
+  private async notifyMembers(
+    conversation: Awaited<ReturnType<CheckAccessHandler['assertMember']>>,
+    actor: AuthenticatedUser,
+    content: string,
+  ): Promise<void> {
+    const sender = await this.users.findByIdRaw(actor.userId);
+    await this.notifications.dispatch(
+      'new_message',
+      newMessageContext(
+        conversation,
+        sender?.name ?? 'A colleague',
+        content,
+        actor.userId,
+      ),
+    );
+
+    const clientId = clientMemberId(conversation);
+    const client = clientId ? await this.clients.findByIdRaw(clientId) : null;
+    if (client) {
+      await this.notifications.dispatch('client_portal_message', {
+        tenantId: conversation.tenantId,
+        clientEmail: client.email,
+        payload: { preview: previewOf(content) },
+      });
+    }
   }
 }

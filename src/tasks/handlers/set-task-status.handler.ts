@@ -6,6 +6,9 @@ import {
 import type { PermissionScope } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
+import { NotificationsService } from '../../notifications/notifications.service';
+import { ProjectsService } from '../../projects/projects.service';
+import { taskAlertContext } from '../helpers/task-alert.helper';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
 import { SetTaskStatusDto } from '../dto/set-task-status.dto';
 import {
@@ -23,6 +26,8 @@ export class SetTaskStatusHandler {
     private readonly logger: PinoLogger,
     private readonly tasks: TaskRepository,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
+    private readonly projects: ProjectsService,
   ) {}
 
   async execute(
@@ -59,6 +64,18 @@ export class SetTaskStatusHandler {
       newValue: { status: dto.status },
       ipAddress: null,
     });
+    const project = await this.projects.findOne(current.projectId);
+    await this.notifications.dispatch(
+      'task_status_changed',
+      taskAlertContext(
+        actor.tenantId,
+        current,
+        project.name,
+        current.assignees.map((a) => a.userId),
+        { status: dto.status },
+        actor.userId,
+      ),
+    );
     this.logger.info(`Task ${id} is now ${dto.status}`);
     return entity;
   }

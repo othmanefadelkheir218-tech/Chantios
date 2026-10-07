@@ -13,6 +13,8 @@ import { CategoriesModule } from './categories/categories.module';
 import { ClientsModule } from './clients/clients.module';
 import { validateEnv } from './config/env.config';
 import { loggerConfig } from './config/logger.config';
+import { CommonEventsModule } from './common/events/events.module';
+import { CronsModule } from './crons/crons.module';
 import { DocumentsModule } from './documents/documents.module';
 import { EmailModule } from './email/email.module';
 import { FeedbackModule } from './feedback/feedback.module';
@@ -34,6 +36,7 @@ import { OneTimeCodesModule } from './one-time-codes/one-time-codes.module';
 import { PlansModule } from './plans/plans.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProjectsModule } from './projects/projects.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { PortalModule } from './portal/portal.module';
 import { QuotesModule } from './quotes/quotes.module';
 import { RolesModule } from './roles/roles.module';
@@ -63,6 +66,7 @@ import { UsersModule } from './users/users.module';
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 100 }]),
     ScheduleModule.forRoot(),
     PrismaModule,
+    CommonEventsModule,
     HealthModule,
     StripeModule,
     // Step 01 — platform
@@ -110,6 +114,9 @@ import { UsersModule } from './users/users.module';
     ChatModule,
     // Step 12 — client portal
     PortalModule,
+    // Step 13 — alerts & notifications
+    NotificationsModule,
+    CronsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

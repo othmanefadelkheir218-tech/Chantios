@@ -9,8 +9,11 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
 import { MarginsService } from '../../margins/margins.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { TasksService } from '../../tasks/tasks.service';
+import { UsersService } from '../../users/users.service';
 import { UpdateTimeEntryDto } from '../dto/update-time-entry.dto';
+import { abnormalHoursContext } from '../helpers/abnormal-hours.helper';
 import { checkDailyTotal } from '../helpers/daily-hours.helper';
 import {
   assertHoursRange,
@@ -40,6 +43,8 @@ export class UpdateTimeEntryHandler {
     private readonly tasks: TasksService,
     private readonly audit: AuditService,
     private readonly margins: MarginsService,
+    private readonly users: UsersService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async execute(
@@ -118,7 +123,13 @@ export class UpdateTimeEntryHandler {
       this.logger.warn(
         `Abnormal hours: user ${current.userId} is at ${total.toFixed(2)}h on ${workDay}`,
       );
-      // TODO: step 13 — abnormal-hours alert to the manager
+      const employee = await this.users.findByIdRaw(current.userId);
+      if (employee) {
+        await this.notifications.dispatch(
+          'abnormal_hours',
+          abnormalHoursContext(actor.tenantId, employee, total, workDay),
+        );
+      }
     }
     this.logger.info(`Time entry updated: ${id}`);
     await this.margins.checkProjectThresholds(current.projectId, actor);
