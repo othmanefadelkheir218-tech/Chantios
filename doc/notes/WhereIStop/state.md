@@ -11,8 +11,8 @@ The v1 backend is under a full test run: [../PhacesTest/00-START-HERE.md](../Pha
 
 | | |
 |---|---|
-| **Done** | Phase 01 (15/0/0), Phase 02 (47/0/0), Phase 03 (53/1 — REG-04 awaits a live French email), Phase 04 — Permissions (49 pass / 2 fail / 5 skip), 05–07 (see RESULTS.md), Phase 08 — Quotes & invoices (33/0), Phase 09 — Purchases (33/0/0), **Phase 10 — Planning & time (35/0/0)**. **The DB was emptied and re-seeded by hand on 2026-10-08** (see RESULTS.md "Data re-seed"): A = tenant 1 (8 users), B = tenant 2, plans 1–3, `TEST Staff` |
-| **Next** | Phase 11 — [Site reports](../PhacesTest/11-site-reports.md). OWN-02..05 (phase 04) re-run after phase 11 |
+| **Done** | Phase 01 (15/0/0), Phase 02 (47/0/0), Phase 03 (53/1 — REG-04 awaits a live French email), Phase 04 — Permissions (49 pass / 2 fail / 5 skip), 05–07 (see RESULTS.md), Phase 08 — Quotes & invoices (33/0), Phase 09 — Purchases (33/0/0), Phase 10 — Planning & time (35/0/0), Phase 11 — Site reports (25 pass, REP-15 waiting), **Phase 12 — Margin (32 pass, ALT-08 email check waiting)**. **The DB was emptied and re-seeded by hand on 2026-10-08** (see RESULTS.md "Data re-seed"): A = tenant 1 (8 users), B = tenant 2, plans 1–3, `TEST Staff` |
+| **Next** | Phase 13 — [Chat](../PhacesTest/13-chat.md). API runs from `yarn start:dev` (the stray `dist/main` was stopped). OWN-02..05 (phase 04) re-run after phase 11 |
 | **Fixed (not committed)** | PLN-06; SUS-01 (`TenantStatusGuard`), 2FA-02 (real `admin_2fa` challenge row, 3 tries), REG-04 (locale-aware verification email — live French email still to check). 723 unit tests pass. Commit after the run |
 | **Open fails** | OVR-02 worker tasks/reports create+edit are true in the matrix; PLR-02 staff admin not refused on POST /admin/plans and PATCH /admin/tenants/:id/status — both wait for an owner decision |
 | **Owner replies** | come by Telegram → read `inbox.json` (see `CLAUDE.md`) |

@@ -17,7 +17,7 @@
 | 09 | [Purchases](09-purchases.md) | 33 | 0 | 0 | done 2026-10-08 (PUR-15 confirmed by owner) |
 | 10 | [Planning & time](10-planning-time.md) | 35 | 0 | 0 | done 2026-10-08 |
 | 11 | [Site reports](11-site-reports.md) | 25 | 0 | 1 waiting | ran 2026-10-08; REP-15 (ImageKit) waits for the owner |
-| 12 | [Margin](12-margin.md) | | | | todo |
+| 12 | [Margin](12-margin.md) | 32 | 0 | 1 waiting | ran 2026-10-09; ALT-08 (email check) waits for the owner |
 | 13 | [Chat](13-chat.md) | | | | todo |
 | 14 | [Client portal](14-client-portal.md) | | | | todo |
 | 15 | [Notifications](15-notifications.md) | | | | todo |
@@ -142,3 +142,10 @@ No scenario text changed. Code changes, all unit-tested (723 tests pass, tsc cle
 - **Ran:** reports (upsert, roles, dates, audit), progress read, material pre-fill, material declaration (one transaction), photos, the two report crons, isolation.
 - **Result:** 25 PASS, 0 FAIL, REP-15 waiting for the owner's ImageKit check.
 - **Data left:** see the end of 11-site-reports.md. Phase 04 section 3 (`scope = own`) can now be re-run.
+
+### Phase 12 — 2026-10-09
+
+- **Ran:** live margin, breakdown, 80/95 alerts, closure snapshot on `completed` and `cancelled`, list, roles, isolation.
+- **Result:** 32 PASS, 0 FAIL, ALT-08 waiting for the owner's email check.
+- **Notes:** a date-only project date gives `500` again (PRJ-01). ISO-MA-01: B's list shows its own project (`total 1`). The stray `dist/main` server was stopped by hand and the dev server restarted with `yarn start:dev`.
+- **Data left:** see the end of 12-margin.md.
