@@ -18,7 +18,7 @@
 | 10 | [Planning & time](10-planning-time.md) | 35 | 0 | 0 | done 2026-10-08 |
 | 11 | [Site reports](11-site-reports.md) | 25 | 0 | 1 waiting | ran 2026-10-08; REP-15 (ImageKit) waits for the owner |
 | 12 | [Margin](12-margin.md) | 32 | 0 | 1 waiting | ran 2026-10-09; ALT-08 (email check) waits for the owner |
-| 13 | [Chat](13-chat.md) | | | | todo |
+| 13 | [Chat](13-chat.md) | 21 | 0 | 1 waiting + 4 skip | ran 2026-10-09; CHAT-15 (ImageKit) waits for the owner; SUPC-01..04 run after phase 17 |
 | 14 | [Client portal](14-client-portal.md) | | | | todo |
 | 15 | [Notifications](15-notifications.md) | | | | todo |
 | 16 | [Documents](16-documents.md) | | | | todo |
@@ -149,3 +149,9 @@ No scenario text changed. Code changes, all unit-tested (723 tests pass, tsc cle
 - **Result:** 32 PASS, 0 FAIL, ALT-08 waiting for the owner's email check.
 - **Notes:** a date-only project date gives `500` again (PRJ-01). ISO-MA-01: B's list shows its own project (`total 1`). The stray `dist/main` server was stopped by hand and the dev server restarted with `yarn start:dev`.
 - **Data left:** see the end of 12-margin.md.
+
+### Phase 13 — 2026-10-09
+
+- **Ran:** conversations, membership on HTTP and sockets, real-time messages, attachments, read tracking, archive, isolation.
+- **Result:** 21 PASS, 0 FAIL, CHAT-15 waiting for the owner's ImageKit check, SUPC-01..04 skipped (need a ticket from phase 17).
+- **Data left:** see the end of 13-chat.md.
