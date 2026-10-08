@@ -16,17 +16,19 @@ export class CreatePlanHandler {
 
   /**
    * Plan + features in one transaction. A new plan is never default unless
-   * asked. The Stripe Price is created first — a Stripe failure fails the
-   * whole creation, a plan with no real Price can never be billed.
+   * asked. The features are checked first, so a refused plan never leaves an
+   * orphan Product/Price in Stripe. Then the Stripe Price is created before
+   * the DB write — a Stripe failure fails the whole creation, a plan with no
+   * real Price can never be billed.
    */
   async execute(dto: CreatePlanDto) {
     this.logger.info(`Creating plan ${dto.name}`);
 
+    const features = toFeatureRows(dto.features);
     const stripePriceId = await this.stripe.createPlanPrice(
       dto.name,
       dto.base_price,
     );
-    const features = toFeatureRows(dto.features);
 
     const plan = await this.plans.create(
       {

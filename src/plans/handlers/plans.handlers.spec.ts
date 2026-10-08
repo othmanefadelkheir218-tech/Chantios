@@ -120,7 +120,7 @@ describe('Plans handlers', () => {
       expect(callsOf(repo.create)[0][0]).toMatchObject({ isDefault: false });
     });
 
-    it('creates the Stripe price first and stores the returned id', async () => {
+    it('creates the Stripe price and stores the returned id', async () => {
       repo.create.mockResolvedValue(plan());
       await create.execute(dto);
       expect(stripe.createPlanPrice).toHaveBeenCalledWith('Pro', '50.00');
@@ -153,6 +153,7 @@ describe('Plans handlers', () => {
         BadRequestException,
       );
       expect(repo.create).not.toHaveBeenCalled();
+      expect(stripe.createPlanPrice).not.toHaveBeenCalled();
     });
 
     it('rejects a features list missing one of the 6 required keys', async () => {
@@ -161,6 +162,7 @@ describe('Plans handlers', () => {
         BadRequestException,
       );
       expect(repo.create).not.toHaveBeenCalled();
+      expect(stripe.createPlanPrice).not.toHaveBeenCalled();
     });
   });
 

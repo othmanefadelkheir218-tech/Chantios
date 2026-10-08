@@ -5,6 +5,18 @@
 
 ---
 
+## Full test run — in progress (2026-10-08)
+
+The v1 backend is under a full test run: [../PhacesTest/00-START-HERE.md](../PhacesTest/00-START-HERE.md), results in [../PhacesTest/RESULTS.md](../PhacesTest/RESULTS.md). **No code change, no commit/push during the run.**
+
+| | |
+|---|---|
+| **Done** | Phase 01 (15/0/0 after AUTO-02 re-run), Phase 02 — Platform (47/0/0, after the PLN-06 fix), Phase 03 — Auth (51 pass / 3 fail) |
+| **Next** | Phase 04 — [Permissions](../PhacesTest/04-permissions.md). Company A has all 7 roles (see RESULTS.md § Phase 03 for ids) |
+| **Fixed** | PLN-06: `create-plan.handler` now checks the features before creating the Stripe Price (a refused plan left an orphan Product + active Price). Unit-tested + re-run live. **Code change not committed yet** — commit after the run |
+| **Open fails (not fixed)** | REG-04 verification email always English; SUS-01 `/auth/me`, `/auth/sessions`, `/roles` skip the suspension check; 2FA-02 no 3-tries limit on admin 2FA. Details in RESULTS.md |
+| **Owner replies** | come by Telegram → read `inbox.json` (see `CLAUDE.md`) |
+
 ## Current position
 
 | | |

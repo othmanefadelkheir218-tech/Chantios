@@ -48,6 +48,14 @@ How: write `{"message": "..."}` to `push.json` in the project root. A running `n
 
 If `push.json` does **not** reset after a few seconds, the bot's file-watcher has stalled (a known flakiness, not a config problem). Fix: stop the existing `telegram-bot.js` process and start a fresh one in the background, then retry the write. Don't keep retrying against a stalled instance.
 
+### Reading the owner's replies from Telegram
+When something is needed from the owner (a code, a token, "ok" on a check), ask on Telegram **and read the answer from Telegram** — the owner replies there, not always in the chat.
+- Every Telegram message the owner sends is written by the bot to `inbox.json` in the project root: `{"chatId": ..., "message": "..."}`. Only the **last** message is kept.
+- **Before asking the owner again, read `inbox.json`** — the answer may already be there.
+- After reading, reply through `outbox.json`: write `{"status": "ready", "reply": "Got it: ..."}`. The bot sends it and blocks other messages until a reply comes (5 min timeout), so always answer.
+- Then reset `inbox.json` to `{"status": "empty"}` so the next message is easy to spot.
+- To wait for an answer, poll `inbox.json` in the background (e.g. a loop until `message` appears) instead of ending the turn.
+
 ## Git push at the end of each phase
 When a phase/step is finished (build done, verified, docs updated, `state.md` updated): commit the changes with a clear, descriptive commit message and push to `main` on GitHub. Do this every time a phase finishes — no need to ask first, this is the standing instruction.
 
