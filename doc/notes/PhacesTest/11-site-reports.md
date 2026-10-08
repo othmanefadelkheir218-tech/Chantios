@@ -79,6 +79,8 @@ After this phase, re-run **section 3 of phase 04** (`scope = own`).
 
 ## Result — 2026-10-08
 
+> **Status: 1 waiting for you (REP-15, ImageKit check). The END message is not sent yet.**
+
 **25 PASS, 0 FAIL, 1 waiting** (REP-15, ImageKit check — asked on Telegram: folder `Chantios/tenant-1/report/1/`, media id 39).
 
 - REP-04: the leader's post the same day edited the supervisor's report (same `id`, `created_by` stays the supervisor, `progress_pct` 46). The audit history of report 1 shows the whole chain (30 → 45 → 46 → 50).
