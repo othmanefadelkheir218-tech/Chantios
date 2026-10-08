@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { hashPassword } from '../../common/helpers/password.helper';
+import { EmailLocale } from '../../email/templates/invite-employee.template';
 import { tenantEmailVerificationTemplate } from '../../email/templates/tenant-email-verification.template';
 import { EmailService } from '../../email/email.service';
 import { NotificationsService } from '../../notifications/notifications.service';
@@ -111,7 +112,10 @@ export class RegisterTenantHandler {
     const code = await this.codes.generate('email_verification', {
       userId: user.id,
     });
-    const { subject, html } = tenantEmailVerificationTemplate(code);
+    const { subject, html } = tenantEmailVerificationTemplate(
+      code,
+      tenant.locale as EmailLocale,
+    );
     await this.email.send(user.email, subject, html);
 
     this.logger.info(

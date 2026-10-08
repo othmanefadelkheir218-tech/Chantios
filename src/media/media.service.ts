@@ -58,8 +58,8 @@ export class MediaService {
     return this.findMedia.execute(query, actor, scope);
   }
 
-  findOne(id: number) {
-    return this.findMedia.findOne(id);
+  findOne(id: number, actor?: AuthenticatedUser, scope?: PermissionScope) {
+    return this.findMedia.findOne(id, actor, scope);
   }
 
   rename(id: number, dto: RenameMediaDto, actor: AuthenticatedUser) {

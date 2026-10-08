@@ -54,22 +54,22 @@ For each cell, send:
 
 | Module | admin | manager | supervisor | leader | worker | sales | accountant | Result |
 |---|---|---|---|---|---|---|---|---|
-| `clients` | Y | Y | Y | - | - | Y | Y | todo |
-| `projects` | Y | Y | Y | Y | - | Y | Y | todo |
-| `tasks` | Y | Y | Y | Y | own | - | - | todo |
-| `time_entries` | Y | Y | Y | Y | own | - | - | todo |
-| `catalogue` | Y | Y | Y | - | - | Y | - | todo |
-| `stock` | Y | Y | Y | Y | - | - | Y | todo |
-| `quotes` | Y | Y | - | - | - | Y | Y | todo |
-| `invoices` | Y | - | - | - | - | Y | Y | todo |
-| `purchase_invoices` | Y | - | - | - | - | - | Y | todo |
-| `margins` | Y | Y | - | - | - | - | Y | todo |
-| `subcontractors` | Y | Y | Y | - | - | - | Y | todo |
-| `reports` | Y | Y | Y | Y | own | - | - | todo |
-| `media` | Y | Y | Y | Y | own | Y | Y | todo |
-| `chat` | Y | Y | Y | Y | own | Y | Y | todo |
-| `team` | Y | Y | - | - | - | - | - | todo |
-| `settings` | Y | - | - | - | - | - | - | todo |
+| `clients` | Y | Y | Y | - | - | Y | Y | PASS |
+| `projects` | Y | Y | Y | Y | - | Y | Y | PASS |
+| `tasks` | Y | Y | Y | Y | own | - | - | PASS |
+| `time_entries` | Y | Y | Y | Y | own | - | - | PASS |
+| `catalogue` | Y | Y | Y | - | - | Y | - | PASS |
+| `stock` | Y | Y | Y | Y | - | - | Y | PASS |
+| `quotes` | Y | Y | - | - | - | Y | Y | PASS |
+| `invoices` | Y | - | - | - | - | Y | Y | PASS |
+| `purchase_invoices` | Y | - | - | - | - | - | Y | PASS |
+| `margins` | Y | Y | - | - | - | - | Y | PASS |
+| `subcontractors` | Y | Y | Y | - | - | - | Y | PASS |
+| `reports` | Y | Y | Y | Y | own | - | - | PASS |
+| `media` | Y | Y | Y | Y | own | Y | Y | PASS |
+| `chat` | Y | Y | Y | Y | own | Y | Y | PASS |
+| `team` | Y | Y | - | - | - | - | - | PASS |
+| `settings` | Y | - | - | - | - | - | - | PASS |
 
 ### Expected — create / edit / delete
 
@@ -77,19 +77,19 @@ For each cell, send:
 
 | Module | admin | manager | supervisor | leader | worker | sales | accountant | Result |
 |---|---|---|---|---|---|---|---|---|
-| `clients` | Y | Y | - | - | - | Y | - | todo |
-| `projects` | Y | Y | Y | - | - | - | - | todo |
-| `tasks` | Y | Y | Y | Y | - (1) | - | - | todo |
-| `time_entries` | Y | Y | Y | Y | own (2) | - | - | todo |
-| `catalogue` | Y | Y | - | - | - | - | - | todo |
-| `stock` | Y | Y | - | - | - | - | - | todo |
-| `quotes` | Y | Y | - | - | - | Y | - | todo |
-| `invoices` | Y | - | - | - | - | - | Y | todo |
-| `purchase_invoices` | Y | - | - | - | - | - | Y | todo |
-| `subcontractors` | Y | Y | - | - | - | - | - | todo |
-| `reports` | Y | Y | Y | Y | - (3) | - | - | todo |
-| `media` | Y | Y | Y | Y | own | - | - | todo |
-| `chat` | Y | Y | Y | Y | own | Y | Y | todo |
+| `clients` | Y | Y | - | - | - | Y | - | PASS |
+| `projects` | Y | Y | Y | - | - | - | - | PASS |
+| `tasks` | Y | Y | Y | Y | - (1) | - | - | PASS |
+| `time_entries` | Y | Y | Y | Y | own (2) | - | - | PASS |
+| `catalogue` | Y | Y | - | - | - | - | - | PASS |
+| `stock` | Y | Y | - | - | - | - | - | PASS |
+| `quotes` | Y | Y | - | - | - | Y | - | PASS |
+| `invoices` | Y | - | - | - | - | - | Y | PASS |
+| `purchase_invoices` | Y | - | - | - | - | - | Y | PASS |
+| `subcontractors` | Y | Y | - | - | - | - | - | PASS |
+| `reports` | Y | Y | Y | Y | - (3) | - | - | PASS |
+| `media` | Y | Y | Y | Y | own | - | - | PASS |
+| `chat` | Y | Y | Y | Y | own | Y | Y | PASS |
 
 1. A worker reads only their own tasks and never writes one (`403`).
 2. A worker may create and edit their **own** time entries (same-day rule, phase 10); delete → `403`.
@@ -99,13 +99,13 @@ For each cell, send:
 
 | Route | Only admin passes | Result |
 |---|---|---|
-| `POST /api/invitations`, `PATCH /api/users/:id`, `POST /api/users/:id/pin` | every other role → `403 Insufficient role` | todo |
-| `POST/PATCH/DELETE /api/categories`, `POST/PATCH /api/cost-types` | every other role → `403` | todo |
-| `PUT/DELETE /api/roles/:roleId/permissions/:module` | every other role → `403` | todo |
-| `POST /api/billing/change-plan` | every other role → `403` | todo |
-| `POST /api/media/tenant-logo` (`settings`) | manager → `403` | todo |
-| `POST /api/stock/adjustment` | admin + manager pass, all others `403` | todo |
-| `POST /api/support/tickets` | admin only — manager `403` | todo |
+| `POST /api/invitations`, `PATCH /api/users/:id`, `POST /api/users/:id/pin` | every other role → `403 Insufficient role` | PASS |
+| `POST/PATCH/DELETE /api/categories`, `POST/PATCH /api/cost-types` | every other role → `403` | PASS |
+| `PUT/DELETE /api/roles/:roleId/permissions/:module` | every other role → `403` | PASS |
+| `POST /api/billing/change-plan` | every other role → `403` | PASS |
+| `POST /api/media/tenant-logo` (`settings`) | manager → `403` | PASS |
+| `POST /api/stock/adjustment` | admin + manager pass, all others `403` | PASS |
+| `POST /api/support/tickets` | admin only — manager `403` | PASS |
 
 ---
 
@@ -113,13 +113,13 @@ For each cell, send:
 
 | ID | Do | Expected | Result |
 |---|---|---|---|
-| OVR-01 | `GET /api/roles` | 7 roles, ids 1–7 | todo |
-| OVR-02 | `GET /api/roles/permissions` | 7 × 16 = 112 rows, equal to the tables above | todo |
-| OVR-03 | A owner: `PUT /api/roles/2/permissions/invoices` `{ can_view: true, can_create: false, can_edit: false, can_delete: false, scope: "all" }` | `200`; A's manager `GET /api/invoices` → `200` now | todo |
-| OVR-04 | B owner: `GET /api/roles/permissions` | B's manager still has **no** invoices access | todo |
-| OVR-05 | A owner overrides `worker` / `projects` to `can_view: true, scope: "own"` | the worker can now `GET /api/projects` | todo |
-| OVR-06 | `DELETE` both overrides | back to the defaults: manager `403` on invoices, worker `403` on projects | todo |
-| OVR-07 | Body with a bad `scope` (`"team"`) or a module that does not exist | `400` | todo |
+| OVR-01 | `GET /api/roles` | 7 roles, ids 1–7 | PASS |
+| OVR-02 | `GET /api/roles/permissions` | 7 × 16 = 112 rows, equal to the tables above | FAIL — see RESULTS.md |
+| OVR-03 | A owner: `PUT /api/roles/2/permissions/invoices` `{ can_view: true, can_create: false, can_edit: false, can_delete: false, scope: "all" }` | `200`; A's manager `GET /api/invoices` → `200` now | PASS |
+| OVR-04 | B owner: `GET /api/roles/permissions` | B's manager still has **no** invoices access | PASS |
+| OVR-05 | A owner overrides `worker` / `projects` to `can_view: true, scope: "own"` | the worker can now `GET /api/projects` | PASS |
+| OVR-06 | `DELETE` both overrides | back to the defaults: manager `403` on invoices, worker `403` on projects | PASS |
+| OVR-07 | Body with a bad `scope` (`"team"`) or a module that does not exist | `400` | PASS |
 
 ## 3. `scope = own`
 
@@ -127,26 +127,26 @@ Needs data from later phases. Re-run this section at the end of phase 11.
 
 | ID | Do | Expected | Result |
 |---|---|---|---|
-| OWN-01 | Worker `GET /api/auth/me` | `tasks`, `time_entries`, `reports`, `media`, `chat` have `scope: "own"`; for admin/manager they are `"all"` | todo |
-| OWN-02 | Worker `GET /api/tasks` | only tasks they are assigned to; another task by id → `404` | todo |
-| OWN-03 | Worker `GET /api/time-entries?user_id=<worker 2>` | still only their own rows | todo |
-| OWN-04 | Worker `GET /api/media` | only files they uploaded; admin sees all | todo |
-| OWN-05 | Worker `GET /api/conversations` | only threads they are a member of | todo |
+| OWN-01 | Worker `GET /api/auth/me` | `tasks`, `time_entries`, `reports`, `media`, `chat` have `scope: "own"`; for admin/manager they are `"all"` | PASS |
+| OWN-02 | Worker `GET /api/tasks` | only tasks they are assigned to; another task by id → `404` | SKIP — needs data from phases 06–11, re-run after phase 11 |
+| OWN-03 | Worker `GET /api/time-entries?user_id=<worker 2>` | still only their own rows | SKIP — needs data from phases 06–11, re-run after phase 11 |
+| OWN-04 | Worker `GET /api/media` | only files they uploaded; admin sees all | SKIP — needs data from phases 06–11, re-run after phase 11 |
+| OWN-05 | Worker `GET /api/conversations` | only threads they are a member of | SKIP — needs data from phases 06–11, re-run after phase 11 |
 
 ## 4. Company isolation (A vs B)
 
 | ID | Do | Expected | Result |
 |---|---|---|---|
-| ISO-01 | A and B: `GET /api/users` | A `total 9` (8 + the deactivated spare), B `total 1`; every row carries its own `tenant_id` | todo |
-| ISO-02 | B owner: `GET`, `PATCH`, `DELETE`, `POST .../pin` on an A user | `404 User not found` each; the A user unchanged in the DB | todo |
-| ISO-03 | B owner: `GET /api/invitations` | none of A's invitations; deleting one of A's by id → `404` | todo |
-| ISO-04 | `tenant_id` sent in any body or query | `400 property tenant_id should not exist` | todo |
-| ISO-05 | Every later phase has its own isolation check | listed as `ISO-*` in each phase file | todo |
-| ISO-06 | `yarn test:e2e` (phase 01 AUTO-02) | the 44-table isolation loop passes | todo |
+| ISO-01 | A and B: `GET /api/users` | A `total 9` (8 + the deactivated spare), B `total 1`; every row carries its own `tenant_id` | PASS |
+| ISO-02 | B owner: `GET`, `PATCH`, `DELETE`, `POST .../pin` on an A user | `404 User not found` each; the A user unchanged in the DB | PASS |
+| ISO-03 | B owner: `GET /api/invitations` | none of A's invitations; deleting one of A's by id → `404` | PASS |
+| ISO-04 | `tenant_id` sent in any body or query | `400 property tenant_id should not exist` | PASS |
+| ISO-05 | Every later phase has its own isolation check | listed as `ISO-*` in each phase file | SKIP — checked inside each later phase |
+| ISO-06 | `yarn test:e2e` (phase 01 AUTO-02) | the 44-table isolation loop passes | PASS (11/11, 44 tables; needs `--forceExit`) |
 
 ## 5. Platform admin roles
 
 | ID | Do | Expected | Result |
 |---|---|---|---|
-| PLR-01 | Staff admin: `GET /admin/tenants`, `/admin/plans`, `/admin/subscriptions` | `200` | todo |
-| PLR-02 | Staff admin: `/admin/admin-users`, `/admin/audit-logs`, `POST /admin/plans`, `PATCH /admin/tenants/:id/status` | `403 Not allowed for your admin role` | todo |
+| PLR-01 | Staff admin: `GET /admin/tenants`, `/admin/plans`, `/admin/subscriptions` | `200` | PASS |
+| PLR-02 | Staff admin: `/admin/admin-users`, `/admin/audit-logs`, `POST /admin/plans`, `PATCH /admin/tenants/:id/status` | `403 Not allowed for your admin role` | FAIL — see RESULTS.md |

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { EmailService } from '../../email/email.service';
+import { EmailLocale } from '../../email/templates/invite-employee.template';
 import { tenantEmailVerificationTemplate } from '../../email/templates/tenant-email-verification.template';
 import { OneTimeCodesService } from '../../one-time-codes/one-time-codes.service';
 import { TenantRepository } from '../repositories/tenant.repository';
@@ -36,7 +37,10 @@ export class SendTenantVerificationEmailHandler {
     const code = await this.codes.generate('email_verification', {
       tenantId: id,
     });
-    const { subject, html } = tenantEmailVerificationTemplate(code);
+    const { subject, html } = tenantEmailVerificationTemplate(
+      code,
+      tenant.locale as EmailLocale,
+    );
     await this.email.send(tenant.email, subject, html);
 
     this.logger.info(`Verification email sent for tenant ${id}`);

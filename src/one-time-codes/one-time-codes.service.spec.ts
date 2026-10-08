@@ -13,6 +13,7 @@ describe('OneTimeCodesService', () => {
     consumePriorActive: jest.fn(),
     incrementAttempt: jest.fn(),
     markConsumed: jest.fn(),
+    takeAttempt: jest.fn(),
   };
   const logger = { info: jest.fn(), warn: jest.fn() };
   let service: OneTimeCodesService;
@@ -94,6 +95,70 @@ describe('OneTimeCodesService', () => {
         service.verify('password_reset', { userId: 1 }, '123456'),
       ).resolves.toBe(false);
       expect(repo.markConsumed).toHaveBeenCalledWith(1);
+    });
+  });
+
+  describe('challenge (admin 2FA)', () => {
+    const adminScope = { adminUserId: 1 };
+
+    it('opens a challenge with a random hash and returns its id', async () => {
+      repo.create.mockResolvedValue({ id: 42 });
+
+      await expect(
+        service.openChallenge('admin_2fa', adminScope),
+      ).resolves.toBe(42);
+      expect(repo.consumePriorActive).toHaveBeenCalledWith(
+        'admin_2fa',
+        adminScope,
+      );
+      expect(repo.create).toHaveBeenCalledWith(
+        'admin_2fa',
+        adminScope,
+        expect.stringMatching(/^[0-9a-f]{64}$/),
+        expect.any(Date),
+      );
+    });
+
+    it('allows a try while the challenge is the active one', async () => {
+      repo.findActive.mockResolvedValue({ id: 7 });
+      repo.takeAttempt.mockResolvedValue(true);
+
+      await expect(
+        service.takeChallengeAttempt('admin_2fa', adminScope, 7),
+      ).resolves.toBe(true);
+      expect(repo.takeAttempt).toHaveBeenCalledWith(7, 3);
+    });
+
+    it('refuses and consumes the challenge once the 3 tries are used', async () => {
+      repo.findActive.mockResolvedValue({ id: 7 });
+      repo.takeAttempt.mockResolvedValue(false);
+
+      await expect(
+        service.takeChallengeAttempt('admin_2fa', adminScope, 7),
+      ).resolves.toBe(false);
+      expect(repo.markConsumed).toHaveBeenCalledWith(7);
+    });
+
+    it('refuses an older challenge replaced by a newer login', async () => {
+      repo.findActive.mockResolvedValue({ id: 8 });
+
+      await expect(
+        service.takeChallengeAttempt('admin_2fa', adminScope, 7),
+      ).resolves.toBe(false);
+      expect(repo.takeAttempt).not.toHaveBeenCalled();
+    });
+
+    it('refuses when no challenge is active (expired or already used)', async () => {
+      repo.findActive.mockResolvedValue(null);
+
+      await expect(
+        service.takeChallengeAttempt('admin_2fa', adminScope, 7),
+      ).resolves.toBe(false);
+    });
+
+    it('closes the challenge after a right answer', async () => {
+      await service.closeChallenge(7);
+      expect(repo.markConsumed).toHaveBeenCalledWith(7);
     });
   });
 });

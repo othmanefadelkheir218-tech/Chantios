@@ -81,8 +81,12 @@ export class MediaController {
   @TenantAuth()
   @Module('media')
   @ApiFindOneMedia()
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.mediaService.findOne(id);
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() actor: AuthenticatedUser,
+    @PermissionScope() scope: Scope,
+  ) {
+    return this.mediaService.findOne(id, actor, scope);
   }
 
   // Must stay registered before `PATCH :id` — both match one path segment.

@@ -210,6 +210,18 @@ describe('Media handlers', () => {
       repo.findById.mockResolvedValue(null);
       await expect(findMedia.findOne(99)).rejects.toThrow(NotFoundException);
     });
+
+    it('findOne hides another uploaders file when scope is own', async () => {
+      repo.findById.mockResolvedValue(media({ uploadedBy: actor.userId + 1 }));
+      await expect(findMedia.findOne(1, actor, 'own')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('findOne returns the callers own file when scope is own', async () => {
+      repo.findById.mockResolvedValue(media({ uploadedBy: actor.userId }));
+      await expect(findMedia.findOne(1, actor, 'own')).resolves.toBeDefined();
+    });
   });
 
   describe('RenameMediaHandler', () => {

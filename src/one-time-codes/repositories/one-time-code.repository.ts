@@ -64,6 +64,19 @@ export class OneTimeCodeRepository {
     });
   }
 
+  /**
+   * Takes one try off a code in a single statement: it only succeeds while
+   * fewer than `maxAttempts` tries are used, so two simultaneous guesses can
+   * never both slip under the limit.
+   */
+  async takeAttempt(id: number, maxAttempts: number): Promise<boolean> {
+    const { count } = await this.prisma.oneTimeCode.updateMany({
+      where: { id, attemptCount: { lt: maxAttempts } },
+      data: { attemptCount: { increment: 1 } },
+    });
+    return count === 1;
+  }
+
   async markConsumed(id: number): Promise<void> {
     await this.prisma.oneTimeCode.update({
       where: { id },

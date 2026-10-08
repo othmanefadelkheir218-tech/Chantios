@@ -6,6 +6,7 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AdminUsersService } from '../../admin-users/admin-users.service';
 import { env } from '../../config/env.config';
 import { verifyPassword } from '../../common/helpers/password.helper';
+import { OneTimeCodesService } from '../../one-time-codes/one-time-codes.service';
 import { SessionsService } from '../../sessions/sessions.service';
 import { setAdminAuthCookies } from '../helpers/cookie.helper';
 import { TokenHelper } from '../helpers/token.helper';
@@ -24,6 +25,7 @@ export class AdminLoginHandler {
     private readonly logger: PinoLogger,
     private readonly adminUsers: AdminUsersService,
     private readonly sessions: SessionsService,
+    private readonly codes: OneTimeCodesService,
     private readonly tokens: TokenHelper,
   ) {}
 
@@ -40,7 +42,14 @@ export class AdminLoginHandler {
     }
 
     if (admin.totpSecret) {
-      const challengeToken = this.tokens.signAdmin2faChallenge(admin.id, 0);
+      // A new login replaces any older challenge, so only the newest token works.
+      const challengeId = await this.codes.openChallenge('admin_2fa', {
+        adminUserId: admin.id,
+      });
+      const challengeToken = this.tokens.signAdmin2faChallenge(
+        admin.id,
+        challengeId,
+      );
       this.logger.info(`Admin ${admin.id} password OK — 2FA challenge issued`);
       return { challenge_token: challengeToken };
     }

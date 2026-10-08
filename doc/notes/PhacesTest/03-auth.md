@@ -113,7 +113,7 @@ After INV-04 A has 8 users: 6 non-worker (admin, manager, supervisor, leader, sa
 
 | ID | Do | Expected | Result |
 |---|---|---|---|
-| SUS-01 | Super-admin suspends **B** with a reason | B owner: old access cookie → `403 This company is suspended or banned`; refresh `401`; login `401`; 0 live sessions | FAIL — see RESULTS.md |
+| SUS-01 | Super-admin suspends **B** with a reason | B owner: old access cookie → `403 This company is suspended or banned`; refresh `401`; login `401`; 0 live sessions | PASS (fixed + re-run 2026-10-08) |
 | SUS-02 | Platform alert | `tenant_status_changed` row for the platform admins | PASS |
 | SUS-03 | Reactivate B | B owner logs in again | PASS |
 
@@ -124,7 +124,7 @@ There is no route to switch 2FA on. The test sets a TOTP secret in the database 
 | ID | Do | Expected | Result |
 |---|---|---|---|
 | 2FA-01 | Set `admin_users.totp_secret` for `TEST Staff`, then `POST /api/admin/auth/login` | a 2FA challenge, **no** session cookie yet | PASS |
-| 2FA-02 | `POST /api/admin/auth/verify-2fa` with a wrong code, 3 times | `400`/`401` each, then the challenge is dead | FAIL — see RESULTS.md |
+| 2FA-02 | `POST /api/admin/auth/verify-2fa` with a wrong code, 3 times | `400`/`401` each, then the challenge is dead | PASS (fixed + re-run 2026-10-08) |
 | 2FA-03 | Login again, verify with the right TOTP | session cookies set | PASS |
 | 2FA-04 | `POST /api/admin/auth/logout` | cookies cleared, row revoked | PASS |
 | 2FA-05 | Put `totp_secret` back to NULL | staff logs in with no 2FA again | PASS |

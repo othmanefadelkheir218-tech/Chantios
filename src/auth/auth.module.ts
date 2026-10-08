@@ -16,6 +16,7 @@ import { AuthService } from './auth.service';
 import { AuthGuard } from './guards/auth.guard';
 import { PermissionGuard } from './guards/permission.guard';
 import { SubscriptionGuard } from './guards/subscription.guard';
+import { TenantStatusGuard } from './guards/tenant-status.guard';
 import { TenantGuard } from './guards/tenant.guard';
 import { AdminLoginHandler } from './handlers/admin-login.handler';
 import { AdminLogoutHandler } from './handlers/admin-logout.handler';
@@ -71,6 +72,7 @@ import { TokenModule } from './token.module';
     CleanupExpiredTokensJob,
     AuthGuard,
     TenantGuard,
+    TenantStatusGuard,
     SubscriptionGuard,
     PermissionGuard,
     RegisterTenantHandler,

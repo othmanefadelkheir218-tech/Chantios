@@ -1,7 +1,6 @@
 import { CanActivate, ForbiddenException, Injectable } from '@nestjs/common';
 import { TenantContextService } from '../../common/cls/tenant-context.service';
 import { SubscriptionsService } from '../../subscriptions/subscriptions.service';
-import { TenantsService } from '../../tenants/tenants.service';
 
 const ALLOWED_SUBSCRIPTION_STATUSES = new Set([
   'trialing',
@@ -10,16 +9,14 @@ const ALLOWED_SUBSCRIPTION_STATUSES = new Set([
 ]);
 
 /**
- * Pipeline step 3: status check only — never counts resources. Blocks a
- * `suspended`/`banned` tenant, or a `cancelled` subscription
- * (doc/notes/subscription-plans.md). Must run after `TenantGuard`. NOT
- * attached to any route yet.
+ * Pipeline step 4: status check only — never counts resources. Blocks a
+ * `cancelled` subscription (doc/notes/subscription-plans.md). A suspended or
+ * banned tenant is `TenantStatusGuard`'s job. Must run after `TenantGuard`.
  */
 @Injectable()
 export class SubscriptionGuard implements CanActivate {
   constructor(
     private readonly tenantContext: TenantContextService,
-    private readonly tenants: TenantsService,
     private readonly subscriptions: SubscriptionsService,
   ) {}
 
@@ -27,11 +24,6 @@ export class SubscriptionGuard implements CanActivate {
     const tenantId = this.tenantContext.tenantId;
     if (tenantId === undefined) {
       throw new ForbiddenException('No tenant in context');
-    }
-
-    const tenant = await this.tenants.findOne(tenantId);
-    if (tenant.status !== 'active') {
-      throw new ForbiddenException('This company is suspended or banned');
     }
 
     const subscription = await this.subscriptions.findByTenant(tenantId);

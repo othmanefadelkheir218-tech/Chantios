@@ -36,9 +36,20 @@ export class FindMediaHandler {
     return toPaginated(data.map(toMediaEntity), total, page, limit);
   }
 
-  async findOne(id: number) {
+  /**
+   * With `scope = 'own'` a file uploaded by someone else answers `404`, the
+   * same as an unknown id. Internal callers (PDF logo, portal) pass no actor.
+   */
+  async findOne(
+    id: number,
+    actor?: AuthenticatedUser,
+    scope?: PermissionScope,
+  ) {
     const media = await this.media.findById(id);
-    if (!media) {
+    if (
+      !media ||
+      (scope === 'own' && actor && media.uploadedBy !== actor.userId)
+    ) {
       this.logger.warn(`Media ${id} not found`);
       throw new NotFoundException('Media not found');
     }
