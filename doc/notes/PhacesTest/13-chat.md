@@ -3,6 +3,8 @@
 > Read [00-START-HERE.md](00-START-HERE.md) first. Rules: [chat-conversations.md](../chat-conversations.md).
 > Old reference: [../test/15-chat.md](../test/15-chat.md).
 
+> **Status: 1 waiting — CHAT-15** ([CHECK IMAGEKIT]). The owner must open the ImageKit media library, folder `Chantios/tenant-1/message/0/`, and confirm the 2 images `TEST-chat-a_….png` and `TEST-chat-b_….png`. Also 4 SKIP: SUPC-01..04 run after phase 17 opens a ticket. Until then the phase is 21 PASS, 0 FAIL, 1 waiting, 4 skip.
+
 ## Goal
 
 Internal conversations, membership checked on HTTP **and** on the socket, real-time delivery, attachments through `media`, read tracking, and the audited platform-admin door into support threads.

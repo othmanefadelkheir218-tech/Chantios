@@ -3,6 +3,8 @@
 > Read [00-START-HERE.md](00-START-HERE.md) first. Rules: [margin-profitability.md](../margin-profitability.md), [technical/phase-08-margin-snapshot.md](../technical/phase-08-margin-snapshot.md).
 > Old reference: [../test/14-margin.md](../test/14-margin.md).
 
+> **Status: 1 waiting — ALT-08** ([CHECK EMAIL]). The owner must open `othmanefadelkheir218@gmail.com` and `zakariyazouazou@gmail.com` and confirm exactly 3 margin emails each for `TEST Project Alerts` (warning, critical, warning, sent 2026-10-09 around 00:52), no duplicate. Until then the phase is 32 PASS, 0 FAIL, 1 waiting.
+
 ## Goal
 
 The live margin from three doors only (material, labour, bills), the breakdown by cost type, the 80 / 95 % alerts that fire once, and the snapshot frozen on `completed` and `cancelled`.
