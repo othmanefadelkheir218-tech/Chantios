@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { toPaginated, toSkip } from '../../common/helpers/pagination.helper';
+import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { ClientsService } from '../../clients/clients.service';
 import { MediaService } from '../../media/media.service';
@@ -32,6 +33,7 @@ export class ClientMessagesHandler {
   constructor(
     @InjectPinoLogger(ClientMessagesHandler.name)
     private readonly logger: PinoLogger,
+    private readonly tenantPrisma: TenantPrismaService,
     private readonly conversations: ConversationRepository,
     private readonly messages: MessageRepository,
     private readonly reads: MessageReadRepository,
@@ -80,8 +82,12 @@ export class ClientMessagesHandler {
     );
   }
 
-  /** The client writes: `sender_type = 'client'`, `sender_id = client_id`. */
-  async send(projectId: number, clientId: number, content: string) {
+  /**
+   * Every check `send` makes before writing — the thread, archived, empty
+   * text. The portal runs it BEFORE uploading the client's files, so a
+   * refused message leaves no file behind.
+   */
+  async assertCanSend(projectId: number, clientId: number, content: string) {
     const conversation = await this.threadOf(projectId, clientId);
     if (conversation.isArchived) {
       throw new BadRequestException('This conversation is archived');
@@ -90,15 +96,49 @@ export class ClientMessagesHandler {
     if (text.length === 0) {
       throw new BadRequestException('A message cannot be empty');
     }
+    return { conversation, text };
+  }
 
-    const created = await this.messages.create({
-      tenantId: conversation.tenantId,
-      conversationId: conversation.id,
-      senderType: 'client',
-      senderId: clientId,
-      content: text,
+  /**
+   * The client writes: `sender_type = 'client'`, `sender_id = client_id`.
+   * `mediaIds` — files the portal has just uploaded for this message
+   * (`entity_id = 0`, `uploaded_by = NULL`) — are linked in the SAME
+   * transaction as the message, like a staff attachment.
+   */
+  async send(
+    projectId: number,
+    clientId: number,
+    content: string,
+    mediaIds: number[] = [],
+  ) {
+    const { conversation, text } = await this.assertCanSend(
+      projectId,
+      clientId,
+      content,
+    );
+
+    const created = await this.tenantPrisma.db.$transaction(async (tx) => {
+      const message = await this.messages.create(
+        {
+          tenantId: conversation.tenantId,
+          conversationId: conversation.id,
+          senderType: 'client',
+          senderId: clientId,
+          content: text,
+        },
+        tx,
+      );
+      await this.media.attachToEntity(
+        mediaIds,
+        'message',
+        message.id,
+        { tenantId: conversation.tenantId, userId: null },
+        tx,
+      );
+      return message;
     });
-    const entity = toMessageEntity(created);
+    const files = await this.media.findByEntityIds('message', [created.id]);
+    const entity = toMessageEntity(created, files.get(created.id) ?? []);
 
     this.gateway.emitNewMessage(conversation.id, entity);
     const client = await this.clients.findByIdRaw(clientId);
@@ -107,7 +147,7 @@ export class ClientMessagesHandler {
       newMessageContext(conversation, client?.name ?? 'Client', text),
     );
     this.logger.info(
-      `Client ${clientId} wrote message ${created.id} on project ${projectId}`,
+      `Client ${clientId} wrote message ${created.id} on project ${projectId} with ${mediaIds.length} file(s)`,
     );
     return entity;
   }

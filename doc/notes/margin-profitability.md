@@ -63,7 +63,7 @@ margin_pct      = (margin_excl_vat / budget_excl_vat) × 100
 | Term | Source |
 |---|---|
 | `budget_excl_vat` | `SUM(quotes.amount_excl_vat)` where `status = 'accepted'` |
-| `material_cost` | `stock_movements`: qty × frozen `unit_price`, `type = 'consumption'` |
+| `material_cost` | `stock_movements`: −qty × frozen `unit_price`, `type = 'consumption'`, plus every `adjustment` linked to the project (`project_id` set) |
 | `labor_cost` | `time_entries`: hours × frozen `hourly_rate` |
 | `bill_cost` | `purchase_invoices.amount_excl_vat` on this project, **grouped by `cost_type_id`**, excluding `cost_type = material`. Counted whatever its `status` — a cost you owe is a cost, paying it later changes nothing |
 
@@ -73,11 +73,13 @@ Each cost enters the margin through exactly one door:
 
 | Cost | Door |
 |---|---|
-| Materials | The stock ledger, when they are consumed |
+| Materials | The stock ledger, when they are consumed (and any correction linked to the project) |
 | Hours | `time_entries` |
 | Anything the company was billed for — subcontractor, and any cost type the tenant adds | `purchase_invoices`, by cost type |
 
 A material bill never counts here, because the tiles are already counted when they leave the stock. That is why a bill with `cost_type = material` has no `project_id` — see [[purchase-invoices]].
+
+**Correcting a wrong consumption (decided 2026-10-10, owner).** Movements are never edited. A manager adds a `Correction de stock` (`adjustment`) and picks the project: `+5` gives 5 units back to the stock **and** lowers that project's material cost by 5 × the material's current purchase price. An adjustment with no project changes the stock only. The 80 % / 95 % check runs after a project-linked adjustment.
 
 All calculated **live** from `project_margin_live` view while project is active. Frozen once into `project_closure_snapshots` when project becomes `completed` or `cancelled`.
 

@@ -19,6 +19,16 @@ export const ALLOWED_MIME_TYPES: Record<MediaEntityType, readonly string[]> = {
   message: ['application/pdf', 'image/jpeg', 'image/png'],
 };
 
+/**
+ * Who uploads a file: a staff user, or the client in the portal chat, which
+ * has no user account (`userId = null` → `media.uploaded_by = NULL`).
+ * `AuthenticatedUser` fits this shape.
+ */
+export interface MediaUploader {
+  tenantId: number;
+  userId: number | null;
+}
+
 export function isMimeAllowed(
   entityType: MediaEntityType,
   mimeType: string,

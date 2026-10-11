@@ -57,6 +57,23 @@ export class PlanRepository {
     });
   }
 
+  /** Id + name of these plan versions, inactive ones included. */
+  findNamesByIds(ids: number[]): Promise<{ id: number; name: string }[]> {
+    return this.prisma.plan.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true },
+    });
+  }
+
+  /** The current versions only (a new version deactivates the old row), cheapest first. */
+  findActiveWithFeatures(): Promise<PlanWithFeatures[]> {
+    return this.prisma.plan.findMany({
+      where: { isActive: true },
+      include: withFeatures,
+      orderBy: [{ basePrice: 'asc' }, { id: 'asc' }],
+    });
+  }
+
   findDefault(): Promise<PlanWithFeatures | null> {
     return this.prisma.plan.findFirst({
       where: { isDefault: true },

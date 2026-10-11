@@ -60,6 +60,7 @@ export function toPaymentEntity(payment: Payment) {
     amount: payment.amount,
     method: payment.method,
     reference: payment.reference,
+    note: payment.note,
     paymentDate: payment.paymentDate,
     createdBy: payment.createdBy,
     createdAt: payment.createdAt,
@@ -89,10 +90,34 @@ export function assertNonZeroQuantity(value: string): void {
 }
 
 /** `amount` must be strictly positive — backed by `chk_payment_positive` too. */
-export function assertPositiveAmount(value: string): void {
-  if (Number(value) <= 0) {
-    throw new BadRequestException('amount must be greater than 0');
+/**
+ * A payment row is never `0`. A negative row is a correction and needs a
+ * `note` (client-invoices.md § payments).
+ */
+export function assertPaymentAmount(value: string, note?: string): void {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount === 0) {
+    throw new BadRequestException('amount must not be 0');
   }
+  if (amount < 0 && !note?.trim()) {
+    throw new BadRequestException(
+      'note is required for a correction (negative amount)',
+    );
+  }
+}
+
+/**
+ * Status answers one question: how much has been paid. Recomputed from the
+ * ledger after every row, so a correction can reopen `paid → partially_paid`,
+ * or go back to `sent` when nothing is paid any more.
+ */
+export function paymentStatusFromBalance(balance: {
+  amountPaid: Prisma.Decimal;
+  balanceDue: Prisma.Decimal;
+}): 'sent' | 'partially_paid' | 'paid' {
+  if (balance.amountPaid.lte(0)) return 'sent';
+  if (balance.balanceDue.lte(0)) return 'paid';
+  return 'partially_paid';
 }
 
 /**

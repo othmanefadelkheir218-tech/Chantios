@@ -15,6 +15,18 @@ export class InvitationRepository {
     return this.tenantPrisma.db.userInvitation.create({ data });
   }
 
+  /**
+   * Inside the caller's transaction, with an explicit `tenantId`: the
+   * super-admin creates a company and its first-admin invitation together,
+   * before any tenant is in the request context (step 18).
+   */
+  createInTransaction(
+    data: Prisma.UserInvitationUncheckedCreateInput,
+    tx: Prisma.TransactionClient,
+  ): Promise<UserInvitation> {
+    return tx.userInvitation.create({ data });
+  }
+
   findById(id: number): Promise<UserInvitation | null> {
     return this.tenantPrisma.db.userInvitation.findFirst({ where: { id } });
   }

@@ -7,9 +7,11 @@ import {
   Post,
   Query,
   Res,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
@@ -95,12 +97,17 @@ export class PortalController {
     return this.portalService.getMessages(portal, query);
   }
 
-  /** `sender_type = 'client'`, the sender is the token's client. */
+  /**
+   * `sender_type = 'client'`, the sender is the token's client. JSON
+   * `{ content }`, or multipart with `content` + up to 10 `files`.
+   */
   @Post(':token/messages')
+  @UseInterceptors(FilesInterceptor('files', 10))
   postMessage(
     @PortalContext() portal: PortalContextData,
     @Body() dto: PortalMessageDto,
+    @UploadedFiles() files: Express.Multer.File[] | undefined,
   ) {
-    return this.portalService.postMessage(portal, dto);
+    return this.portalService.postMessage(portal, dto, files ?? []);
   }
 }

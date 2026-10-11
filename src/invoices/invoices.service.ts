@@ -113,4 +113,9 @@ export class InvoicesService {
   findByIdRaw(id: number) {
     return this.invoices.findById(id);
   }
+
+  /** Dashboard (step 18). */
+  summarizeUnpaid() {
+    return this.invoices.summarizeUnpaid();
+  }
 }

@@ -167,7 +167,7 @@ describe('renderNotification', () => {
       ...CLIENT_EMAIL_TYPES,
     ];
     for (const type of all) {
-      for (const locale of ['fr', 'en', 'ar', 'de', undefined, null]) {
+      for (const locale of ['fr', 'en', 'nl', 'ar', 'de', undefined, null]) {
         const out = renderNotification(type, {}, locale);
         expect(out.subject.length).toBeGreaterThan(0);
         expect(out.html).toContain(out.subject);
@@ -182,15 +182,38 @@ describe('renderNotification', () => {
     expect(renderNotification('low_stock', payload, 'fr').subject).toBe(
       'Stock bas : Paint',
     );
-    expect(renderNotification('low_stock', payload, 'ar').subject).toContain(
-      'Paint',
+    expect(renderNotification('low_stock', payload, 'nl').subject).toBe(
+      'Lage voorraad: Paint',
     );
   });
 
-  it('an unknown locale falls back to English', () => {
-    expect(renderNotification('low_stock', payload, 'de').subject).toBe(
-      'Low stock: Paint',
-    );
+  it.each(['de', 'ar', '', undefined, null])(
+    'an unknown locale (%p, Arabic included) falls back to English',
+    (locale) => {
+      expect(renderNotification('low_stock', payload, locale).subject).toBe(
+        'Low stock: Paint',
+      );
+    },
+  );
+
+  it('every tenant and client alert that exists in French also exists in Dutch', () => {
+    const all: NotificationType[] = [
+      ...TENANT_ALERT_TYPES,
+      ...CLIENT_EMAIL_TYPES,
+    ];
+    for (const type of all) {
+      const fr = renderNotification(type, {}, 'fr').subject;
+      const nl = renderNotification(type, {}, 'nl').subject;
+      const en = renderNotification(type, {}, 'en').subject;
+      if (fr !== en) expect(nl).not.toBe(en);
+    }
+  });
+
+  it('the email uses the shared layout: ChantiOs header, footer in the locale', () => {
+    const out = renderNotification('low_stock', payload, 'nl');
+    expect(out.html).toContain('Chanti<span');
+    expect(out.html).toContain('lang="nl"');
+    expect(out.html).toContain('Deze e-mail werd automatisch verzonden');
   });
 
   it('platform alerts exist in English only, whatever the locale asked', () => {
@@ -225,5 +248,18 @@ describe('renderNotification', () => {
       'en',
     );
     expect(without.body).not.toContain('href');
+    expect(without.html).not.toContain('Open</a>');
+  });
+
+  it('the portal link becomes the orange button in the email, in the locale', () => {
+    const out = renderNotification(
+      'client_quote_sent',
+      { company_name: 'Dupont', quote_ref: 'Q-1', portal_url: 'https://x/p/t' },
+      'nl',
+    );
+    expect(out.html).toContain('Openen</a>');
+    expect(out.html).toContain('background:#FF6A00');
+    // the in-app body keeps the inline link
+    expect(out.body).toContain('https://x/p/t');
   });
 });

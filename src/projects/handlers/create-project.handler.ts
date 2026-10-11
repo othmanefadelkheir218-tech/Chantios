@@ -54,6 +54,9 @@ export class CreateProjectHandler {
 
     const created = await this.projects.create({
       ...toCamelKeys<Prisma.ProjectUncheckedCreateInput>(dto),
+      // Prisma wants a `Date` for a `@db.Date` column, not `2026-11-02`.
+      ...(dto.start_date && { startDate: new Date(dto.start_date) }),
+      ...(dto.end_date && { endDate: new Date(dto.end_date) }),
       tenantId: actor.tenantId,
       status: 'prospect',
       createdBy: actor.userId,

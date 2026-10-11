@@ -1,4 +1,13 @@
+import { randomInt } from 'crypto';
 import { Prisma, User } from '@prisma/client';
+
+/** The `worker` role id (roles-permissions.md). */
+export const WORKER_ROLE_ID = 5;
+
+/** A random 8-digit login code (auth-tokens.md § 2b). Uniqueness is checked by the caller. */
+export function randomLoginCode(): string {
+  return String(randomInt(10_000_000, 100_000_000));
+}
 
 /**
  * What may leave the module. An allow-list, not "everything but the
@@ -12,6 +21,8 @@ export function toUserEntity(user: User) {
     roleId: user.roleId,
     name: user.name,
     email: user.email,
+    loginCode: user.loginCode,
+    mustChangePassword: user.mustChangePassword,
     phone: user.phone,
     hourlyRate: user.hourlyRate,
     isActive: user.isActive,

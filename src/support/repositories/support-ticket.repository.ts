@@ -101,4 +101,20 @@ export class SupportTicketRepository {
       data: { status: 'closed', closedAt },
     });
   }
+
+  // ---- Platform stats (GET /api/admin/stats) ----
+
+  /** Tickets not closed yet, all companies — and how many of them are `high` priority. */
+  async countOpenForAdmin(): Promise<{ open: number; highPriority: number }> {
+    const where: Prisma.SupportTicketWhereInput = {
+      status: { not: 'closed' },
+    };
+    const [open, highPriority] = await this.prisma.$transaction([
+      this.prisma.supportTicket.count({ where }),
+      this.prisma.supportTicket.count({
+        where: { ...where, priority: 'high' },
+      }),
+    ]);
+    return { open, highPriority };
+  }
 }

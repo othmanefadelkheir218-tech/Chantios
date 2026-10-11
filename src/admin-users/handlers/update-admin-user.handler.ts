@@ -13,7 +13,16 @@ export class UpdateAdminUserHandler {
     private readonly admins: AdminUserRepository,
   ) {}
 
-  async execute(id: number, { password, name, role }: UpdateAdminUserDto) {
+  async execute(
+    id: number,
+    {
+      password,
+      name,
+      role,
+      can_manage_billing,
+      can_manage_tenants,
+    }: UpdateAdminUserDto,
+  ) {
     this.logger.info(`Updating admin user ${id}`);
 
     if (!(await this.admins.findById(id))) {
@@ -24,6 +33,12 @@ export class UpdateAdminUserHandler {
     const admin = await this.admins.update(id, {
       ...(name && { name }),
       ...(role && { role }),
+      ...(can_manage_billing !== undefined && {
+        canManageBilling: can_manage_billing,
+      }),
+      ...(can_manage_tenants !== undefined && {
+        canManageTenants: can_manage_tenants,
+      }),
       ...(password && { passwordHash: await hashPassword(password) }),
     });
     this.logger.info(`Admin user updated: ${id}`);

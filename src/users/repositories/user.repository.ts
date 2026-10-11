@@ -34,6 +34,11 @@ export class UserRepository {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
+  /** NOT tenant-filtered, same reason as `findByEmail`: the phone login of a worker with no email. */
+  findByLoginCode(loginCode: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { loginCode } });
+  }
+
   findById(id: number): Promise<User | null> {
     return this.tenantPrisma.db.user.findFirst({ where: { id } });
   }
@@ -99,11 +104,12 @@ export class UserRepository {
    * `reset-password` are `@Public()` and resolve `id` through that unscoped
    * lookup — there is no tenant in context to scope this write against.
    * Safe because it targets one row by primary key, not a list.
+   * A password the user chose themself ends any "must change" state.
    */
   setPasswordHash(id: number, passwordHash: string): Promise<User> {
     return this.prisma.user.update({
       where: { id },
-      data: { passwordHash },
+      data: { passwordHash, mustChangePassword: false },
     });
   }
 

@@ -36,10 +36,12 @@ export class UpdateProjectHandler {
     const effectiveEnd = dto.end_date ?? current.endDate;
     assertDateOrder(effectiveStart, effectiveEnd);
 
-    const updated = await this.projects.update(
-      id,
-      toCamelKeys<Prisma.ProjectUpdateInput>(dto),
-    );
+    const updated = await this.projects.update(id, {
+      ...toCamelKeys<Prisma.ProjectUpdateInput>(dto),
+      // Prisma wants a `Date` for a `@db.Date` column, not `2026-11-02`.
+      ...(dto.start_date && { startDate: new Date(dto.start_date) }),
+      ...(dto.end_date && { endDate: new Date(dto.end_date) }),
+    });
     const entity = toProjectEntity(updated);
 
     await this.audit.write({

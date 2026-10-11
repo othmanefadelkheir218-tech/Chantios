@@ -11,6 +11,7 @@ import {
 } from '../../common/swagger/api-paginated.decorator';
 import {
   SubscriptionEntity,
+  SubscriptionListItemEntity,
   UsageSnapshotEntity,
 } from '../entities/subscription.entity';
 
@@ -21,9 +22,12 @@ export const ApiFindSubscriptions = () =>
     ApiOperation({
       summary: 'List subscriptions (admin staff)',
       description:
-        'One row per tenant — there is no separate `subscriptions` table. Filter with `status`.',
+        'One row per tenant — there is no separate `subscriptions` table. Filter with `status`. Each row also carries `tenant_name`, `plan_name` and `pending_plan_name`.',
     }),
-    ApiPaginatedResponse(SubscriptionEntity, 'Paginated list of subscriptions'),
+    ApiPaginatedResponse(
+      SubscriptionListItemEntity,
+      'Paginated list of subscriptions',
+    ),
   );
 
 export const ApiFindSubscription = () =>

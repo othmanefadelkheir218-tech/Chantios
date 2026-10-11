@@ -7,6 +7,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { AllowLapsedSubscription } from '../auth/decorators/allow-lapsed-subscription.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
 import { Module } from '../auth/decorators/module.decorator';
@@ -24,8 +25,10 @@ import { ChangePlanDto } from './dto/change-plan.dto';
 export class BillingController {
   constructor(private readonly billingService: BillingService) {}
 
+  // A blocked company can still read its billing (doc/notes/subscription-plans.md § The end of the trial).
   @Get('subscription')
   @TenantAuth()
+  @AllowLapsedSubscription()
   @Module('settings')
   mySubscription(@CurrentUser() actor: AuthenticatedUser) {
     return this.billingService.mySubscription(actor.tenantId);
@@ -33,6 +36,7 @@ export class BillingController {
 
   @Get('usage')
   @TenantAuth()
+  @AllowLapsedSubscription()
   @Module('settings')
   usage(@CurrentUser() actor: AuthenticatedUser) {
     return this.billingService.usage(actor.tenantId);
@@ -40,6 +44,7 @@ export class BillingController {
 
   @Get('invoices')
   @TenantAuth()
+  @AllowLapsedSubscription()
   @Module('settings')
   invoices(
     @CurrentUser() actor: AuthenticatedUser,

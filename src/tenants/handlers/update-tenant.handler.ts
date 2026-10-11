@@ -7,7 +7,11 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import { RequestActor } from '../../common/decorators/actor.decorator';
 import { UpdateTenantDto } from '../dto/update-tenant.dto';
-import { toTenantData, toTenantEntity } from '../helpers/tenant.helper';
+import {
+  isSameTenant,
+  toTenantData,
+  toTenantEntity,
+} from '../helpers/tenant.helper';
 import { TenantRepository } from '../repositories/tenant.repository';
 
 @Injectable()
@@ -38,6 +42,13 @@ export class UpdateTenantHandler {
 
     const updated = await this.tenants.update(id, toTenantData(dto));
     const entity = toTenantEntity(updated);
+    const before = toTenantEntity(current);
+
+    // Same values as before (an empty body, or the same data again): no history line.
+    if (isSameTenant(before, entity)) {
+      this.logger.info(`Tenant ${id}: nothing changed, no audit entry`);
+      return entity;
+    }
 
     await this.audit.write({
       tenantId: id,
@@ -45,7 +56,7 @@ export class UpdateTenantHandler {
       action: 'update',
       entityType: 'tenant',
       entityId: id,
-      oldValue: toTenantEntity(current),
+      oldValue: before,
       newValue: entity,
       ipAddress: actor.ip,
     });

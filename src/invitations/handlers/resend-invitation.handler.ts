@@ -5,7 +5,6 @@ import {
 } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
-import { env } from '../../config/env.config';
 import { EmailService } from '../../email/email.service';
 import {
   EmailLocale,
@@ -16,6 +15,7 @@ import {
   generateInvitationToken,
   hashInvitationToken,
   INVITATION_LIFETIME_MS,
+  toAcceptUrl,
 } from '../helpers/invitation-token.helper';
 import { toInvitationEntity } from '../helpers/invitation.helper';
 import { InvitationRepository } from '../repositories/invitation.repository';
@@ -52,7 +52,7 @@ export class ResendInvitationHandler {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: actor.tenantId },
     });
-    const acceptUrl = `${env.APP_URL}/invitations/accept?token=${rawToken}`;
+    const acceptUrl = toAcceptUrl(rawToken);
     const { subject, html } = inviteEmployeeTemplate(
       tenant?.name ?? 'ChantierOS',
       acceptUrl,

@@ -90,7 +90,12 @@ interface MessageSource {
   senderType: string;
   content: string;
   createdAt: Date;
-  attachments: { id: number; fileName: string; fileType: string }[];
+  attachments: {
+    id: number;
+    fileName: string;
+    fileUrl: string;
+    fileType: string;
+  }[];
 }
 
 export function toPortalMessage(message: MessageSource) {
@@ -103,6 +108,7 @@ export function toPortalMessage(message: MessageSource) {
     attachments: message.attachments.map((file) => ({
       id: file.id,
       file_name: file.fileName,
+      file_url: file.fileUrl,
       file_type: file.fileType,
     })),
   };

@@ -3,7 +3,7 @@
 > Read [00-START-HERE.md](00-START-HERE.md) first. Rules: [chat-conversations.md](../chat-conversations.md).
 > Old reference: [../test/15-chat.md](../test/15-chat.md).
 
-> **Status: 1 waiting — CHAT-15** ([CHECK IMAGEKIT]). The owner must open the ImageKit media library, folder `Chantios/tenant-1/message/0/`, and confirm the 2 images `TEST-chat-a_….png` and `TEST-chat-b_….png`. Also 4 SKIP: SUPC-01..04 run after phase 17 opens a ticket. Until then the phase is 21 PASS, 0 FAIL, 1 waiting, 4 skip.
+> **Status: done. CHAT-15 PASS on 2026-10-09:** the owner saw `TEST-chat-a_….png` and `TEST-chat-b_….png` in `Chantios/tenant-1/message/0/`. SUPC-01..04 were run in phase 17 (4 PASS). The phase is now 26 PASS, 0 FAIL, 0 waiting.
 
 ## Goal
 
@@ -45,7 +45,7 @@ Internal conversations, membership checked on HTTP **and** on the socket, real-t
 |---|---|---|---|
 | CHAT-13 | Upload 2 images (`entity_type=message`, `entity_id=0`); a DOCX | `201`, `201`; `400` | PASS |
 | CHAT-14 | Send with `media_ids: [a, b]` | `201`, 2 `attachments`; both rows now point at the message id; the socket event carries them | PASS |
-| CHAT-15 | **[CHECK IMAGEKIT]** | the 2 images are under `tenant-<A>/message/` | waiting |
+| CHAT-15 | **[CHECK IMAGEKIT]** | the 2 images are under `tenant-<A>/message/` | PASS (owner saw both in `message/0/`, 2026-10-09) |
 | CHAT-16 | Another user's pending file; an already attached file; the same id twice; a trashed file | `400` each, **no** message written | PASS |
 
 ## 4. Read tracking
@@ -67,10 +67,10 @@ Internal conversations, membership checked on HTTP **and** on the socket, real-t
 
 | ID | Do | Expected | Result |
 |---|---|---|---|
-| SUPC-01 | `GET /api/admin/support/<ticket>/messages?tenant_id=<A>` | `200`; an `audit_logs` row `support_read` each time | SKIP |
-| SUPC-02 | `tenant_id=<B>`; no `tenant_id`; an internal conversation's id; no platform session; a tenant cookie | `404` (no audit row); `400`; `404`; `401`; `401` | SKIP |
-| SUPC-03 | `POST` a reply | `201`, `sender_type admin`, `support_reply` audit row, the owner's socket gets it live | SKIP |
-| SUPC-04 | Platform socket `join { conversation_id, tenant_id }` | `ok`, audit row `support_join`; an internal conversation → `404` | SKIP |
+| SUPC-01 | `GET /api/admin/support/<ticket>/messages?tenant_id=<A>` | `200`; an `audit_logs` row `support_read` each time | PASS (run in phase 17) |
+| SUPC-02 | `tenant_id=<B>`; no `tenant_id`; an internal conversation's id; no platform session; a tenant cookie | `404` (no audit row); `400`; `404`; `401`; `401` | PASS (run in phase 17) |
+| SUPC-03 | `POST` a reply | `201`, `sender_type admin`, `support_reply` audit row, the owner's socket gets it live | PASS (run in phase 17) |
+| SUPC-04 | Platform socket `join { conversation_id, tenant_id }` | `ok`, audit row `support_join`; an internal conversation → `404` | PASS (run in phase 17) |
 
 The project conversation (`project_client`) is created by the portal and tested in phase 14 (POR-03).
 
@@ -84,7 +84,7 @@ The project conversation (`project_client`) is created by the portal and tested 
 
 ## Result — 2026-10-09
 
-**21 PASS, 0 FAIL, 1 waiting** (CHAT-15, ImageKit check — asked on Telegram), **4 SKIP** (SUPC-01..04 wait for phase 17, which opens the ticket).
+**22 PASS, 0 FAIL, 0 waiting** (CHAT-15 PASS 2026-10-09), **4 SKIP** (SUPC-01..04 wait for phase 17, which opens the ticket).
 
 Data: conversation 1 (owner, manager, supervisor, leader; messages 1–3), 4 (manager + supervisor, no message), 5 (owner + manager, archived, 6 messages). Media 45 and 46 are attached to message 3; 47 (manager) and 48 (owner) are still pending; 49 is in the trash. Message 3 has the 2 attachments.
 

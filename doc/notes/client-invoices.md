@@ -94,8 +94,15 @@ One row per payment received. Never a running total — always a ledger.
 | `amount` | Amount of this payment |
 | `method` | `transfer` / `cheque` / `cash` / `stripe` |
 | `reference` | Payment reference (optional) |
+| `note` | Why this row exists — **required** on a correction (negative amount) |
 | `payment_date` | Date received |
 | `created_by` | Staff who recorded it |
+
+**Corrections.** Payments are never edited or deleted. A wrong amount is fixed with a **correction row**: a negative `amount` with a required `note` (e.g. `-100.00`, "typed 1 100 instead of 1 000").
+- `amount` can be positive or negative, never `0`.
+- The invoice's total paid can never go below `0` — a correction larger than what was paid is refused.
+- Same permission as recording a payment.
+- Status is recomputed from the ledger after every row, so a correction can reopen `paid → partially_paid`.
 
 ### `invoice_balance` — live balance view (never stored)
 
@@ -204,6 +211,19 @@ Total invoiced = €9,500 ≠ €10,000
 → ⚠️ warning: "invoices don't cover the full quote amount"
 → still allowed — staff decides
 ```
+
+---
+
+## PDF language — quotes and invoices
+
+**One rule for both quote and invoice PDFs** (this is the only place it is written):
+
+- Every fixed word on the PDF ("Total TVAC", "Échéance", "Facturé à", the title…) is printed in the **company's language: `tenants.locale`** (`fr`, `nl` or `en`).
+- Never the client's language — clients have no language column, and none is added.
+- An unknown locale prints in **French** (the fallback).
+- What the user typed (line descriptions, the note) is printed as typed — never translated.
+- A sent document's PDF is frozen at send time, so it keeps the language the company had on that day.
+- Dates stay `YYYY-MM-DD` and amounts `1234.56 EUR` in every language.
 
 ---
 

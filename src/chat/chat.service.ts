@@ -24,6 +24,7 @@ import { FindSupportConversationHandler } from './handlers/find-support-conversa
 import { MarkReadHandler } from './handlers/mark-read.handler';
 import { SendMessageHandler } from './handlers/send-message.handler';
 import { UnreadCountHandler } from './handlers/unread-count.handler';
+import { FindContactsHandler } from './handlers/find-contacts.handler';
 import { ChatIdentity } from './helpers/chat-access.helper';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
@@ -36,6 +37,7 @@ export class ChatService {
     private readonly sendMessage: SendMessageHandler,
     private readonly markRead: MarkReadHandler,
     private readonly unreadCount: UnreadCountHandler,
+    private readonly findContacts: FindContactsHandler,
     private readonly archiveConversation: ArchiveConversationHandler,
     private readonly addMember: AddMemberHandler,
     private readonly ensureProjectConversationHandler: EnsureProjectConversationHandler,
@@ -73,6 +75,10 @@ export class ChatService {
 
   unread(actor: AuthenticatedUser) {
     return this.unreadCount.execute(actor);
+  }
+
+  contacts(actor: AuthenticatedUser) {
+    return this.findContacts.execute(actor);
   }
 
   archive(id: number, actor: AuthenticatedUser) {
@@ -123,8 +129,22 @@ export class ChatService {
   }
 
   /** The client writes on a project (the portal): `sender_type = 'client'`, `sender_id = client_id`. */
-  sendClientMessage(projectId: number, clientId: number, content: string) {
-    return this.clientMessages.send(projectId, clientId, content);
+  sendClientMessage(
+    projectId: number,
+    clientId: number,
+    content: string,
+    mediaIds: number[] = [],
+  ) {
+    return this.clientMessages.send(projectId, clientId, content, mediaIds);
+  }
+
+  /** The checks of `sendClientMessage`, without writing — run before the client's files are uploaded. */
+  async assertClientCanSend(
+    projectId: number,
+    clientId: number,
+    content: string,
+  ): Promise<void> {
+    await this.clientMessages.assertCanSend(projectId, clientId, content);
   }
 
   // ---- Internal API for step 16 (support tickets) ----

@@ -13,11 +13,11 @@ export class FindTenantsHandler {
     private readonly tenants: TenantRepository,
   ) {}
 
-  async execute({ page, limit, search, status }: FindTenantsQueryDto) {
+  async execute({ page, limit, search, status, deleted }: FindTenantsQueryDto) {
     this.logger.debug(`Listing tenants (page ${page}, limit ${limit})`);
 
     const [data, total] = await this.tenants.findMany(
-      buildTenantFilter(search, status),
+      buildTenantFilter(search, status, deleted),
       toSkip(page, limit),
       limit,
     );

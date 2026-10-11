@@ -97,7 +97,7 @@ src/
 | `GET` | `/api/billing/usage` | `AuthGuard` + `settings:view` | current usage vs allowance |
 | `GET` | `/api/billing/invoices` | `AuthGuard` + `settings:view` | past `billing_usage_snapshots` |
 | `POST` | `/api/billing/change-plan` | `AuthGuard` + `admin` | the downgrade gate applies |
-| `GET` | `/api/admin/billing/snapshots` | `AdminAuthGuard` | all tenants |
+| `GET` | `/api/admin/billing/snapshots` | `AdminAuthGuard` | all tenants; `?tenant_id=` = one tenant (same list as `/api/admin/subscriptions/:tenantId/usage`) |
 | `POST` | `/api/admin/billing/run-renewal/:tenantId` | `AdminAuthGuard` | manual trigger, for testing |
 
 ### The webhook needs the raw body

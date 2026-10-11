@@ -5,6 +5,9 @@ import { RolesModule } from '../roles/roles.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { ArchiveMaterialHandler } from './handlers/archive-material.handler';
+import { CheckDescriptionHandler } from './handlers/check-description.handler';
+import { ExportMaterialsHandler } from './handlers/export-materials.handler';
+import { ImportMaterialsHandler } from './handlers/import-materials.handler';
 import { CreateMaterialHandler } from './handlers/create-material.handler';
 import { FindLowStockHandler } from './handlers/find-low-stock.handler';
 import { FindMaterialHandler } from './handlers/find-material.handler';
@@ -34,6 +37,9 @@ import { MaterialRepository } from './repositories/material.repository';
     ArchiveMaterialHandler,
     StockLevelHandler,
     FindLowStockHandler,
+    CheckDescriptionHandler,
+    ExportMaterialsHandler,
+    ImportMaterialsHandler,
   ],
   // `services` (recipe material validation) and `stock` (movements, coverage
   // checks) import this to reach `MaterialsService` — never this module's

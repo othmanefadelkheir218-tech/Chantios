@@ -198,6 +198,25 @@ describe('Projects handlers', () => {
       expect(result.status).toBe('prospect');
       expect(audit.write).toHaveBeenCalledTimes(1);
     });
+
+    it('hands date-only dates to Prisma as Date objects (PRJ-01)', async () => {
+      clients.findByIdRaw.mockResolvedValue(client());
+      repo.create.mockResolvedValue(project());
+
+      await createProject.execute(
+        {
+          client_id: 2,
+          name: 'X',
+          start_date: '2026-11-02',
+          end_date: '2026-12-02',
+        },
+        actor,
+      );
+
+      const data = repo.create.mock.calls[0][0] as Record<string, unknown>;
+      expect(data.startDate).toEqual(new Date('2026-11-02'));
+      expect(data.endDate).toEqual(new Date('2026-12-02'));
+    });
   });
 
   describe('FindProjectsHandler', () => {
@@ -269,6 +288,21 @@ describe('Projects handlers', () => {
       );
       expect(result.name).toBe('New name');
       expect(audit.write).toHaveBeenCalledTimes(1);
+    });
+
+    it('hands date-only dates to Prisma as Date objects (PRJ-01)', async () => {
+      repo.findById.mockResolvedValue(project());
+      repo.update.mockResolvedValue(project());
+
+      await updateProject.execute(
+        10,
+        { start_date: '2026-11-02', end_date: '2026-12-02' },
+        actor,
+      );
+
+      const data = repo.update.mock.calls[0][1] as Record<string, unknown>;
+      expect(data.startDate).toEqual(new Date('2026-11-02'));
+      expect(data.endDate).toEqual(new Date('2026-12-02'));
     });
   });
 

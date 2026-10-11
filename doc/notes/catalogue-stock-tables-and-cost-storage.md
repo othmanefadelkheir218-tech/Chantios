@@ -69,7 +69,7 @@ This is the one home for these fields. Nothing else stores a stock quantity.
 | `id` | integer | — |
 | `tenant_id` | integer | Required |
 | `material_id` | integer | Required — FK → `materials.id` |
-| `project_id` | integer | **Nullable.** Required on `consumption`, always `NULL` on `purchase` — stock is a shared pool, a purchase belongs to no project |
+| `project_id` | integer | **Nullable.** Required on `consumption`, always `NULL` on `purchase` — stock is a shared pool, a purchase belongs to no project. Optional on `adjustment`: when set, the correction also counts in that project's material cost ([[margin-profitability]]) |
 | `report_id` | integer | **Nullable** — FK → `reports.id`, the site report that declared this consumption. Traceability: who said it, and when |
 | `purchase_invoice_id` | integer | **Nullable** — FK → `purchase_invoices.id`, the supplier bill for a `purchase` row. Either can exist without the other |
 | `type` | enum | `purchase` · `consumption` · `adjustment` |
@@ -101,6 +101,10 @@ type = 'purchase'    → project_id IS NULL     AND quantity > 0
 ## Stock quantity — one source of truth
 
 **Decision:** `stock_movements` is the only place a quantity lives. Nothing else stores a running total.
+
+**Starting stock when a material is created (decided 2026-10-10, owner).** The create-material form has an optional "Stock de départ" field. It is never stored on the material: right after the material is created, the frontend writes **one `adjustment` movement** with note `Stock initial`, dated today, at the material's purchase price. Not a `purchase` (no supplier, no bill). Shown only to users who may create stock movements. No backend change — it uses `POST /stock/adjustment`.
+
+**Bulk import (decided 2026-10-10).** Materials and stock rows can also be imported from an `.xlsx` file. Rules in [[bulk-import]].
 
 `materials` has no quantity column. Two SQL views answer every stock question:
 
@@ -145,7 +149,7 @@ It is declared from the daily site report, by a `site_supervisor` or `team_leade
 6. Save → one `consumption` row per material
 ```
 
-Pre-fill gives speed, editing gives truth. The `worker` role never touches stock. A mistake is corrected by a manager with an `adjustment` row, never by editing the original. Full flow in [[site-reports]].
+Pre-fill gives speed, editing gives truth. The `worker` role never touches stock. A mistake is corrected by a manager with an `adjustment` row **linked to the same project** (so the margin follows), never by editing the original. Full flow in [[site-reports]].
 
 ## How an accepted quote becomes reservations
 
@@ -168,6 +172,19 @@ Worked example — the quote has one line, Painting 20 m²:
 | M3 Filler | 0.02 | 0.4 | 0.4 kg |
 
 **`quote_lines.service_id` is optional.** A line picked from the catalogue reserves stock. A free-text line reserves nothing — staff must be able to write a free line, so this is by design, not a gap.
+
+### Picking a service on a quote or invoice line
+
+In the line editor, the description field takes **free text or a catalogue service**:
+
+- The search shows **active services only** (never materials), searched by description, with the category shown next to each one.
+- Picking a service fills the line: `description`, `unit`, `unit_price_excl_vat` = the service's `price_excl_vat`, `vat_rate` = the service's `default_vat_rate`, else the company's default VAT rate. Every field stays editable.
+- The values are **copied** when the service is picked. A later change in the catalogue never changes a quote or invoice line.
+- Editing the text or the price after picking **keeps** `service_id` — so the line still reserves stock when the quote is accepted. A small ✕ next to the field removes the link: the line becomes free text (`service_id = NULL`) and keeps the values it has.
+- The same picker is on **invoice lines** (`invoice_lines.service_id`). An invoice reserves no stock; the link is only a record of where the line came from.
+- **Purchase bills: no picker.**
+- To sell one material alone, the company creates a service with that one material in its recipe. Materials are never offered in the picker.
+- The API refuses a `service_id` that is not a service of the same company (`400`). An archived service already on a line is still accepted, so an old draft can be saved again.
 
 ### Reservation lifecycle
 

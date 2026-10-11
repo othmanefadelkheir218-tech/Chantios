@@ -10,6 +10,7 @@ import { UsersModule } from '../users/users.module';
 import { CreateTaskHandler } from './handlers/create-task.handler';
 import { DeleteTaskHandler } from './handlers/delete-task.handler';
 import { FindTasksHandler } from './handlers/find-tasks.handler';
+import { MyProjectsHandler } from './handlers/my-projects.handler';
 import { MyTasksHandler } from './handlers/my-tasks.handler';
 import { SetAssigneesHandler } from './handlers/set-assignees.handler';
 import { SetTaskStatusHandler } from './handlers/set-task-status.handler';
@@ -38,6 +39,7 @@ import { TasksService } from './tasks.service';
     CreateTaskHandler,
     FindTasksHandler,
     MyTasksHandler,
+    MyProjectsHandler,
     UpdateTaskHandler,
     SetTaskStatusHandler,
     SetAssigneesHandler,

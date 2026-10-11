@@ -43,6 +43,9 @@ const STAFF_MODULE: Partial<Record<NotificationType, PermissionModule>> = {
   progress_stalled: 'reports',
   subscription_payment_failed: 'settings',
   subscription_renewal_upcoming: 'settings',
+  trial_ending: 'settings',
+  trial_ended: 'settings',
+  subscription_blocked: 'settings',
 };
 
 export function recipientRule(type: NotificationType): RecipientRule {
@@ -54,7 +57,8 @@ export function recipientRule(type: NotificationType): RecipientRule {
 
 export interface StaffCandidate {
   id: number;
-  email: string;
+  /** `null` = a worker with no email: in-app only, no email sent. */
+  email: string | null;
   name: string;
   roleId: number;
   roleName: string;

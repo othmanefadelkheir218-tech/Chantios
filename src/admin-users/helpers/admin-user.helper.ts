@@ -11,6 +11,8 @@ export function toAdminUserEntity(admin: AdminUser) {
     name: admin.name,
     role: admin.role,
     isActive: admin.isActive,
+    canManageBilling: admin.canManageBilling,
+    canManageTenants: admin.canManageTenants,
     createdAt: admin.createdAt,
     updatedAt: admin.updatedAt,
   };

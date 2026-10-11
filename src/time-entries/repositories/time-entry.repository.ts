@@ -172,4 +172,20 @@ export class TimeEntryRepository {
     });
     return rows.map((row) => row.userId);
   }
+
+  /** Dashboard (step 18): hours logged between two `work_date`s (inclusive). `userId` = scope `own`. */
+  async sumHoursBetween(
+    from: Date,
+    to: Date,
+    userId?: number,
+  ): Promise<Prisma.Decimal> {
+    const result = await this.tenantPrisma.db.timeEntry.aggregate({
+      where: {
+        workDate: { gte: from, lte: to },
+        ...(userId !== undefined && { userId }),
+      },
+      _sum: { hours: true },
+    });
+    return result._sum.hours ?? new Prisma.Decimal(0);
+  }
 }

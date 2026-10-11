@@ -14,6 +14,7 @@ export function toMovementEntity(movement: StockMovement) {
     unitPrice: movement.unitPrice,
     movementDate: movement.movementDate,
     note: movement.note,
+    importBatchId: movement.importBatchId,
     createdBy: movement.createdBy,
     createdAt: movement.createdAt,
   };

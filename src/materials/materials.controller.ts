@@ -45,6 +45,13 @@ export class MaterialsController {
   }
 
   // Must stay registered before `GET :id` — both match one path segment.
+  @Get('export')
+  @TenantAuth()
+  @Module('stock')
+  exportAll() {
+    return this.materialsService.exportAll();
+  }
+
   @Get('low-stock')
   @TenantAuth()
   @Module('stock')

@@ -3,7 +3,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ClsService } from 'nestjs-cls';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { AUDIT_SKIP_KEY } from '../../audit/helpers/audit.helper';
 import { StripeService } from '../../stripe/stripe.service';
 import { PlanRepository } from '../repositories/plan.repository';
 
@@ -14,6 +16,7 @@ export class DeactivatePlanHandler {
     private readonly logger: PinoLogger,
     private readonly plans: PlanRepository,
     private readonly stripe: StripeService,
+    private readonly cls: ClsService,
   ) {}
 
   /**
@@ -34,7 +37,11 @@ export class DeactivatePlanHandler {
         'This is the default plan. Make another plan the default first, then deactivate this one.',
       );
     }
-    if (!plan.isActive) return plan;
+    if (!plan.isActive) {
+      // Already inactive: nothing changed, so nothing to put in the history.
+      this.cls.set(AUDIT_SKIP_KEY, true);
+      return plan;
+    }
 
     const updated = await this.plans.deactivate(id);
     await this.stripe.archivePlanPrice(updated.stripePriceId);

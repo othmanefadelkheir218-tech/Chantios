@@ -1,6 +1,8 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { ClsService } from 'nestjs-cls';
 import { getLoggerToken } from 'nestjs-pino';
+import { AUDIT_SKIP_KEY } from '../../audit/helpers/audit.helper';
 import { StripeService } from '../../stripe/stripe.service';
 import { PlanRepository } from '../repositories/plan.repository';
 import { CreatePlanVersionHandler } from './create-plan-version.handler';
@@ -43,6 +45,7 @@ describe('Plans handlers', () => {
     archivePlanPrice: jest.fn(),
   };
   const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn() };
+  const cls = { set: jest.fn() };
 
   let create: CreatePlanHandler;
   let deactivate: DeactivatePlanHandler;
@@ -63,6 +66,7 @@ describe('Plans handlers', () => {
         ...handlers,
         { provide: PlanRepository, useValue: repo },
         { provide: StripeService, useValue: stripe },
+        { provide: ClsService, useValue: cls },
         ...handlers.map((h) => ({
           provide: getLoggerToken(h.name),
           useValue: logger,
@@ -184,6 +188,23 @@ describe('Plans handlers', () => {
         isActive: false,
       });
       expect(stripe.archivePlanPrice).toHaveBeenCalledWith('price_old');
+    });
+
+    it('a plan that is already inactive changes nothing and skips the audit entry', async () => {
+      repo.findById.mockResolvedValue(plan({ isActive: false }));
+      await expect(deactivate.execute(1)).resolves.toMatchObject({
+        isActive: false,
+      });
+      expect(repo.deactivate).not.toHaveBeenCalled();
+      expect(stripe.archivePlanPrice).not.toHaveBeenCalled();
+      expect(cls.set).toHaveBeenCalledWith(AUDIT_SKIP_KEY, true);
+    });
+
+    it('a real deactivate does not skip the audit entry', async () => {
+      repo.findById.mockResolvedValue(plan());
+      repo.deactivate.mockResolvedValue(plan({ isActive: false }));
+      await deactivate.execute(1);
+      expect(cls.set).not.toHaveBeenCalled();
     });
 
     it('404 when the plan does not exist', async () => {

@@ -8,6 +8,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../../users/users.service';
 import { InvitationRepository } from '../repositories/invitation.repository';
 import { AcceptInvitationHandler } from './accept-invitation.handler';
+import { CreateDirectMemberHandler } from './create-direct-member.handler';
 import { CreateInvitationHandler } from './create-invitation.handler';
 import { RevokeInvitationHandler } from './revoke-invitation.handler';
 
@@ -35,7 +36,11 @@ describe('Invitations handlers', () => {
     markAccepted: jest.fn(),
     delete: jest.fn(),
   };
-  const users = { findByEmail: jest.fn(), create: jest.fn() };
+  const users = {
+    findByEmail: jest.fn(),
+    findByLoginCode: jest.fn(),
+    create: jest.fn(),
+  };
   const email = { send: jest.fn() };
   const audit = { write: jest.fn() };
   const tenantContext = { setTenantId: jest.fn() };
@@ -49,6 +54,7 @@ describe('Invitations handlers', () => {
   let create: CreateInvitationHandler;
   let accept: AcceptInvitationHandler;
   let revoke: RevokeInvitationHandler;
+  let direct: CreateDirectMemberHandler;
 
   beforeEach(async () => {
     jest.resetAllMocks();
@@ -57,6 +63,7 @@ describe('Invitations handlers', () => {
       CreateInvitationHandler,
       AcceptInvitationHandler,
       RevokeInvitationHandler,
+      CreateDirectMemberHandler,
     ];
     const module = await Test.createTestingModule({
       providers: [
@@ -77,6 +84,7 @@ describe('Invitations handlers', () => {
     create = module.get(CreateInvitationHandler);
     accept = module.get(AcceptInvitationHandler);
     revoke = module.get(RevokeInvitationHandler);
+    direct = module.get(CreateDirectMemberHandler);
   });
 
   describe('CreateInvitationHandler', () => {
@@ -195,6 +203,116 @@ describe('Invitations handlers', () => {
       const result = await revoke.execute(1, actor);
       expect(repo.delete).toHaveBeenCalledWith(1);
       expect(result).toEqual({ revoked: true });
+    });
+  });
+
+  describe('CreateDirectMemberHandler (auth-tokens.md § 2b)', () => {
+    const created = (over: Record<string, unknown> = {}) => ({
+      id: 30,
+      tenantId: 1,
+      roleId: 5,
+      name: 'Jean',
+      email: null,
+      loginCode: null,
+      mustChangePassword: false,
+      phone: null,
+      hourlyRate: '0',
+      isActive: true,
+      emailVerifiedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...over,
+    });
+
+    it('email + temporary password: user created with must_change_password, no email sent', async () => {
+      users.findByEmail.mockResolvedValue(null);
+      repo.findOpenByEmailAnywhere.mockResolvedValue(null);
+      users.create.mockResolvedValue(
+        created({ roleId: 2, email: 'm@test.local', mustChangePassword: true }),
+      );
+      const result = await direct.execute(
+        {
+          name: 'Jean',
+          role_id: 2,
+          email: 'M@test.local',
+          password: 'Temp@12345678',
+        },
+        actor,
+      );
+      const data = (users.create.mock.calls[0] as [Record<string, unknown>])[0];
+      expect(data).toMatchObject({
+        email: 'm@test.local',
+        roleId: 2,
+        mustChangePassword: true,
+      });
+      expect(data.passwordHash).toEqual(expect.any(String));
+      expect(data.passwordHash).not.toBe('Temp@12345678');
+      expect(data.loginCode).toBeUndefined();
+      expect(email.send).not.toHaveBeenCalled();
+      expect(result.mustChangePassword).toBe(true);
+      expect(audit.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'create',
+          entityType: 'user',
+          entityId: 30,
+        }),
+      );
+    });
+
+    it('a used email is refused, nothing created', async () => {
+      users.findByEmail.mockResolvedValue({ id: 9 });
+      await expect(
+        direct.execute(
+          {
+            name: 'X',
+            role_id: 2,
+            email: 'taken@test.local',
+            password: 'Temp@12345678',
+          },
+          actor,
+        ),
+      ).rejects.toThrow(ConflictException);
+      expect(users.create).not.toHaveBeenCalled();
+    });
+
+    it('replaces an open invitation of the same email at this company', async () => {
+      users.findByEmail.mockResolvedValue(null);
+      repo.findOpenByEmailAnywhere.mockResolvedValue(
+        invitation({ id: 7, tenantId: 1 }),
+      );
+      users.create.mockResolvedValue(created({ email: 'invitee@test.local' }));
+      await direct.execute(
+        {
+          name: 'X',
+          role_id: 5,
+          email: 'invitee@test.local',
+          password: 'Temp@12345678',
+        },
+        actor,
+      );
+      expect(repo.delete).toHaveBeenCalledWith(7);
+    });
+
+    it('worker without email: PIN hashed + a free 8-digit login code', async () => {
+      users.findByLoginCode
+        .mockResolvedValueOnce({ id: 3 })
+        .mockResolvedValue(null);
+      users.create.mockResolvedValue(created({ loginCode: '12345678' }));
+      await direct.execute({ name: 'Jean', role_id: 5, pin: '1234' }, actor);
+      const data = (users.create.mock.calls[0] as [Record<string, unknown>])[0];
+      expect(data.email).toBeNull();
+      expect(data.loginCode).toMatch(/^\d{8}$/);
+      expect(data.mobilePinHash).toEqual(expect.any(String));
+      expect(data.passwordHash).toBeUndefined();
+      expect(users.findByLoginCode).toHaveBeenCalledTimes(2);
+      expect(users.findByEmail).not.toHaveBeenCalled();
+    });
+
+    it('a manager without email is refused', async () => {
+      await expect(
+        direct.execute({ name: 'X', role_id: 2, pin: '1234' }, actor),
+      ).rejects.toThrow(BadRequestException);
+      expect(users.create).not.toHaveBeenCalled();
     });
   });
 });

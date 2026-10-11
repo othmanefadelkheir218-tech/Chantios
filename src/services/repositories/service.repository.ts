@@ -19,6 +19,15 @@ export class ServiceRepository {
     return this.tenantPrisma.db.service.findFirst({ where: { id } });
   }
 
+  /** The ids, among `ids`, that are services of the caller's company (archived included). */
+  async findExistingIds(ids: number[]): Promise<number[]> {
+    const rows = await this.tenantPrisma.db.service.findMany({
+      where: { id: { in: ids } },
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
+  }
+
   async findMany(
     where: Prisma.ServiceWhereInput,
     skip: number,

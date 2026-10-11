@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { toFile } from '@imagekit/nodejs';
 import { MediaEntityType } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
@@ -13,6 +12,10 @@ import {
   MAX_FILE_SIZE_BYTES,
   toMediaEntity,
 } from '../helpers/media.helper';
+import {
+  discardUploadedFile,
+  uploadToImageKit,
+} from '../helpers/imagekit-upload.helper';
 import { MediaRepository } from '../repositories/media.repository';
 
 /**
@@ -55,28 +58,29 @@ export class ReplaceMediaHandler {
     this.logger.info(`Replacing ${entityType} media for id ${entityId}`);
     const old = await this.media.findByEntityAndType(entityType, entityId);
 
-    const uploaded = await imagekit.files.upload({
-      file: await toFile(file.buffer, file.originalname, {
-        type: file.mimetype,
-      }),
-      fileName: file.originalname,
-      folder: buildMediaFolder(actor.tenantId, entityType, entityId),
-    });
-    if (!uploaded.fileId || !uploaded.url) {
-      throw new BadRequestException('ImageKit upload did not return a file');
-    }
+    const uploaded = await uploadToImageKit(
+      file,
+      buildMediaFolder(actor.tenantId, entityType, entityId),
+      this.logger,
+    );
 
-    const created = await this.media.create({
-      tenantId: actor.tenantId,
-      entityType,
-      entityId,
-      fileName: file.originalname,
-      fileId: uploaded.fileId,
-      fileUrl: uploaded.url,
-      fileType: file.mimetype,
-      fileSize: BigInt(file.size),
-      uploadedBy: actor.userId,
-    });
+    let created;
+    try {
+      created = await this.media.create({
+        tenantId: actor.tenantId,
+        entityType,
+        entityId,
+        fileName: file.originalname,
+        fileId: uploaded.fileId,
+        fileUrl: uploaded.url,
+        fileType: file.mimetype,
+        fileSize: BigInt(file.size),
+        uploadedBy: actor.userId,
+      });
+    } catch (err: unknown) {
+      await discardUploadedFile(uploaded.fileId, this.logger);
+      throw err;
+    }
 
     if (entityType === 'tenant') {
       await this.tenants.setLogoMediaId(entityId, created.id);

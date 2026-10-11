@@ -8,7 +8,7 @@ import { AuditService } from '../../audit/audit.service';
 import { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
 import { hashPassword } from '../../common/helpers/password.helper';
 import { SetPinDto } from '../dto/set-pin.dto';
-import { toUserEntity } from '../helpers/user.helper';
+import { toUserEntity, WORKER_ROLE_ID } from '../helpers/user.helper';
 import { UserRepository } from '../repositories/user.repository';
 
 /** `POST /api/users/:id/pin` — admin sets a worker's mobile PIN (argon2id). */
@@ -29,7 +29,7 @@ export class SetPinHandler {
       this.logger.warn(`Cannot set PIN: user ${id} not found`);
       throw new NotFoundException('User not found');
     }
-    if (user.roleId !== 5) {
+    if (user.roleId !== WORKER_ROLE_ID) {
       this.logger.warn(`Cannot set PIN: user ${id} is not a worker`);
       throw new BadRequestException('A mobile PIN is only for the worker role');
     }

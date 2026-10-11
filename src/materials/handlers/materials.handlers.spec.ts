@@ -1,10 +1,16 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { getLoggerToken } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import { MaterialRepository } from '../repositories/material.repository';
 import { ArchiveMaterialHandler } from './archive-material.handler';
+import { CheckDescriptionHandler } from './check-description.handler';
+import { ExportMaterialsHandler } from './export-materials.handler';
 import { CreateMaterialHandler } from './create-material.handler';
 import { FindLowStockHandler } from './find-low-stock.handler';
 import { FindMaterialHandler } from './find-material.handler';
@@ -47,6 +53,8 @@ describe('Materials handlers', () => {
     findWithStockLevels: jest.fn(),
     findStockLevel: jest.fn(),
     findLowStock: jest.fn(),
+    findAllActive: jest.fn(),
+    findByNormalizedDescriptions: jest.fn(),
   };
   const audit = { write: jest.fn() };
   const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn() };
@@ -58,6 +66,7 @@ describe('Materials handlers', () => {
   let archiveMaterial: ArchiveMaterialHandler;
   let stockLevelHandler: StockLevelHandler;
   let findLowStock: FindLowStockHandler;
+  let exportMaterials: ExportMaterialsHandler;
 
   beforeEach(async () => {
     jest.resetAllMocks();
@@ -69,6 +78,8 @@ describe('Materials handlers', () => {
       ArchiveMaterialHandler,
       StockLevelHandler,
       FindLowStockHandler,
+      CheckDescriptionHandler,
+      ExportMaterialsHandler,
     ];
     const module = await Test.createTestingModule({
       providers: [
@@ -89,6 +100,8 @@ describe('Materials handlers', () => {
     archiveMaterial = module.get(ArchiveMaterialHandler);
     stockLevelHandler = module.get(StockLevelHandler);
     findLowStock = module.get(FindLowStockHandler);
+    exportMaterials = module.get(ExportMaterialsHandler);
+    repo.findByNormalizedDescriptions.mockResolvedValue([]);
   });
 
   describe('CreateMaterialHandler', () => {
@@ -120,6 +133,58 @@ describe('Materials handlers', () => {
       );
       expect(result).not.toHaveProperty('quantity');
       expect(audit.write).toHaveBeenCalledTimes(1);
+    });
+
+    it('refuses a description already used (case and spaces ignored) -> 409', async () => {
+      repo.findByNormalizedDescriptions.mockResolvedValue([
+        { id: 3, description: 'Paint', isActive: true },
+      ]);
+      await expect(
+        createMaterial.execute(
+          {
+            description: '  PAINT ',
+            unit: 'L',
+            purchase_price: '6.00',
+            minimum_stock: '10',
+          },
+          actor,
+        ),
+      ).rejects.toThrow(ConflictException);
+      expect(repo.findByNormalizedDescriptions).toHaveBeenCalledWith(['paint']);
+      expect(repo.create).not.toHaveBeenCalled();
+    });
+
+    it('refuses the description of an archived material too', async () => {
+      repo.findByNormalizedDescriptions.mockResolvedValue([
+        { id: 3, description: 'Paint', isActive: false },
+      ]);
+      await expect(
+        createMaterial.execute(
+          {
+            description: 'Paint',
+            unit: 'L',
+            purchase_price: '6.00',
+            minimum_stock: '10',
+          },
+          actor,
+        ),
+      ).rejects.toThrow('archived');
+    });
+  });
+
+  describe('ExportMaterialsHandler', () => {
+    it('returns the import columns of every active material', async () => {
+      repo.findAllActive.mockResolvedValue([material()]);
+      const result = await exportMaterials.execute();
+      expect(result).toEqual([
+        {
+          id: 10,
+          description: 'Paint',
+          unit: 'L',
+          purchasePrice: new Prisma.Decimal('6.00'),
+          minimumStock: new Prisma.Decimal('10'),
+        },
+      ]);
     });
   });
 
@@ -186,6 +251,28 @@ describe('Materials handlers', () => {
       );
       expect(result.purchasePrice.toString()).toBe('7');
       expect(audit.write).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps its own description (no conflict with itself)', async () => {
+      repo.findById.mockResolvedValue(material());
+      repo.findByNormalizedDescriptions.mockResolvedValue([
+        { id: 10, description: 'Paint', isActive: true },
+      ]);
+      repo.update.mockResolvedValue(material());
+      await expect(
+        updateMaterial.execute(10, { description: 'paint' }, actor),
+      ).resolves.toBeDefined();
+    });
+
+    it('refuses to rename to another material description -> 409', async () => {
+      repo.findById.mockResolvedValue(material());
+      repo.findByNormalizedDescriptions.mockResolvedValue([
+        { id: 11, description: 'Tape', isActive: true },
+      ]);
+      await expect(
+        updateMaterial.execute(10, { description: 'Tape' }, actor),
+      ).rejects.toThrow(ConflictException);
+      expect(repo.update).not.toHaveBeenCalled();
     });
   });
 

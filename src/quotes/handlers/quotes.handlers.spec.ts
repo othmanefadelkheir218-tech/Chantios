@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { getLoggerToken } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
+import { ServicesService } from '../../services/services.service';
 import { MarginsService } from '../../margins/margins.service';
 import { ClientsService } from '../../clients/clients.service';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
@@ -102,6 +103,7 @@ describe('Quotes handlers', () => {
   const stockService = { reserveForProject: jest.fn() };
   const margins = { checkProjectThresholds: jest.fn() };
   const audit = { write: jest.fn() };
+  const services = { assertLineServices: jest.fn() };
   const freezeQuotePdf = {
     execute: jest.fn().mockResolvedValue({
       media: { id: 999, fileUrl: 'https://cdn.test/quote.pdf' },
@@ -153,6 +155,7 @@ describe('Quotes handlers', () => {
         { provide: DocumentsService, useValue: documentsService },
         { provide: StockService, useValue: stockService },
         { provide: AuditService, useValue: audit },
+        { provide: ServicesService, useValue: services },
         { provide: MarginsService, useValue: margins },
         { provide: TenantPrismaService, useValue: tenantPrisma },
         { provide: FreezeQuotePdfHandler, useValue: freezeQuotePdf },
@@ -335,6 +338,18 @@ describe('Quotes handlers', () => {
       const result = await setLines.execute(10, dto, actor);
       expect(repo.replaceLines).toHaveBeenCalled();
       expect(result.amountInclVat.toString()).toBe('145.2');
+    });
+
+    it('checks every line service_id belongs to the company before writing', async () => {
+      repo.findById.mockResolvedValue(quote());
+      services.assertLineServices.mockRejectedValue(
+        new BadRequestException('Service not found: 5'),
+      );
+      await expect(setLines.execute(10, dto, actor)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(services.assertLineServices).toHaveBeenCalledWith([5]);
+      expect(repo.replaceLines).not.toHaveBeenCalled();
     });
   });
 

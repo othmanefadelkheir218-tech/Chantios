@@ -8,6 +8,7 @@ import {
   LetterheadClient,
   LetterheadTenant,
 } from '../layouts/letterhead.layout';
+import { pdfLabels } from '../layouts/pdf-labels';
 import { PdfDocDefinition } from '../pdf.service';
 import { DOCUMENT_STYLES } from './document.styles';
 
@@ -30,6 +31,7 @@ export function buildQuoteDocDefinition(
   client: LetterheadClient,
   logoDataUri: string | null,
 ): PdfDocDefinition {
+  const labels = pdfLabels(tenant.locale);
   const totals: DocumentTotals = {
     amountExclVat: quote.amountExclVat.toFixed(2),
     vatAmount: quote.vatAmount.toFixed(2),
@@ -40,31 +42,31 @@ export function buildQuoteDocDefinition(
     pageMargins: [40, 40, 40, 60],
     defaultStyle: { font: 'Helvetica', fontSize: 9 },
     styles: DOCUMENT_STYLES,
-    footer: () => buildFooter(tenant),
+    footer: () => buildFooter(tenant, labels),
     content: [
-      buildLetterheadHeader(tenant, logoDataUri),
+      buildLetterheadHeader(tenant, logoDataUri, labels),
       {
         columns: [
-          { text: 'QUOTE', style: 'documentTitle' },
+          { text: labels.quoteTitle, style: 'documentTitle' },
           {
             text: [
-              `No. ${quote.number}\n`,
-              `Issue date: ${formatDate(quote.issueDate)}\n`,
-              `Valid until: ${formatDate(quote.validUntil)}`,
+              `${labels.number} ${quote.number}\n`,
+              `${labels.issueDate}: ${formatDate(quote.issueDate)}\n`,
+              `${labels.validUntil}: ${formatDate(quote.validUntil)}`,
             ],
             alignment: 'right',
           },
         ],
         margin: [0, 20, 0, 0],
       },
-      buildClientBlock(client),
-      buildLinesTable(lines, tenant.currency),
-      buildTotalsBlock(lines, totals, tenant.currency),
+      buildClientBlock(client, labels),
+      buildLinesTable(lines, tenant.currency, labels),
+      buildTotalsBlock(lines, totals, tenant.currency, labels),
       ...(quote.note
         ? [
             {
               stack: [
-                { text: 'Terms & conditions', style: 'sectionLabel' },
+                { text: labels.terms, style: 'sectionLabel' },
                 { text: quote.note },
               ],
               margin: [0, 20, 0, 0] as [number, number, number, number],

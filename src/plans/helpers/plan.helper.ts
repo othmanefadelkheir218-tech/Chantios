@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { toCamelKeys } from '../../common/helpers/case.helper';
 import { FEATURE_KEYS, PlanFeatureDto } from '../dto/create-plan.dto';
+import type { PlanWithFeatures } from '../repositories/plan.repository';
 
 /** The rows to insert in `plan_features`, without the plan id. */
 export type PlanFeatureData = Omit<
@@ -49,5 +50,24 @@ export function buildPlanFilter(
   return {
     ...(isActive !== undefined && { isActive }),
     ...(search && { name: { contains: search, mode: 'insensitive' } }),
+  };
+}
+
+/**
+ * What the public pricing page may see — an allow-list: never
+ * `stripe_price_id`, `parent_plan_id` or a subscriber count
+ * (doc/notes/subscription-plans.md § Public plan list).
+ */
+export function toPublicPlan(plan: PlanWithFeatures) {
+  return {
+    id: plan.id,
+    name: plan.name,
+    basePrice: plan.basePrice,
+    isDefault: plan.isDefault,
+    features: plan.features.map((feature) => ({
+      featureKey: feature.featureKey,
+      limitValue: feature.limitValue,
+      overageRate: feature.overageRate,
+    })),
   };
 }

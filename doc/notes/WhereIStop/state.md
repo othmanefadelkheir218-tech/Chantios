@@ -5,15 +5,189 @@
 
 ---
 
-## Full test run — in progress (2026-10-08)
+## LATEST — admin home page stats (2026-10-11)
+
+Nothing committed or pushed. Rule: [../admin-stats.md](../admin-stats.md).
+
+| | |
+|---|---|
+| **Owner decision** | Admin `/admin/dashboard` = KPI cards + charts "growth" and "plan split" on top, the event log ("Activité") kept below |
+| **Backend** | New module `src/admin-stats/` → `GET /api/admin/stats` (admin staff). No repository: count methods added to `tenants`, `subscriptions`, `support` (now exports `SupportService`), `feedback` repositories + services. No migration |
+| **Tests** | `tsc` clean, new spec 5/5, related suites 85 pass, lint clean on new code |
+| **Live checked** | `GET /api/admin/stats` as super admin → 9 companies, 6 trialing + 2 active, 1 open ticket, 1 new feedback, 9 signups in 2026-10, plans `TEST Small` 7 / `TEST Zero Storage` 1. No cookie → 401 |
+| **Frontend** | See the frontend `state.md` |
+| **Next action** | Owner opens `/admin/dashboard` in the browser |
+
+---
+
+## LATEST — step 20: end of the trial + dev tools (2026-10-10)
+
+Nothing committed or pushed. Build file: [../Phaces/20-trial-end-dev-tools.md](../Phaces/20-trial-end-dev-tools.md). Rule: `subscription-plans.md` § The end of the trial.
+
+| | |
+|---|---|
+| **Owner decision** | Option B: reminder day 11 → day 14 `past_due` + banner + `grace_ends_at` (+7 days) → day 21 `cancelled` (blocked, data kept, billing still readable) → payment → `active` |
+| **Migration** | `20261010200000_subscription_grace_ends_at` applied (`tenant_subscriptions.grace_ends_at`) |
+| **Backend** | Renewal ends a trial (`EndTrialHandler`) and skips `cancelled`. `trial-end.cron.ts` 04:30 (reminder + block). Alerts `trial_ending` / `trial_ended` / `trial_blocked` (fr/en/nl). `SetStatusHandler`: any status but `past_due` clears the grace date. `@AllowLapsedSubscription()` on `GET /billing/subscription|usage|invoices`. `/auth/me` → `subscription`. New `src/dev-tools/` (`/api/admin/dev/...`: status, time-travel, run job, simulate payment), `super_admin` only, 404 unless `DEV_TOOLS=true` and not production (production + `DEV_TOOLS=true` → the API refuses to start) |
+| **.env** | Added `DEV_TOOLS=true` to the local `.env` (owner restarted the API) |
+| **Tests** | `tsc` clean, `jest` 81 suites / **979** pass, lint clean on the new code |
+| **Live checked** | Tenant 12 `TEST B18 Admin Company`: +11 d → `trial-end` → reminder · +3 d → `billing-renewal` → `past_due`, grace 10-16 · boss `/projects` 200 · +7 d → `trial-end` → `cancelled` · boss `/projects` 403, `/billing/subscription` + `/usage` 200 · manual run-renewal → `skipped` · cron → 0 queued · simulate payment → `active`, grace null, `cus_dev_12` · boss `/projects` 200 · the 3 alerts are in the boss's notifications · staff admin → 403 · unknown job → 404 |
+| **Test data changed** | Tenant 12 is now `active` (was `trialing`), fake Stripe customer `cus_dev_12`, 3 trial alerts (+ emails to `winucardit+b18owner@gmail.com`) |
+| **Failed payment (decided + built same day)** | Owner: "7 days and then a block, and ask him to pay". `StartGraceHandler` (replaces `EndTrialHandler`) is used by the trial end AND `HandlePaymentFailedHandler`: `past_due` + `grace_ends_at = now + 7 d`; a 2nd failure keeps the date; a failure never reopens a blocked company. `subscription_payment_failed` now gives the block date. Block alert renamed `trial_blocked` → `subscription_blocked` (the 1 old dev-DB row renamed by SQL). Live on tenant 12: fail → grace +7 d · 2nd fail → same date · +7 d → blocked · fail on blocked → stays blocked · paid → active. 982 tests pass. Open questions: **none left** |
+| **Owner browser test** | Super admin → Entreprises → a TEST company → tab **Outils de test**: follow the scenario line on the page. Log in as that company's boss in another browser: red banner during the 7 days; blocked page after; app back after "Paiement réussi" |
+| **Next action** | Owner browser test → then phase 3: Stripe Checkout + "Subscribe" button (owner runs `stripe listen` then) |
+
+---
+
+## LATEST — 3 small features (2026-10-10)
+
+Nothing committed or pushed (owner did not ask).
+
+| | |
+|---|---|
+| **1. Portal chat files** | `POST /api/portal/:token/messages` takes JSON `{content}` or multipart `content` + up to 10 `files`. All checks first (thread, archived, empty text, every file's size/type through `MediaService.assertUploadable`), then upload (`uploaded_by = NULL`, pending `message` file), then message + files in one transaction (`ClientMessagesHandler.send(…, mediaIds)`). Portal attachments now carry `file_url`. `MediaUploader` type (`userId: number \| null`) in `media.helper.ts`. Rule: `client-portal.md` § Files in the portal chat |
+| **2. PDF language** | `src/documents/pdf/layouts/pdf-labels.ts` — every PDF word in fr / nl / en, from `tenants.locale` (added to `LetterheadTenant`), French fallback. Rule once in `client-invoices.md` § PDF language. Already-sent PDFs stay frozen as they were (English) |
+| **3. Line picker** | `GET /api/services?is_active=true` filter. `ServicesService.assertLineServices` → `400` when a line `service_id` is not a service of the company (archived ones accepted) — on quote and invoice create + set lines. `invoice_lines.service_id` already existed: **no migration**. Rule: `catalogue-stock-tables-and-cost-storage.md` § Picking a service |
+| **Tests** | `tsc` clean. `jest` 79 suites / **958 tests** pass (new: portal files ×3, client message ×3, PDF language ×7, services ×4, quote/invoice line check ×2). Lint: my files clean; the 5 old errors in older spec files remain |
+| **Live checked (port 5300)** | Portal link generated on project 16 (`TEST date-only fix`, client 7): text-only message ✓, `.txt` → 400 ✓, PDF + PNG → message 40 with 2 files ✓, staff see them in conversation 19 ✓, bad token → 403 ✓. Draft quote 26 PDF → `DEVIS`, `Facturé à`, `Total TVAC`, accents OK ✓. `GET /services?is_active=true` → 188, `false` → 14 ✓. Quote 26 / invoice 6 lines: foreign `service_id` → 400 ✓, own id saved ✓, then restored to the original free line |
+| **Test data added** | Portal link on project 16; messages 39, 40 (`TEST client…`) and media 74, 75 in ImageKit `Chantios/tenant-1/message/0/` |
+| **Owner browser test** | (1) open the project 16 portal link (generate a new one from the project page — the raw token is shown only once), Messages → paperclip → send a PDF + a photo, click the links; staff chat shows them. (2) open a draft quote PDF and a draft invoice PDF → French labels; change the company language to nl in Settings → Dutch. (3) draft quote → book icon in a line → search "parquet" → pick → fields filled, edit the price, save → still "Catalogue"; ✕ → free line; accept a quote with a picked line → reservations appear. Same picker on a draft invoice |
+| **Next action** | Owner browser test above |
+
+---
+
+## LATEST — bulk import built (2026-10-10)
+
+| | |
+|---|---|
+| **Built** | Step 19 — `Phaces/19-bulk-import.md`, rules in `bulk-import.md`. Migration `20261010150000_bulk_import` applied (no duplicate descriptions found first). New module `src/imports/` (`POST /api/imports/materials`, `POST /api/imports/stock`, `GET /api/imports`, `GET /api/imports/:id`, BullMQ queue `imports`). `GET /api/materials/export`. Material create/update → `409` on a used description. Notifications `import_done` / `import_failed` (fr/en/nl). JSON body limit `2mb` in `main.ts` |
+| **Tests** | `tsc`, lint, `jest` 77 suites / 920 tests pass |
+| **Frontend** | Excel menu on `/catalogue/materials` + `/stock`, 3-step import dialog, history page `/stock/imports` (see the frontend `state.md`). `yarn build` passes |
+| **Not done** | Live HTTP check: the API was not running and starting it was not allowed from the session. The owner starts `yarn start:dev`, then run the Acceptance list of step 19 |
+| **Next action** | Owner starts the API → live check of step 19 → owner tests the import in the browser |
+
+---
+
+## LATEST — worker can start a chat (2026-10-10)
+
+| | |
+|---|---|
+| **Owner decision** | "Whole team": any employee, the worker too, can start a chat with any active person of the company. Written in `chat-conversations.md` § Contacts |
+| **Done + live checked** | `GET /api/conversations/contacts` (`chat:view`) → `chat/handlers/find-contacts.handler.ts` → `UsersService.findActiveWithRole` (no new query, no migration). Returns `id`, `name`, `role` only. Live: worker 5 → the 8 active users of tenant 1, no email; `/users` still `403` |
+| **Tests** | New `find-contacts.handler.spec.ts`. chat suites: 54 pass, `tsc` clean |
+| **Frontend** | `components/shared/chat/ContactPicker.tsx` (search, role, green dot). Field chat: "Nouvelle conversation" button (`field/_components/chat/FieldNewConversation.tsx`). Tenant new-conversation + add-someone use the contacts too (sales/accountant had no list before). `useUserNames` falls back to the contacts without the `team` right → names instead of `#2` in chat |
+| **Next action** | Owner runs the full test: `ChanitOs_client/my-app/TEST-SCENARIOS.md` |
+
+---
+
+## LATEST — online status (2026-10-10)
+
+| | |
+|---|---|
+| **Done + live checked** | Presence in `chat/gateways/chat.gateway.ts` (+ `chat/helpers/presence.helper.ts`): rooms `presence:tenant:<id>` / `presence:user:<id>`, event `presence`, ack `online_users`. No storage, no migration. Impersonation sockets not counted. Live: manager 2 + worker 5 sockets → `[2, 5]`, worker leaves → `[2]`, manager got online/offline events. Rule in `chat-conversations.md` § Online status |
+| **Tests** | `presence.helper.spec.ts` new; `chat.handlers.spec.ts` gateway tests now await `handleConnection` (async) and check the conversation room only. chat suites: 53 pass |
+| **Frontend** | `providers/PresenceProvider.tsx`, `components/shared/OnlineDot.tsx`, `ConversationName` — green dot in the chat (lists, windows, page, sender names) and the Team list |
+
+---
+
+## LATEST — two admin list filters for the frontend (2026-10-10)
+
+| | |
+|---|---|
+| **Done + live checked** | `GET /api/admin/tenants?deleted=true` lists only soft-deleted tenants (`FindTenantsQueryDto.deleted` → `buildTenantFilter`). `GET /api/admin/billing/snapshots?tenant_id=` = one tenant (`billing/dto/find-snapshots-query.dto.ts`; `BillingService.allSnapshots` reuses `SubscriptionsService.usage`, no new query). Live: delete tenant 11 → in the deleted list → restore → gone; `tenant_id=1` returns only tenant 1 |
+| **Tests** | New `tenants/helpers/tenant.helper.spec.ts`, `billing/billing.service.spec.ts`. tenants/billing/subscriptions suites pass, `tsc` clean |
+| **Docs** | `entity-fields.md` (deleted list decision), `Phaces/01-platform.md`, `Phaces/14-subscriptions.md` |
+| **Frontend** | Uses both: tenants list "Entreprises supprimées" view with Restore; tenant billing tab shows only that company's snapshots |
+| **Also added (same day)** | `GET /api/mobile/my-projects` (tasks → `ProjectsService.findSummaries` → `ProjectRepository.findSummariesByIds`): name + address of the worker's projects — answers frontend open question 2 (decision in `planning-time-entries.md`). `GET /api/admin/subscriptions` rows now carry `tenant_name`, `plan_name`, `pending_plan_name` (`TenantsService.findNamesByIds`, `PlansService.findNames`; `SubscriptionsModule` now imports `TenantsModule`). Live: worker 5 → projects 4 and 11 with addresses; admin list shows names. New specs: `my-projects.handler.spec.ts`, `subscription-names.helper.spec.ts` |
+| **Next action** | Frontend F13 (`ChanitOs_client/my-app/.instruction/state.md`) |
+
+---
+
+## LATEST — step 18 build (2026-10-10)
+
+**Step 18 (API additions for the frontend) is built and every acceptance check passed live.** File: [../Phaces/18-frontend-support.md](../Phaces/18-frontend-support.md). Nothing committed or pushed.
+
+| | |
+|---|---|
+| **Done + live checked** | Migration `20261010090000_frontend_support_columns` applied (`tenants.iban/bic`, `user_invitations.invited_by` nullable + `invited_by_admin_user_id`, payments `amount <> 0` + `note`). Tasks 1–3 (admin refresh with rotation + replay revoke, `GET /admin/auth/me`, `impersonation` in `/auth/me`), 5 (`GET /plans`), 6 (`GET/PATCH /tenant`), 9 (payment corrections), 10 (IBAN/BIC on the invoice PDF) |
+| **Also live checked (after the owner restarted the API)** | Task 8: `POST /admin/tenants` created tenant 12 `TEST B18 Admin Company` + trial + invitation; French email links to `http://localhost:3000/invitations/accept`; the boss (`winucardit+b18owner@gmail.com`, user 20, password `TestPass@2026!`) accepted and logged in; same owner again → 409. Task 4: dashboard as admin (8 widgets), worker (`tasks` + `hours`, own numbers), new company (all zeros). Task 7 `COOKIE_DOMAIN`: unit tests only (needs the variable set + a restart) |
+| **Where the code went** | `tenants` stays a low-level module. New modules `company-profile` (`/api/tenant`) and `dashboard` (no repository each). Admin company creation lives in `auth` next to sign-up. The reasons are in the step file § "Where the code lives" |
+| **Also changed** | `.env` `APP_URL=http://localhost:3000` (was `http://localhost:5300/i`) — takes effect at the next restart. `tenant-local-time.helper.ts` moved from `crons/helpers` to `common/helpers`. `PURCHASE_DUE_DAYS` moved to `purchase-invoices/helpers/purchase-invoice.helper.ts` |
+| **Status** | `npx tsc --noEmit` clean. **886 unit tests pass** (69 suites). Lint: 5 errors left, all in older spec files from earlier sessions (`admin-*-access.guard.spec`, `projects.handlers.spec`, `stripe.handlers.spec`) |
+| **Test data added** | Tenant 1 now has IBAN `BE68539007547034` / BIC `GKCCBEBB`. Invoice 7: 4 payment rows that net to 0 (notes start with `TEST`), status back to `sent` |
+| **Next action** | Frontend F2 (`ChanitOs_client/my-app/.instruction/state.md`) |
+
+---
+
+## LATEST — frontend planning session (2026-10-09)
+
+**Planning only. No code was changed in this session.**
+
+| | |
+|---|---|
+| **Done** | Frontend plan written in `ChanitOs_client/my-app/.instruction/` (`generic/` = reusable rules, `chantieros/` = this project). 5 separate layouts (public, auth, tenant app, super admin, client portal), dark mode only in tenant app + super admin, build plan F0–F13. The owner answered the frontend open questions; the API additions they need are planned as **step 18**: [../Phaces/18-frontend-support.md](../Phaces/18-frontend-support.md) |
+| **New rules written** | `auth-tokens.md` § Sessions seen by the frontend (admin refresh, admin me, impersonation flag, `COOKIE_DOMAIN`) · `subscription-plans.md` § Public plan list · new `dashboard.md` · `roles-permissions.md` § Company profile · `client-portal.md` (portal chat = polling) |
+| **Owner decisions (all written)** | No native app — responsive website; the worker gets a 6th layout **Field** (`/field/...`). Tenant `email` + `currency` fixed by the backend. Old questions 8–12 decided: admin-created company gets trial + first-admin invitation; negative payment corrections with a note; stalled = 5 days; `tenants.iban` + `bic`; usage spike = 90%. "Known bug list review" closed |
+| **Open questions** | **None.** Both lists (tracker + Schema Proposal) are fully decided |
+| **Next action** | When the owner says "build": backend **step 18** first (now includes 1 migration: `tenants.iban/bic`, `user_invitations.invited_by_admin_user_id`, `payments` negative corrections), then frontend F0 (`.instruction/chantieros/12-build-plan.md`). Until then, frontend work = md files only |
+
+---
+
+## HANDOVER — open-problems session (2026-10-09)
+
+**Goal of this phase:** fix the problems found by the full test run, one by one, in the order of [../PhacesTest/OPEN-PROBLEMS.md](../PhacesTest/OPEN-PROBLEMS.md) (25 rows, most important first). That file is the to-do list. A row with ✅ is done and checked live; a row with ⬜ is not.
+
+### Where we stopped
+| | |
+|---|---|
+| **Done (rows 1–18, 21 + 6b)** | #1 project date-only `500` · #2 media upload `500` (ImageKit timeout → 30 s, 2 retries, `502`, orphan cleanup) · #3 config part (`APP_URL`, production refuses localhost) · #4 + #6b `can_manage_tenants` right (super_admin grants, default off; guards status, delete, restore) · #5 portal `403` now has `no-store` · #6 worker is view-only on tasks and reports (`own_view` level) · #7 `scope = own` tests OWN-02..05 PASS · #8 French and Dutch verification emails seen live · #9 super-admin email is now `othmanefadelkheir218@gmail.com` · #10 spam: checked, no code fix · #21 no audit entry when nothing changed (`AUDIT_SKIP_KEY`, live checked) · #18 NOT-28 PASS (failed email never loses the alert row) · #11–#17 owner checks all PASS (ImageKit `project/50`, `user/1`, `project/6`, `report/1`, `message/0`; margin emails 3 per inbox; portal reply email in French; no email on a portal link). Only leftovers: orphan files in ImageKit from the old upload `500` (T1 in `project/50`, 2 in `report/1`) — harmless, owner may delete |
+| **Also done** | Languages are now `fr` (default), `en`, `nl`. **Arabic removed** (migration moves old `ar` rows to `fr`). Every email uses one black + orange layout (`src/email/templates/email-layout.ts`) and has a plain-text version. Design rules: [../../../DESIGN.md](../../../DESIGN.md). Frontend notes: [../PhacesTest/to be considered when you build the front end.md](<../PhacesTest/to be considered when you build the front end.md>) |
+| **Next action** | Then **#19 `seed:reset`**, **#20** stray watcher, **#22–24** notes (fix only if the owner wants), **#25** open product questions (never invent an answer). **#3 still needs the frontend pages** (accept-invitation, reset code, verify code) — that is the frontend job, not the API |
+| **Status** | `npx tsc --noEmit` clean. **835 unit tests pass** (59 suites). Nothing in this session is committed or pushed (owner has not asked). |
+| **Owner decisions pending** | (a) The chat returns `403` for a foreign conversation while tasks, hours and files return `404` — consistent? Not changed. (b) Dutch copy was written by the AI: a Dutch speaker should read it. (c) Visible brand in emails is now `ChantiOs`; code and docs still say ChantierOS. |
+
+### Migrations added and already applied to the dev DB
+- `20261009180000_admin_can_manage_billing` (earlier session)
+- `20261009190000_admin_can_manage_tenants`
+- `20261009200000_locale_arabic_to_french`
+
+### Test data left in the dev DB (safe to keep, all named `TEST …`)
+Admin user 3 (`TEST Not21`, inactive) · material `TEST NOT-28 Sand` · tenants 9 `TEST Mail FR`, 10 `TEST Mail NL`, 11 `TEST Alert Check` · project 16 `TEST date-only fix` · chats 12 and 13 · the super-admin email change (id 1).
+
+### Rules for the next AI (from `CLAUDE.md`, still valid)
+1. Read `CLAUDE.md`, this file, `PhacesTest/OPEN-PROBLEMS.md`, `DESIGN.md`, `.instruction/code_structure.txt`. Speak simple English, keep answers short, explain a problem in plain words before fixing it. The owner prefers: "explain easy → owner says yes → fix → test → update docs".
+2. **Never start, stop or restart the API.** The owner runs `yarn start:dev` on port 5300 (it reloads on file change). Test with HTTP calls (`curl`) against it. Do not run it in the background.
+3. **Do not push to GitHub**, and do not commit unless the owner asks.
+4. Every code fix: add a unit test, then `npx tsc --noEmit` and `npx jest`. Then re-run the test ID live, then update the phase file, `RESULTS.md` and the row in `OPEN-PROBLEMS.md`.
+5. After each finished item send a Telegram message: write `{"message": "..."}` to `push.json`, wait 4 s, check it reset to `{}`.
+6. Format only the files you wrote (`npx prettier --write <file>`), never a whole folder.
+7. **Shell trap on this machine:** long Bash heredocs with quotes can fail to parse and write nothing. Use the Write tool to create files, or write a small `.py` script into the scratchpad and run it. After a failed command, check what was really written.
+
+### Useful tricks
+- **Logins** (password `TestPass@2026!` for every tenant user, `TestStaff@2026!` for the staff admin): list in [../PhacesTest/00-START-HERE.md](../PhacesTest/00-START-HERE.md). Company A owner `othmanefadelkheir218@gmail.com` (`POST /api/auth/login`), manager `zakariyazouazou@gmail.com`, worker `winucardit@gmail.com`, worker 2 `winucardit+worker2@gmail.com`. Platform: `POST /api/admin/auth/login` — super-admin `othmanefadelkheir218@gmail.com` with `SEED_ADMIN_PASSWORD` from `.env`; staff `othmanefadelkheir218+staff@gmail.com`. Use `curl -c cookies.txt` then `-b cookies.txt`. Login limit: 5 per minute.
+- **Read sent emails without opening an inbox:** `GET https://api.resend.com/emails?limit=10` and `/emails/<id>` with `Authorization: Bearer $RESEND_API_KEY` (key is in `.env`; never print it). The domain status is at `/domains`.
+- **Run SQL:** `npx prisma db execute --file x.sql` (prints no rows; verify through the API).
+- **Scratchpad** for temp files: `C:\Users\HASSOUBI\AppData\Local\Temp\claude\c--Users-HASSOUBI-Desktop-ChantierOS\...\scratchpad`.
+- A new permission flag on `admin_users` = copy the pattern in `src/admin-users/guards/admin-permission.guard.ts` (one factory, one guard per right).
+- `.env` holds `SEED_ADMIN_EMAIL` twice (lines 40 and 51); change both if it changes again.
+
+### What the remaining checks mean (for #11–#18)
+- **#11–14, ImageKit:** the owner opens the ImageKit media library and confirms the test files exist or are gone: `Chantios/tenant-1/project/50/`, `user/1/`, `report/1/` (media 39), `message/0/` (`TEST-chat-a_….png`, `TEST-chat-b_….png`). The AI cannot open the dashboard.
+- **#15 ALT-08:** exactly 3 margin emails each in `othmanefadelkheir218@gmail.com` and `zakariyazouazou@gmail.com` (warning, critical, warning). The AI can check the count through the Resend API instead.
+- **#16 POR-25 / #17 POR-11:** French "you have a reply" email to `gryehirir@gmail.com`; and no email when a portal link is generated. Also readable through the Resend API.
+- **#18 NOT-28:** needs the API restarted with a bad Resend key — the owner does it, or accept as not testable.
+
+---
+
+## Older: full test run (2026-10-08 — finished 2026-10-09)
 
 The v1 backend is under a full test run: [../PhacesTest/00-START-HERE.md](../PhacesTest/00-START-HERE.md), results in [../PhacesTest/RESULTS.md](../PhacesTest/RESULTS.md). **No code change, no commit/push during the run.**
 
 | | |
 |---|---|
-| **Done** | Phase 01 (15/0/0), Phase 02 (47/0/0), Phase 03 (53/1 — REG-04 awaits a live French email), Phase 04 — Permissions (49 pass / 2 fail / 5 skip), 05–07 (see RESULTS.md), Phase 08 — Quotes & invoices (33/0), Phase 09 — Purchases (33/0/0), Phase 10 — Planning & time (35/0/0), Phase 11 — Site reports (25 pass, REP-15 waiting), Phase 12 — Margin (32 pass, ALT-08 email check waiting), **Phase 13 — Chat (21 pass, CHAT-15 waiting, SUPC-01..04 skipped until phase 17)**. **The DB was emptied and re-seeded by hand on 2026-10-08** (see RESULTS.md "Data re-seed"): A = tenant 1 (8 users), B = tenant 2, plans 1–3, `TEST Staff` |
-| **Next** | Phase 14 — [Client portal](../PhacesTest/14-client-portal.md). API runs from `yarn start:dev` (the stray `dist/main` was stopped). OWN-02..05 (phase 04) re-run after phase 11 |
-| **Fixed (not committed)** | PLN-06; SUS-01 (`TenantStatusGuard`), 2FA-02 (real `admin_2fa` challenge row, 3 tries), REG-04 (locale-aware verification email — live French email still to check). 723 unit tests pass. Commit after the run |
+| **Done** | Phase 01 (15/0/0), Phase 02 (47/0/0), Phase 03 (53/1 — REG-04 awaits a live French email), Phase 04 — Permissions (49 pass / 2 fail / 5 skip), 05–07 (see RESULTS.md), Phase 08 — Quotes & invoices (33/0), Phase 09 — Purchases (33/0/0), Phase 10 — Planning & time (35/0/0), Phase 11 — Site reports (25 pass, REP-15 waiting), Phase 12 — Margin (32 pass, ALT-08 email check waiting), Phase 13 — Chat (21 pass, CHAT-15 waiting, SUPC-01..04 skipped until phase 17), **Phase 14 — Client portal (27 pass; POR-15 failed, then fixed + re-run PASS; POR-11 and POR-25 wait for the owner's email check)**, **Phase 15 — Notifications (30 pass, 0 fail, NOT-28 skipped: needs the API restarted with a bad Resend key)**, **Phase 16 — Documents (17 pass, 0 fail; owner confirmed ImageKit + email attachments)**, **Phase 17 — Support & feedback (25 pass, 0 fail; SUPC-01..04 of phase 13 passed here). After the run, 2 owner decisions were coded (not committed): `/feedback/mine` shows only the caller's own feedback; a feedback status change writes an `update_status` audit row. 3 new unit tests**. **The DB was emptied and re-seeded by hand on 2026-10-08** (see RESULTS.md "Data re-seed"): A = tenant 1 (8 users), B = tenant 2, plans 1–3, `TEST Staff` |
+| **Next** | **Phase 18 done 2026-10-09 (51 pass, 4 fail: DWN-02 test premise, PSB-04, STR-05/08 — see RESULTS.md). The full run is finished.** Owner decisions waiting: OVR-02, PLR-02/PSB-04 (staff admin rights), STR-05/08 (manager billing alerts); look at the event re-processing at API restart. Then commit the code fixes (not before the owner says). Old note: phase 17 done 2026-10-09. **Do not push to GitHub** (owner said so, 2026-10-09). The owner runs `yarn start:dev` and watches the logs — never start or stop the server from here. Old note: the API on port 5300 is a `dist/main` process (built after the last source change); two `yarn start:dev` watchers do not hold the port. Check no second app instance shares Redis before the email tests. OWN-02..05 (phase 04) re-run after phase 11 |
+| **Fixed (not committed)** | POR-15 (portal audit key `portalLinkId`); PLN-06; SUS-01 (`TenantStatusGuard`), 2FA-02 (real `admin_2fa` challenge row, 3 tries), REG-04 (locale-aware verification email — live French email still to check). 723 unit tests pass. Commit after the run |
 | **Open fails** | OVR-02 worker tasks/reports create+edit are true in the matrix; PLR-02 staff admin not refused on POST /admin/plans and PATCH /admin/tenants/:id/status — both wait for an owner decision |
 | **Owner replies** | come by Telegram → read `inbox.json` (see `CLAUDE.md`) |
 
@@ -420,3 +594,15 @@ Dev logins — super-admin: `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` in `.env`
 ## How to update this file
 
 At the end of a session, rewrite the four rows of **Current position**, replace **Next action** with the real next step, and add anything new under **Blockers** or **Decisions taken**. If a task broke, say which command failed and what the error was.
+
+## 2026-10-10 — chat: one 1-to-1 per pair
+
+- `POST /api/conversations` with one other person and no project returns the existing 1-to-1 (brings back an archived one, audit `restore`). `ConversationRepository.findDirect`, `create-conversation.handler.ts`. 4 new tests, chat suite 58/58. Rule: `doc/notes/chat-conversations.md` § 1-to-1. Used by the front top-bar Contacts tab.
+- Not checked live yet (the API needs the new code loaded).
+
+## 2026-10-10 — add a team member without the invitation email
+
+- Owner decision ("I need both"), written in `auth-tokens.md` § 2b, `roles-permissions.md` (users fields), `Schema Proposal.md` (DDL), `Phaces/02-auth-users.md` (routes).
+- Migration `20261010180000_direct_team_members` applied: `users.email` nullable, `login_code` VARCHAR(8) UNIQUE, `must_change_password`, CHECK `chk_users_email_or_worker_code`.
+- `POST /api/invitations/direct` (admin): email + temporary password (any role, `must_change_password = true`, no email sent) or worker without email (PIN + 8-digit `login_code`). Files: `invitations/dto/create-direct-member.dto.ts`, `helpers/direct-member.helper.ts`, `handlers/create-direct-member.handler.ts`. `POST /api/mobile/login` now takes `login` (email or code) + `pin`. `setPasswordHash` clears `must_change_password`. `PATCH /users/:id` refuses a role change for a user with no email.
+- Tests: 78 suites / 939 pass (new: `direct-member.helper.spec.ts`, 5 handler tests, 2 mobile-login tests). Live check 11/11 OK (test users 22 = worker no email, 23 = manager with temp password, tenant 1).

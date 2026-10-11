@@ -88,7 +88,7 @@ All platform-only. Guards: `AdminAuthGuard` arrives in step 02 — until then ma
 | Method | Path | Who |
 |---|---|---|
 | `POST` | `/api/admin/tenants` | super_admin |
-| `GET` | `/api/admin/tenants` | admin staff |
+| `GET` | `/api/admin/tenants` | admin staff — `search`, `status`; `deleted=true` lists only soft-deleted tenants |
 | `GET` | `/api/admin/tenants/:id` | admin staff |
 | `PATCH` | `/api/admin/tenants/:id` | super_admin |
 | `PATCH` | `/api/admin/tenants/:id/status` | super_admin — `active` / `suspended` / `banned` |
@@ -108,12 +108,13 @@ All platform-only. Guards: `AdminAuthGuard` arrives in step 02 — until then ma
 | `PATCH` | `/api/admin/plans/:id/deactivate` | super_admin |
 | `PATCH` | `/api/admin/plans/:id/default` | super_admin — moves `is_default` |
 | `POST` | `/api/admin/plans/:id/version` | super_admin — new version, `parent_plan_id` set |
-| `GET` | `/api/admin/subscriptions` | admin staff |
+| `GET` | `/api/admin/subscriptions` | admin staff — each row also has `tenant_name`, `plan_name`, `pending_plan_name` |
 | `GET` | `/api/admin/subscriptions/:tenantId` | admin staff |
 | `PATCH` | `/api/admin/subscriptions/:tenantId/plan` | super_admin — sets `pending_plan_id` |
 | `GET` | `/api/admin/subscriptions/:tenantId/usage` | admin staff — `billing_usage_snapshots` |
 | `GET` | `/api/admin/audit-logs` | super_admin |
 | `GET` | `/api/admin/analytics` | admin staff |
+| `GET` | `/api/admin/stats` | admin staff — admin home page numbers, rule: [admin-stats.md](../admin-stats.md) |
 | `GET` | `/api/admin/feedback` | admin staff |
 | `PATCH` | `/api/admin/feedback/:id/status` | admin staff |
 
@@ -122,7 +123,7 @@ Tenant-side feedback submission (`POST /api/feedback`) waits for step 02 — it 
 ## DTOs
 
 ### `create-tenant.dto.ts`
-`name` required. `email` required, `@IsEmail`, unique. `legal_name`, `vat_number`, `registration_number`, `phone`, address fields, `country` `@Length(2,2)` all optional. `default_vat_rate` `@IsNumberString`, default `21.00`. `default_payment_days` `@IsInt @Min(0)`, default `30`. `locale` `@IsIn(['fr','en','ar'])`, default `fr`. `currency` default `EUR`. `timezone` default `Europe/Brussels`. `end_of_day_reminder_time` default `18:00`.
+`name` required. `email` required, `@IsEmail`, unique. `legal_name`, `vat_number`, `registration_number`, `phone`, address fields, `country` `@Length(2,2)` all optional. `default_vat_rate` `@IsNumberString`, default `21.00`. `default_payment_days` `@IsInt @Min(0)`, default `30`. `locale` `@IsIn(['fr','en','nl'])`, default `fr`. `currency` default `EUR`. `timezone` default `Europe/Brussels`. `end_of_day_reminder_time` default `18:00`.
 
 ### `set-tenant-status.dto.ts`
 `status` `@IsIn(['active','suspended','banned'])`. `reason` optional string — goes to `audit_logs`.

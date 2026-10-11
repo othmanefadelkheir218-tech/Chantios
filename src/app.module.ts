@@ -28,9 +28,12 @@ import { SubcontractorsModule } from './subcontractors/subcontractors.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { TasksModule } from './tasks/tasks.module';
 import { TimeEntriesModule } from './time-entries/time-entries.module';
+import { ImportsModule } from './imports/imports.module';
 import { MaterialsModule } from './materials/materials.module';
 import { MarginsModule } from './margins/margins.module';
 import { MediaModule } from './media/media.module';
+import { CompanyProfileModule } from './company-profile/company-profile.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { OneTimeCodesModule } from './one-time-codes/one-time-codes.module';
 import { PlansModule } from './plans/plans.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -43,6 +46,7 @@ import { ServicesModule } from './services/services.module';
 import { StockModule } from './stock/stock.module';
 import { StripeModule } from './stripe/stripe.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { DevToolsModule } from './dev-tools/dev-tools.module';
 import { SupportModule } from './support/support.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
@@ -54,6 +58,7 @@ import { UsersModule } from './users/users.module';
 // circular-require ordering issue, not a new circular dependency of its own.
 import { AnalyticsModule } from './analytics/analytics.module';
 import { FeedbackModule } from './feedback/feedback.module';
+import { AdminStatsModule } from './admin-stats/admin-stats.module';
 
 @Module({
   imports: [
@@ -87,6 +92,7 @@ import { FeedbackModule } from './feedback/feedback.module';
     SubscriptionsModule,
     AnalyticsModule,
     FeedbackModule,
+    AdminStatsModule, // GET /api/admin/stats — admin home page numbers
     // Step 02 — auth & users
     UsersModule,
     RolesModule,
@@ -94,6 +100,8 @@ import { FeedbackModule } from './feedback/feedback.module';
     AuthModule,
     // Step 03 — media
     MediaModule,
+    CompanyProfileModule, // step 18 — GET/PATCH /api/tenant
+    DashboardModule, // step 18 — GET /api/dashboard
     // Step 04 — clients & projects
     ClientsModule,
     ProjectsModule,
@@ -102,6 +110,7 @@ import { FeedbackModule } from './feedback/feedback.module';
     MaterialsModule,
     ServicesModule,
     StockModule,
+    ImportsModule, // step 19 — bulk import of materials and stock
     // Step 06 — quotes & invoices
     DocumentsModule,
     QuotesModule,
@@ -129,6 +138,8 @@ import { FeedbackModule } from './feedback/feedback.module';
     BillingModule,
     // Step 16 — support tickets (feedback & analytics modules already loaded above, step 01)
     SupportModule,
+    // Step 20 — super-admin dev tools: every route is a 404 unless DEV_TOOLS=true outside production
+    DevToolsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

@@ -1,6 +1,7 @@
 import { Client, Tenant } from '@prisma/client';
 import { PinoLogger } from 'nestjs-pino';
 import type { Content } from 'pdfmake';
+import { PdfLabels } from './pdf-labels';
 
 /**
  * The plain data `DocumentsService.renderQuotePdf`/`renderInvoicePdf` take
@@ -24,7 +25,12 @@ export interface LetterheadTenant {
   city: string | null;
   country: string | null;
   currency: string;
+  /** `tenants.locale` — the PDF's language (`pdf-labels.ts`). */
+  locale: string;
   logoUrl: string | null;
+  /** Printed in the invoice payment block when set (step 18). */
+  iban: string | null;
+  bic: string | null;
 }
 
 export interface LetterheadClient {
@@ -57,6 +63,9 @@ export function toLetterheadTenant(
     city: tenant.city,
     country: tenant.country,
     currency: tenant.currency,
+    locale: tenant.locale,
+    iban: tenant.iban,
+    bic: tenant.bic,
     logoUrl,
   };
 }
@@ -135,6 +144,7 @@ export async function fetchLogoDataUri(
 export function buildLetterheadHeader(
   tenant: LetterheadTenant,
   logoDataUri: string | null,
+  labels: PdfLabels,
 ): Content {
   const identity: Content = logoDataUri
     ? { image: logoDataUri, fit: [160, 70] }
@@ -145,8 +155,10 @@ export function buildLetterheadHeader(
       ? tenant.legalName
       : null,
     ...addressLines(tenant),
-    tenant.vatNumber ? `VAT ${tenant.vatNumber}` : null,
-    tenant.registrationNumber ? `Reg. ${tenant.registrationNumber}` : null,
+    tenant.vatNumber ? `${labels.vatNumber} ${tenant.vatNumber}` : null,
+    tenant.registrationNumber
+      ? `${labels.registrationNumber} ${tenant.registrationNumber}`
+      : null,
     tenant.email,
     tenant.phone,
   ].filter((value): value is string => !!value);
@@ -164,7 +176,10 @@ export function buildLetterheadHeader(
 }
 
 /** "Billed to" block. */
-export function buildClientBlock(client: LetterheadClient): Content {
+export function buildClientBlock(
+  client: LetterheadClient,
+  labels: PdfLabels,
+): Content {
   const lines = [
     client.name,
     client.contactName,
@@ -175,17 +190,20 @@ export function buildClientBlock(client: LetterheadClient): Content {
 
   return {
     stack: [
-      { text: 'Billed to', style: 'sectionLabel' },
+      { text: labels.billedTo, style: 'sectionLabel' },
       { text: lines.join('\n') },
     ],
     margin: [0, 20, 0, 0],
   };
 }
 
-export function buildFooter(tenant: LetterheadTenant): Content {
+export function buildFooter(
+  tenant: LetterheadTenant,
+  labels: PdfLabels,
+): Content {
   const parts = [
     tenant.name,
-    tenant.vatNumber ? `VAT ${tenant.vatNumber}` : null,
+    tenant.vatNumber ? `${labels.vatNumber} ${tenant.vatNumber}` : null,
   ].filter((value): value is string => !!value);
   return {
     text: parts.join(' — '),

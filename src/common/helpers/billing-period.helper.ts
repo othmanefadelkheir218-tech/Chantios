@@ -6,7 +6,13 @@
  * renewal job, so the two can never disagree on the cycle length.
  */
 export function addOneMonth(date: Date): Date {
+  // UTC, never the server's local time: a local-time `setMonth` moves the
+  // hour whenever a clock change falls inside the month (13:43 became 14:43).
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth() + 1;
+  // Last day of the target month: 31 Jan + 1 month = 28/29 Feb, not 3 March.
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   const next = new Date(date);
-  next.setMonth(next.getMonth() + 1);
+  next.setUTCMonth(month, Math.min(date.getUTCDate(), lastDay));
   return next;
 }

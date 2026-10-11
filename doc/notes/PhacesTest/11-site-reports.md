@@ -60,7 +60,7 @@ One report per project per day, progress read from the newest report, the materi
 | ID | Do | Expected | Result |
 |---|---|---|---|
 | REP-14 | Upload a PDF to `entity_type=report`; then a JPG | `400`; `201`. `GET /api/reports/:id` shows it in `photos` | PASS |
-| REP-15 | **[CHECK IMAGEKIT]** | the JPG is in `tenant-<A>/report/<report id>/` | todo |
+| REP-15 | **[CHECK IMAGEKIT]** | the JPG is in `tenant-<A>/report/<report id>/` | PASS (owner saw `report/1/` with the `photo_…` files, 2026-10-09; 2 extra files there have no database row — leftovers of the old upload `500`) |
 
 ## 6. The report crons
 
@@ -79,9 +79,9 @@ After this phase, re-run **section 3 of phase 04** (`scope = own`).
 
 ## Result — 2026-10-08
 
-> **Status: 1 waiting for you (REP-15, ImageKit check). The END message is not sent yet.**
+> **Status: done. REP-15 PASS on 2026-10-09 (owner's ImageKit check).**
 
-**25 PASS, 0 FAIL, 1 waiting** (REP-15, ImageKit check — asked on Telegram: folder `Chantios/tenant-1/report/1/`, media id 39).
+**26 PASS, 0 FAIL, 0 waiting** (REP-15 PASS 2026-10-09: folder `Chantios/tenant-1/report/1/` holds the photo of media id 39).
 
 - REP-04: the leader's post the same day edited the supervisor's report (same `id`, `created_by` stays the supervisor, `progress_pct` 46). The audit history of report 1 shows the whole chain (30 → 45 → 46 → 50).
 - REP-05: first run sent an undefined project id (my script), re-run with `TEST Project Refuse` → `400 Site reports can only be posted on an in_progress project (this one is prospect)`.
@@ -91,7 +91,7 @@ After this phase, re-run **section 3 of phase 04** (`scope = own`).
 - STK-16: Filler 50 declared → remaining 0 (`consumed`), ledger `-50`, on hand `-20`, two `reservation_unmet` notifications (short by 20; one per admin/manager). STK-17 adjustment `+45` → on hand 25.
 - ALR-01: `{ missing: 1, stalled: 0 }` (Project Side). ALR-02: `{ missing: 0, stalled: 1 }` (Side, reports 2026-09-28 and 2026-10-07, both 40).
 - REP-09: the report dated 2026-10-06 (90) did not move progress: it stays `50` (2026-10-08).
-- The phase 04 section 3 re-run (`scope = own`) is still to do.
+- The phase 04 section 3 re-run (`scope = own`) was done 2026-10-09: 4 PASS.
 
 ### Data left
 

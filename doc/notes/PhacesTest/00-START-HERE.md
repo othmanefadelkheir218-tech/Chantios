@@ -52,7 +52,7 @@ All emails are real inboxes. Gmail `+tags` (`name+tag@gmail.com`) arrive in the 
 
 | Who | Email | Role | Company |
 |---|---|---|---|
-| Platform super-admin | `admin@chantieros.local` (from `.env`) | `super_admin` | platform |
+| Platform super-admin | `othmanefadelkheir218@gmail.com` (`SEED_ADMIN_EMAIL` in `.env`; was `admin@chantieros.local` until 2026-10-09) | `super_admin` | platform |
 | Platform staff | `othmanefadelkheir218+staff@gmail.com` | `staff` | platform |
 | Company A owner | `othmanefadelkheir218@gmail.com` | `admin` (1) | **A — TEST Alpha Renovation** |
 | Manager | `zakariyazouazou@gmail.com` | `manager` (2) | A |

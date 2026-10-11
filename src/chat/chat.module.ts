@@ -30,6 +30,7 @@ import { FindSupportConversationHandler } from './handlers/find-support-conversa
 import { MarkReadHandler } from './handlers/mark-read.handler';
 import { SendMessageHandler } from './handlers/send-message.handler';
 import { UnreadCountHandler } from './handlers/unread-count.handler';
+import { FindContactsHandler } from './handlers/find-contacts.handler';
 import { ConversationRepository } from './repositories/conversation.repository';
 import { MessageReadRepository } from './repositories/message-read.repository';
 import { MessageRepository } from './repositories/message.repository';
@@ -62,6 +63,7 @@ import { MessageRepository } from './repositories/message.repository';
     SendMessageHandler,
     MarkReadHandler,
     UnreadCountHandler,
+    FindContactsHandler,
     ArchiveConversationHandler,
     AddMemberHandler,
     EnsureProjectConversationHandler,

@@ -12,6 +12,7 @@ import {
   ApiPaginatedResponse,
 } from '../../common/swagger/api-paginated.decorator';
 import { PlanEntity } from '../entities/plan.entity';
+import { PublicPlanEntity } from '../entities/public-plan.entity';
 
 const idParam = () => ApiIntParam('id', 'Plan id');
 
@@ -94,4 +95,14 @@ export const ApiCreatePlanVersion = () =>
     ApiBadGatewayResponse({
       description: 'Failed to create the Stripe price for this version',
     }),
+  );
+
+export const ApiFindPublicPlans = () =>
+  applyDecorators(
+    ApiOperation({
+      summary: 'Public plan list — the pricing page (no login)',
+      description:
+        'Active plans only (the current versions), sorted by base_price, cheapest first. Never stripe_price_id, parent_plan_id or a subscriber count.',
+    }),
+    ApiOkResponse({ type: [PublicPlanEntity] }),
   );

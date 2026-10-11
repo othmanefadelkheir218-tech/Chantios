@@ -10,7 +10,8 @@ import { NotificationsService } from '../../notifications/notifications.service'
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 import { RecordPaymentDto } from '../dto/record-payment.dto';
 import {
-  assertPositiveAmount,
+  assertPaymentAmount,
+  paymentStatusFromBalance,
   toInvoiceEntity,
 } from '../helpers/invoice.helper';
 import { InvoiceRepository } from '../repositories/invoice.repository';
@@ -18,11 +19,13 @@ import { PaymentRepository } from '../repositories/payment.repository';
 
 /**
  * `POST /api/invoices/:id/payments` — writes the append-only ledger row,
- * then reads `invoice_balance` and sets status purely from `balance_due`:
- * `0` -> `paid`, `0 < balance < amount_incl_vat` -> `partially_paid`. Never
- * writes `overdue` (client-invoices.md § "Late is calculated, never
- * stored"). Both writes run in one transaction so a concurrent second
- * payment never reads a stale balance.
+ * then reads `invoice_balance` and recomputes the status from the ledger
+ * (`paymentStatusFromBalance`). A negative row is a correction: it needs a
+ * `note`, and the total paid can never go below `0` — that check runs inside
+ * the transaction, so a refused correction writes nothing. Never writes
+ * `overdue` (client-invoices.md § "Late is calculated, never stored"). Both
+ * writes run in one transaction so a concurrent second payment never reads a
+ * stale balance.
  *
  * Refuses (400) a payment against a `draft` (not official yet) or
  * `cancelled` (dropped) invoice — a judgment call, the step file does not
@@ -50,7 +53,7 @@ export class RecordPaymentHandler {
       `Recording payment of ${dto.amount} on invoice ${invoiceId}`,
     );
 
-    assertPositiveAmount(dto.amount);
+    assertPaymentAmount(dto.amount, dto.note);
 
     const invoice = await this.invoices.findById(invoiceId);
     if (!invoice) {
@@ -72,6 +75,7 @@ export class RecordPaymentHandler {
             amount: dto.amount,
             method: dto.method,
             reference: dto.reference ?? null,
+            note: dto.note?.trim() || null,
             ...(dto.payment_date && {
               paymentDate: new Date(dto.payment_date),
             }),
@@ -85,12 +89,16 @@ export class RecordPaymentHandler {
           throw new NotFoundException('Invoice not found');
         }
 
-        let status = invoice.status;
-        if (balance.balanceDue.lte(0)) {
-          status = 'paid';
-        } else if (balance.balanceDue.lt(balance.amountInclVat)) {
-          status = 'partially_paid';
+        if (balance.amountPaid.lt(0)) {
+          this.logger.warn(
+            `Refused correction on invoice ${invoiceId}: total paid would be ${balance.amountPaid.toString()}`,
+          );
+          throw new BadRequestException(
+            'This correction would make the total paid go below 0',
+          );
         }
+
+        const status = paymentStatusFromBalance(balance);
         const updatedInvoice = await this.invoices.setStatus(
           invoiceId,
           status,
@@ -120,6 +128,7 @@ export class RecordPaymentHandler {
       newValue: {
         paymentId: payment.id,
         amount: dto.amount,
+        ...(dto.note && { note: dto.note }),
         status: updatedInvoice.status,
       },
       ipAddress: null,

@@ -8,6 +8,7 @@ import {
   toMaterialEntity,
 } from '../helpers/material.helper';
 import { MaterialRepository } from '../repositories/material.repository';
+import { CheckDescriptionHandler } from './check-description.handler';
 
 /**
  * `PATCH /api/materials/:id`. A `purchase_price` change here never shifts a
@@ -21,6 +22,7 @@ export class UpdateMaterialHandler {
     private readonly logger: PinoLogger,
     private readonly materials: MaterialRepository,
     private readonly audit: AuditService,
+    private readonly checkDescription: CheckDescriptionHandler,
   ) {}
 
   async execute(id: number, dto: UpdateMaterialDto, actor: AuthenticatedUser) {
@@ -36,6 +38,9 @@ export class UpdateMaterialHandler {
     }
     if (dto.minimum_stock !== undefined) {
       assertNonNegative(dto.minimum_stock, 'minimum_stock');
+    }
+    if (dto.description !== undefined) {
+      await this.checkDescription.assertFree(dto.description, id);
     }
 
     const updated = await this.materials.update(id, {

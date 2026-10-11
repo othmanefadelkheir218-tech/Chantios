@@ -16,7 +16,7 @@ import { RestoreMediaHandler } from './handlers/restore-media.handler';
 import { SoftDeleteMediaHandler } from './handlers/soft-delete-media.handler';
 import { StorageUsageHandler } from './handlers/storage-usage.handler';
 import { UploadMediaHandler } from './handlers/upload-media.handler';
-import { toMediaEntity } from './helpers/media.helper';
+import { MediaUploader, toMediaEntity } from './helpers/media.helper';
 import { MediaRepository } from './repositories/media.repository';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
@@ -44,10 +44,15 @@ export class MediaService {
   upload(
     file: Express.Multer.File,
     dto: UploadMediaDto,
-    actor: AuthenticatedUser,
+    actor: MediaUploader,
     isLocked = false,
   ) {
     return this.uploadMedia.execute(file, dto, actor, isLocked);
+  }
+
+  /** The size + type rule only — to check many files before uploading any. */
+  assertUploadable(file: Express.Multer.File, entityType: MediaEntityType) {
+    this.uploadMedia.assertUploadable(file, entityType);
   }
 
   findAll(
@@ -120,7 +125,7 @@ export class MediaService {
     mediaIds: number[],
     entityType: MediaEntityType,
     entityId: number,
-    actor: AuthenticatedUser,
+    actor: MediaUploader,
     tx?: TenantTransactionClient,
   ) {
     return this.attachMedia.execute(mediaIds, entityType, entityId, actor, tx);

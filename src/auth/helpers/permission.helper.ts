@@ -14,7 +14,8 @@ export type RoleName =
   | 'sales'
   | 'accountant';
 
-type Level = 'full' | 'view' | 'own' | 'none';
+/** `own` = create / edit / delete, own rows only. `own_view` = read, own rows only. */
+type Level = 'full' | 'view' | 'own' | 'own_view' | 'none';
 
 export interface ResolvedPermission {
   canView: boolean;
@@ -109,7 +110,7 @@ export const DEFAULT_PERMISSION_MATRIX: Record<
   worker: {
     clients: 'none',
     projects: 'none',
-    tasks: 'own',
+    tasks: 'own_view',
     time_entries: 'own',
     catalogue: 'none',
     stock: 'none',
@@ -118,7 +119,7 @@ export const DEFAULT_PERMISSION_MATRIX: Record<
     purchase_invoices: 'none',
     margins: 'none',
     subcontractors: 'none',
-    reports: 'own',
+    reports: 'own_view',
     media: 'own',
     chat: 'own',
     team: 'none',
@@ -186,6 +187,14 @@ function levelToPermission(level: Level): ResolvedPermission {
         canCreate: true,
         canEdit: true,
         canDelete: true,
+        scope: 'own',
+      };
+    case 'own_view':
+      return {
+        canView: true,
+        canCreate: false,
+        canEdit: false,
+        canDelete: false,
         scope: 'own',
       };
     case 'none':

@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Material, Prisma } from '@prisma/client';
 import { TenantContextService } from '../../common/cls/tenant-context.service';
-import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
+import {
+  TenantPrismaService,
+  TenantTransactionClient,
+} from '../../common/prisma/tenant-prisma.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StockLevelRow } from '../helpers/material.helper';
 
@@ -21,8 +24,12 @@ export class MaterialRepository {
     private readonly tenantContext: TenantContextService,
   ) {}
 
-  create(data: Prisma.MaterialUncheckedCreateInput): Promise<Material> {
-    return this.tenantPrisma.db.material.create({ data });
+  /** `tx` — the bulk import writes every material inside one transaction. */
+  create(
+    data: Prisma.MaterialUncheckedCreateInput,
+    tx?: TenantTransactionClient,
+  ): Promise<Material> {
+    return (tx ?? this.tenantPrisma.db).material.create({ data });
   }
 
   findById(id: number): Promise<Material | null> {
@@ -45,8 +52,50 @@ export class MaterialRepository {
     ]);
   }
 
-  update(id: number, data: Prisma.MaterialUpdateInput): Promise<Material> {
-    return this.tenantPrisma.db.material.update({ where: { id }, data });
+  update(
+    id: number,
+    data: Prisma.MaterialUpdateInput,
+    tx?: TenantTransactionClient,
+  ): Promise<Material> {
+    return (tx ?? this.tenantPrisma.db).material.update({
+      where: { id },
+      data,
+    });
+  }
+
+  /** `GET /api/materials/export` — every active material, by description. */
+  findAllActive(): Promise<Material[]> {
+    return this.tenantPrisma.db.material.findMany({
+      where: { isActive: true },
+      orderBy: { description: 'asc' },
+    });
+  }
+
+  /** The bulk import: the rows a file names by `id` (archived ones included). */
+  findManyByIds(ids: number[]): Promise<Material[]> {
+    if (ids.length === 0) return Promise.resolve([]);
+    return this.tenantPrisma.db.material.findMany({
+      where: { id: { in: ids } },
+    });
+  }
+
+  /**
+   * Materials whose description matches one of `normalized` the way the
+   * unique index `uq_materials_tenant_description` compares them:
+   * `lower(btrim(description))`, archived rows included. Raw SQL because
+   * Prisma can't filter on an expression.
+   */
+  async findByNormalizedDescriptions(
+    normalized: string[],
+  ): Promise<Array<{ id: number; description: string; isActive: boolean }>> {
+    if (normalized.length === 0) return [];
+    const tenantId = this.currentTenantId();
+    return this.prisma.$queryRaw`
+      SELECT id, description, is_active AS "isActive"
+      FROM materials
+      WHERE tenant_id = ${tenantId}
+        AND lower(btrim(description)) = ANY(${normalized}::text[])
+    `;
   }
 
   setActive(id: number, isActive: boolean): Promise<Material> {

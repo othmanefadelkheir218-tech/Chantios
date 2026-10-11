@@ -17,6 +17,18 @@ export class AdminUserEntity {
   @ApiProperty({ description: 'false = deactivated, cannot log in' })
   is_active: boolean;
 
+  @ApiProperty({
+    description:
+      'true = a staff admin may change plans and billing (a super_admin always may)',
+  })
+  can_manage_billing: boolean;
+
+  @ApiProperty({
+    description:
+      'true = a staff admin may suspend or reactivate a company (a super_admin always may)',
+  })
+  can_manage_tenants: boolean;
+
   @ApiProperty()
   created_at: Date;
 

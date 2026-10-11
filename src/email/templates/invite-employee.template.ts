@@ -1,27 +1,42 @@
+import { escapeHtml, renderEmailLayout } from './email-layout';
+
 /** `create-invitation.handler.ts` builds the email from this. Locale decision: doc/notes/alerts.md § "Email templates & language". */
-export type EmailLocale = 'fr' | 'en' | 'ar';
+export type EmailLocale = 'fr' | 'en' | 'nl';
 
 const COPY: Record<
   EmailLocale,
-  { subject: string; intro: string; cta: string; expiry: string }
+  {
+    subject: string;
+    title: string;
+    intro: string;
+    cta: string;
+    button: string;
+    expiry: string;
+  }
 > = {
   fr: {
-    subject: 'Vous êtes invité — ChantierOS',
-    intro: 'a vous invité à rejoindre son équipe sur ChantierOS.',
-    cta: 'Choisissez votre mot de passe pour activer votre compte :',
+    subject: 'Vous êtes invité — ChantiOs',
+    title: 'Vous êtes invité',
+    intro: 'vous a invité à rejoindre son équipe sur ChantiOs.',
+    cta: 'Choisissez votre mot de passe pour activer votre compte.',
+    button: 'Activer mon compte',
     expiry: 'Ce lien expire dans 7 jours.',
   },
   en: {
-    subject: "You're invited — ChantierOS",
-    intro: 'has invited you to join their team on ChantierOS.',
-    cta: 'Set your password to activate your account:',
+    subject: "You're invited — ChantiOs",
+    title: "You're invited",
+    intro: 'has invited you to join their team on ChantiOs.',
+    cta: 'Set your password to activate your account.',
+    button: 'Activate my account',
     expiry: 'This link expires in 7 days.',
   },
-  ar: {
-    subject: 'تمت دعوتك — ChantierOS',
-    intro: 'قام بدعوتك للانضمام إلى فريقه على ChantierOS.',
-    cta: 'اختر كلمة المرور لتفعيل حسابك:',
-    expiry: 'تنتهي صلاحية هذا الرابط خلال 7 أيام.',
+  nl: {
+    subject: 'U bent uitgenodigd — ChantiOs',
+    title: 'U bent uitgenodigd',
+    intro: 'heeft u uitgenodigd om zijn team te vervoegen op ChantiOs.',
+    cta: 'Kies uw wachtwoord om uw account te activeren.',
+    button: 'Account activeren',
+    expiry: 'Deze link vervalt over 7 dagen.',
   },
 };
 
@@ -33,11 +48,12 @@ export function inviteEmployeeTemplate(
   const copy = COPY[locale] ?? COPY.en;
   return {
     subject: copy.subject,
-    html: `
-      <p><strong>${companyName}</strong> ${copy.intro}</p>
-      <p>${copy.cta}</p>
-      <p><a href="${acceptUrl}">${acceptUrl}</a></p>
-      <p>${copy.expiry}</p>
-    `,
+    html: renderEmailLayout({
+      locale: COPY[locale] ? locale : 'en',
+      title: copy.title,
+      bodyHtml: `<p style="margin:0 0 12px;"><strong>${escapeHtml(companyName)}</strong> ${copy.intro}</p><p style="margin:0;">${copy.cta}</p>`,
+      button: { label: copy.button, url: escapeHtml(acceptUrl) },
+      note: copy.expiry,
+    }),
   };
 }

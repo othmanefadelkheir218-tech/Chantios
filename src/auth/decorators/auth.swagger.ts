@@ -9,6 +9,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { ApiIntParam } from '../../common/swagger/api-paginated.decorator';
+import { AdminUserEntity } from '../../admin-users/entities/admin-user.entity';
 import { UserEntity } from '../../users/entities/user.entity';
 
 export const ApiRegister = () =>
@@ -82,8 +83,14 @@ export const ApiVerifyEmail = () =>
 
 export const ApiMe = () =>
   applyDecorators(
-    ApiOperation({ summary: 'My own user + role + resolved permissions' }),
-    ApiOkResponse({ description: 'User, role and permissions' }),
+    ApiOperation({
+      summary: 'My own user + role + resolved permissions',
+      description:
+        '`impersonation` is null for a normal login, or { admin_user_id, admin_name, expires_at } while a platform admin acts as this user.',
+    }),
+    ApiOkResponse({
+      description: 'User, role, permissions and impersonation',
+    }),
   );
 
 export const ApiListSessions = () =>
@@ -143,4 +150,49 @@ export const ApiAdminLogout = () =>
   applyDecorators(
     ApiOperation({ summary: 'Platform admin logout' }),
     ApiOkResponse({ description: 'Cookies cleared, session revoked' }),
+  );
+
+export const ApiAdminRefresh = () =>
+  applyDecorators(
+    ApiOperation({
+      summary: 'Renew the platform admin session',
+      description:
+        'Reads the admin_refresh_token cookie (no body). Rotation: old session revoked, new cookies set. A replayed revoked token revokes every session of that admin.',
+    }),
+    ApiOkResponse({ description: '2 new httpOnly admin cookies set' }),
+    ApiUnauthorizedResponse({
+      description:
+        'No, invalid, expired or revoked refresh token, or inactive admin',
+    }),
+  );
+
+export const ApiAdminMe = () =>
+  applyDecorators(
+    ApiOperation({
+      summary: 'The logged-in platform admin',
+      description: 'Never returns password_hash or totp_secret.',
+    }),
+    ApiOkResponse({ type: AdminUserEntity }),
+    ApiUnauthorizedResponse({
+      description: 'Not logged in, or inactive admin',
+    }),
+  );
+
+export const ApiAdminCreateTenant = () =>
+  applyDecorators(
+    ApiOperation({
+      summary: 'Create a company + its trial + an invitation for its boss',
+      description:
+        'One transaction: tenants + tenant_subscriptions (default plan, trialing, 14 days) + user_invitations (role admin, invited_by_admin_user_id). The boss gets the normal invitation email and sets their own password.',
+    }),
+    ApiCreatedResponse({
+      description: 'The tenant, with owner_invitation',
+    }),
+    ApiBadRequestResponse({
+      description: 'Validation error, or no default plan configured',
+    }),
+    ApiConflictResponse({
+      description:
+        'Company email already used, or owner_email already a user / has an open invitation — nothing is created',
+    }),
   );

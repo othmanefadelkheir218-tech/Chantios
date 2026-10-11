@@ -11,8 +11,11 @@ import { FindSubscriptionHandler } from './handlers/find-subscription.handler';
 import { FindSubscriptionsHandler } from './handlers/find-subscriptions.handler';
 import { FindUsageHandler } from './handlers/find-usage.handler';
 import { SetPendingPlanHandler } from './handlers/set-pending-plan.handler';
+import { MovePendingPlanDateHandler } from './handlers/move-pending-plan-date.handler';
 import { SetPeriodHandler } from './handlers/set-period.handler';
 import { SetStatusHandler } from './handlers/set-status.handler';
+import { ShiftDatesHandler } from './handlers/shift-dates.handler';
+import { StartGraceHandler } from './handlers/start-grace.handler';
 import { SnapshotUsageHandler } from './handlers/snapshot-usage.handler';
 import { SubscriptionRepository } from './repositories/subscription.repository';
 
@@ -29,7 +32,10 @@ export class SubscriptionsService {
     private readonly snapshotUsageHandler: SnapshotUsageHandler,
     private readonly setStatusHandler: SetStatusHandler,
     private readonly setPeriodHandler: SetPeriodHandler,
+    private readonly movePendingPlanDateHandler: MovePendingPlanDateHandler,
     private readonly applyPendingPlanHandler: ApplyPendingPlanHandler,
+    private readonly startGraceHandler: StartGraceHandler,
+    private readonly shiftDatesHandler: ShiftDatesHandler,
     private readonly subscriptions: SubscriptionRepository,
   ) {}
 
@@ -86,9 +92,32 @@ export class SubscriptionsService {
     return this.setPeriodHandler.execute(tenantId, periodStart, periodEnd, tx);
   }
 
+  /** Called only by the payment-succeeded webhook, right after it moves the period. */
+  movePendingPlanDate(tenantId: number, effectiveAt: Date) {
+    return this.movePendingPlanDateHandler.execute(tenantId, effectiveAt);
+  }
+
   /** Called only from inside billing's `run-renewal` (step 14). */
   applyPendingPlan(tenantId: number, tx?: Prisma.TransactionClient) {
     return this.applyPendingPlanHandler.execute(tenantId, tx);
+  }
+
+  /**
+   * The 7 days to pay — end of a trial (renewal job) or a failed payment
+   * (Stripe webhook). Returns the block date, `null` for a blocked company.
+   */
+  startGrace(tenantId: number, from: Date) {
+    return this.startGraceHandler.execute(tenantId, from);
+  }
+
+  /** Dev tools only (step 20): every date `days` earlier. */
+  shiftDates(tenantId: number, days: number) {
+    return this.shiftDatesHandler.execute(tenantId, days);
+  }
+
+  /** The Stripe customer of a company (dev tools today; Stripe Checkout later). */
+  setStripeCustomerId(tenantId: number, stripeCustomerId: string) {
+    return this.subscriptions.setStripeCustomerId(tenantId, stripeCustomerId);
   }
 
   /**
@@ -98,5 +127,15 @@ export class SubscriptionsService {
    */
   findByStripeCustomerId(stripeCustomerId: string) {
     return this.subscriptions.findByStripeCustomerId(stripeCustomerId);
+  }
+
+  /** Platform stats: subscriptions of live companies per status. */
+  countByStatus() {
+    return this.subscriptions.countByStatus();
+  }
+
+  /** Platform stats: live, not-cancelled companies per current plan id. */
+  countByPlan() {
+    return this.subscriptions.countByPlan();
   }
 }

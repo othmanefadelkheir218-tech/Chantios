@@ -26,6 +26,8 @@ export class CreateAdminUserHandler {
       email,
       name: dto.name,
       role: dto.role,
+      canManageBilling: dto.can_manage_billing ?? false,
+      canManageTenants: dto.can_manage_tenants ?? false,
       passwordHash: await hashPassword(dto.password),
     });
     this.logger.info(`Admin user created: ${admin.id}`);

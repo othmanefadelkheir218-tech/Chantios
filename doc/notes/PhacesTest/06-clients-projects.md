@@ -52,7 +52,7 @@ cancelled   → nothing
 | PRJ-08 | Create `TEST Project Cancel`, cancel it with a reason, then `→ in_progress` as owner | `200`, then `400` — final for everyone | PASS |
 | PRJ-09 | `PATCH /api/projects/:id { "status": "completed", "name": "x" }` | `400 property status should not exist` | PASS |
 | PRJ-10 | Create `TEST Project Delete` (prospect), upload 2 files to it (`entity_type=project`), `DELETE /api/projects/:id` | `200 { deleted: true }`; project `404`; both media rows gone from the DB | PASS |
-| PRJ-11 | **[CHECK IMAGEKIT]** | folder `tenant-<A>/project/<id>/` is empty | SKIP (ImageKit not yet confirmed by owner) |
+| PRJ-11 | **[CHECK IMAGEKIT]** | folder `tenant-<A>/project/<id>/` is empty | PASS (owner saw `project/6/` empty, 2026-10-09) |
 | PRJ-12 | `DELETE` on an `in_progress`, a `completed` and a `cancelled` project | `400 Only a project with status prospect can be deleted`, nothing changed | PASS |
 | PRJ-13 | `GET /api/projects/:id` | no `budget` and no `progress_pct` key | PASS |
 | PRJ-14 | `GET /api/clients/:id/projects`, `GET /api/projects?status=&client_id=&search=` | filtered | PASS |
@@ -75,11 +75,11 @@ cancelled   → nothing
 
 ## Result — 2026-10-08
 
-**27 PASS, 1 FAIL (PRJ-01), 1 SKIP (PRJ-11).**
+**28 PASS, 1 FAIL (PRJ-01, fixed 2026-10-09), 0 SKIP.** PRJ-11 PASS on 2026-10-09 (owner saw `project/6/` empty in ImageKit).
 
 ### Problem found
 
-- **PRJ-01 — date-only `start_date` / `end_date` give `500`.** `POST /api/projects` with `"start_date": "2026-11-02"` → `500 Internal server error`; same body with `"2026-11-02T00:00:00.000Z"` → `201`. `PATCH /api/projects/1 {"start_date":"2026-11-02"}` → `500` too. `PRJ-02` (end before start, date-only) still gives `400` because the handler checks the order before the database. Likely cause: `@IsDateString()` accepts a date-only string, but the value reaches Prisma as a plain string (Prisma wants a `Date` or a full ISO date-time). Same class of bug as step 09's `IsDateOnly` fix, not applied to projects. **To do:** convert to `Date` in the handler, or use `@IsDateOnly()`. Not fixed (run rule).
+- **PRJ-01 — date-only `start_date` / `end_date` give `500`.** `POST /api/projects` with `"start_date": "2026-11-02"` → `500 Internal server error`; same body with `"2026-11-02T00:00:00.000Z"` → `201`. `PATCH /api/projects/1 {"start_date":"2026-11-02"}` → `500` too. `PRJ-02` (end before start, date-only) still gives `400` because the handler checks the order before the database. Likely cause: `@IsDateString()` accepts a date-only string, but the value reaches Prisma as a plain string (Prisma wants a `Date` or a full ISO date-time). Same class of bug as step 09's `IsDateOnly` fix, not applied to projects. **FIXED 2026-10-09:** the handlers pass `new Date(...)`; 2 unit tests. Live re-run PASS (`POST` → `201`, `PATCH` → `200`, bad date → `400`).
 - This is **not** the cause of the intermittent upload `500` in phase 05 (that one had no dates).
 
 ### Data left

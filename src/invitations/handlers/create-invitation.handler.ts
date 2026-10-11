@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
@@ -8,7 +8,6 @@ import {
   inviteEmployeeTemplate,
 } from '../../email/templates/invite-employee.template';
 import { EmailService } from '../../email/email.service';
-import { env } from '../../config/env.config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../../users/users.service';
 import { CreateInvitationDto } from '../dto/create-invitation.dto';
@@ -16,7 +15,9 @@ import {
   generateInvitationToken,
   hashInvitationToken,
   INVITATION_LIFETIME_MS,
+  toAcceptUrl,
 } from '../helpers/invitation-token.helper';
+import { assertEmailFreeForInvitation } from '../helpers/invitation-email.helper';
 import { toInvitationEntity } from '../helpers/invitation.helper';
 import { InvitationRepository } from '../repositories/invitation.repository';
 
@@ -44,19 +45,16 @@ export class CreateInvitationHandler {
     const email = dto.email.toLowerCase();
     this.logger.info(`Inviting ${email} (role ${dto.role_id})`);
 
-    if (await this.users.findByEmail(email)) {
-      this.logger.warn(`Cannot invite ${email}: already a user somewhere`);
-      throw new ConflictException(`Email ${email} is already used`);
-    }
-
-    const existing = await this.invitations.findOpenByEmailAnywhere(email);
-    if (existing && existing.tenantId !== actor.tenantId) {
-      this.logger.warn(
-        `Cannot invite ${email}: open invitation at another company`,
-      );
-      throw new ConflictException(
-        `Email ${email} already has an open invitation at another company`,
-      );
+    let existing;
+    try {
+      existing = await assertEmailFreeForInvitation(email, actor.tenantId, {
+        findUserByEmail: (value) => this.users.findByEmail(value),
+        findOpenInvitationAnywhere: (value) =>
+          this.invitations.findOpenByEmailAnywhere(value),
+      });
+    } catch (error) {
+      this.logger.warn(`Cannot invite ${email}: ${(error as Error).message}`);
+      throw error;
     }
     if (existing) {
       this.logger.info(`Re-inviting ${email}: replacing the old invitation`);
@@ -76,7 +74,7 @@ export class CreateInvitationHandler {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: actor.tenantId },
     });
-    const acceptUrl = `${env.APP_URL}/invitations/accept?token=${rawToken}`;
+    const acceptUrl = toAcceptUrl(rawToken);
     const { subject, html } = inviteEmployeeTemplate(
       tenant?.name ?? 'ChantierOS',
       acceptUrl,

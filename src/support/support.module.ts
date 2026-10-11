@@ -44,5 +44,6 @@ import { SupportService } from './support.service';
     AssignTicketHandler,
     CloseTicketHandler,
   ],
+  exports: [SupportService],
 })
 export class SupportModule {}

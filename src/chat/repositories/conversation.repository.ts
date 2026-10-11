@@ -77,6 +77,29 @@ export class ConversationRepository {
   }
 
   /**
+   * The 1-to-1 `internal` conversation of two users: no project, exactly these
+   * two members. The open one first, else the newest archived one.
+   */
+  findDirect(
+    userId: number,
+    otherUserId: number,
+  ): Promise<ConversationWithMembers | null> {
+    return this.tenantPrisma.db.conversation.findFirst({
+      where: {
+        type: 'internal',
+        projectId: null,
+        AND: [
+          { members: { some: { userId } } },
+          { members: { some: { userId: otherUserId } } },
+          { members: { every: { userId: { in: [userId, otherUserId] } } } },
+        ],
+      },
+      include: WITH_MEMBERS,
+      orderBy: [{ isArchived: 'asc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  /**
    * One ticket's `support` conversation, for the TENANT side (the extension
    * scopes it to the caller's own tenant automatically) — step 16's
    * `GET /api/support/tickets/:id`, so the response can carry its

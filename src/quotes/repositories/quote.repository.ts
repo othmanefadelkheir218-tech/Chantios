@@ -154,4 +154,20 @@ export class QuoteRepository {
     });
     return result._sum.amountExclVat ?? new Prisma.Decimal(0);
   }
+
+  /** Dashboard (step 18): `sent` quotes waiting for the client — count + total incl. VAT. */
+  async summarizeSent(): Promise<{
+    count: number;
+    totalInclVat: Prisma.Decimal;
+  }> {
+    const result = await this.tenantPrisma.db.quote.aggregate({
+      where: { status: 'sent' },
+      _count: { _all: true },
+      _sum: { amountInclVat: true },
+    });
+    return {
+      count: result._count._all,
+      totalInclVat: result._sum.amountInclVat ?? new Prisma.Decimal(0),
+    };
+  }
 }

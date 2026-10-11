@@ -40,7 +40,7 @@ Any check fails → client sees: **"This link has expired. Please contact your c
 | Quote | Status `sent` or `accepted` — never `draft`, never `refused` |
 | Project progress | `progress_pct` from the latest site report |
 | Invoices | Only `sent`, `partially_paid`, `paid` — **not `draft`**, not `cancelled`. A late invoice shows a red label |
-| Messages | Project chat (`project_client` type) — client can send and receive messages |
+| Messages | Project chat (`project_client` type) — client can send and receive messages, with files |
 
 ### The quote is the one thing the client can change
 
@@ -55,7 +55,7 @@ This is why the portal shows a `sent` quote at all: the client cannot decide on 
 
 Staff can still accept a quote by hand for a client who answers by phone. Both paths write the same columns, so `accepted_at` is always real.
 
-Everything else in the portal stays read-only.
+Everything else in the portal stays read-only — apart from the chat (messages and their files).
 
 **Never visible to client:**
 - Margin / costs
@@ -123,6 +123,18 @@ The client can send messages to the company directly from the portal — via the
 - Client writes from the portal (no login needed — identified by their `portal_token`)
 - Company staff receives it in their dashboard chat
 - Company replies → client sees the reply next time they open the portal
+
+### Files in the portal chat
+
+The client can attach files to a message — **inside the chat only**, there is no separate "Documents" upload.
+
+- Same types and size as the staff chat: **images (jpeg, png) + PDF, max 10 MB each, max 10 files per message**. The one rule lives in the media module (`ALLOWED_MIME_TYPES.message`, `MAX_FILE_SIZE_BYTES`); the portal does not have its own.
+- Authorised by the portal token only — the same 3 checks as every portal route (exists, active, not expired).
+- A message with files still needs text (same rule as the staff chat).
+- The files are `media` rows with `entity_type = 'message'`, `entity_id = the client's message`, `uploaded_by = NULL` (the client has no user account) — exactly like a staff attachment. Staff see them in their chat like any other attachment.
+- The client sees every attachment of the thread (theirs and the company's) with its link, and can open it.
+
+**No live socket for the client (v1).** The portal has no session, and the socket server only accepts a JWT. The portal messages page **polls** `GET /api/portal/:token/messages` while it is open and visible (about every 20 seconds, and again when the tab gets focus). The client is also told by email ("you have a reply"). Company staff still get the client's messages live in their own chat.
 
 ---
 

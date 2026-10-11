@@ -20,7 +20,7 @@ One upload flow for every file: type and size rules per entity, soft delete (tra
 | ID | Do | Expected | Result |
 |---|---|---|---|
 | MED-01 | Upload `test.jpg`, `entity_type=report`, `entity_id=1` | `201`, `file_url`, `file_type image/jpeg`, `file_size`, `is_locked false`, `deleted_at null`; one `audit_logs` `upload` row | PASS |
-| MED-02 | **[CHECK IMAGEKIT]** | the file is in `tenant-<A>/report/1/`; its URL opens | PASS (URL opens `200 image/jpeg`; folder not seen by owner) |
+| MED-02 | **[CHECK IMAGEKIT]** | the file is in `tenant-<A>/report/1/`; its URL opens | PASS (URL opens `200 image/jpeg`; owner saw the files in `report/1/`, 2026-10-09) |
 | MED-03 | Upload `big.jpg` (11 MB) | `400 File too large: max 10 MB`, **nothing** new in ImageKit | PASS |
 | MED-04 | The type table — one request each: | | PASS |
 | | `report`: PDF → `400`; WEBP → `201` | | |
@@ -47,14 +47,14 @@ Upload 3 throwaway files (`T1`, `T2`, `T3`). Set `is_locked = true` on `T3` in t
 | ID | Do | Expected | Result |
 |---|---|---|---|
 | MED-11 | `DELETE /api/media { ids: [T1, T3] }` | `200`, `deleted` = T1, `skipped` = T3; T1 has `deleted_at`, T3 untouched | PASS |
-| MED-12 | **[CHECK IMAGEKIT]** | T1 is **still** in ImageKit (a soft delete never touches it) | SKIP (ImageKit not confirmed by owner) |
+| MED-12 | **[CHECK IMAGEKIT]** | T1 is **still** in ImageKit (a soft delete never touches it) | PASS (owner saw T4 still in `project/50/`, 2026-10-09; T1 was purged, see MED-19) |
 | MED-13 | List and `GET` T1 | gone from the list, `GET` → `404`; `GET /api/media/storage/usage` still **includes** T1's size | PASS |
 | MED-14 | `PATCH /api/media/restore { ids: [T1] }` | visible again, `deleted_at null`; restoring a live row is a no-op | PASS |
 | MED-15 | `DELETE /api/media/permanent { ids: [T2] }` | `200`, row gone from the DB | PASS |
-| MED-16 | **[CHECK IMAGEKIT]** | T2 is **gone** from the media library (its CDN URL may stay cached a while — that is ImageKit, not a bug) | SKIP (ImageKit not confirmed by owner) |
+| MED-16 | **[CHECK IMAGEKIT]** | T2 is **gone** from the media library (its CDN URL may stay cached a while — that is ImageKit, not a bug) | PASS (owner saw no T2 in `project/50/`, 2026-10-09) |
 | MED-17 | `DELETE /api/media/permanent { ids: [T3] }` | `deleted: []`, `skipped: [T3]`; row and file kept | PASS |
 | MED-18 | Soft-delete T1 again, backdate `deleted_at` by 31 days; soft-delete a 4th file `T4` now; `yarn job:media-purge` | prints `{ purged: 1, ... }`; T1 gone from DB, T4 still there | PASS |
-| MED-19 | **[CHECK IMAGEKIT]** | T1 gone, T4 still there | SKIP (ImageKit not confirmed by owner) |
+| MED-19 | **[CHECK IMAGEKIT]** | T1 gone, T4 still there | PASS (2026-10-09: T4 there; the database has no T1 row, the code deletes ImageKit before the row. One orphan `TEST-T1_…` file seen: leftover of the first T1 upload that failed with `500`, deleted by hand) |
 | MED-20 | `ids: []` on any bulk route | `400` | PASS |
 
 ## 4. Avatar and logo
@@ -62,7 +62,7 @@ Upload 3 throwaway files (`T1`, `T2`, `T3`). Set `is_locked = true` on `T3` in t
 | ID | Do | Expected | Result |
 |---|---|---|---|
 | MED-21 | `POST /api/users/me/avatar` with `test.jpg`, twice | both `201`; exactly **one** `user` media row for the owner — the first was hard-deleted, never trashed | PASS |
-| MED-22 | **[CHECK IMAGEKIT]** | folder `tenant-<A>/user/<owner id>/` holds one file | SKIP (ImageKit not confirmed by owner) |
+| MED-22 | **[CHECK IMAGEKIT]** | folder `tenant-<A>/user/<owner id>/` holds one file | PASS (owner saw one file in `user/1/`, 2026-10-09) |
 | MED-23 | `POST /api/media/tenant-logo` with `test.png` | `201`, `tenants.logo_media_id` points at it | PASS |
 | MED-24 | Manager calls `tenant-logo` | `403` | PASS |
 
@@ -84,11 +84,11 @@ Upload 3 throwaway files (`T1`, `T2`, `T3`). Set `is_locked = true` on `T3` in t
 
 ## Result — 2026-10-08
 
-**PASS:** all API scenarios (MED-01, 03–11, 13–15, 17, 18, 20, 21, 23–26, ISO-MED-01/02). **SKIP:** MED-12, 16, 19, 22 and the folder part of MED-02 — they need an ImageKit check by the owner (a screenshot of `Chantios/tenant-1/project/50/` and `user/1/` is still to come). `quote` and `invoice` folders already exist under `tenant-1` although this phase never wrote there (leftovers).
+**PASS:** all API scenarios (MED-01, 03–11, 13–15, 17, 18, 20, 21, 23–26, ISO-MED-01/02). ImageKit checks, seen by the owner on 2026-10-09 (screenshots of `project/50/` and `user/1/`): **MED-12, 16, 19, 22 PASS**. `project/50/` holds T3 (locked) and T4 (trash, kept) as expected, T2 is gone, `user/1/` holds one file. It also holds one orphan `TEST-T1_…` with no database row — a leftover of the first T1 upload that answered `500` after the ImageKit upload (problem 1, now fixed). The owner deletes it by hand. The folder part of MED-02 (`report/1/`) is PASS too. That folder holds 9 files for 7 database rows: 2 extra files are leftovers of the old upload `500`; the owner may delete them. `quote` and `invoice` folders already exist under `tenant-1` although this phase never wrote there (leftovers).
 
 ### Problems found
 
-1. **Intermittent upload `500`** — `POST /api/media` answered `500 {"statusCode":500,"message":"Internal server error"}` 3 times in about 35 uploads: the worker's first upload (MED-10), and the first try of T1 and T2. The same files then gave `201` on retry, and 8 uploads in a row all gave `201`. Cause **unknown**: the server log was not available. An orphan file in ImageKit is possible if the error came after the ImageKit upload. **To do:** read the `yarn start:dev` log, or add temporary logging on the upload route and repeat in a loop.
+1. **Intermittent upload `500`** — `POST /api/media` answered `500 {"statusCode":500,"message":"Internal server error"}` 3 times in about 35 uploads: the worker's first upload (MED-10), and the first try of T1 and T2. The same files then gave `201` on retry, and 8 uploads in a row all gave `201`. Cause **unknown**: the server log was not available. An orphan file in ImageKit is possible if the error came after the ImageKit upload. **Likely cause found 2026-10-09:** the shared ImageKit client has `timeout: 5000, maxRetries: 0` (made for the startup check), so a slow upload on the free plan died at 5 s. **FIXED:** new `helpers/imagekit-upload.helper.ts` — upload with a 30 s timeout and 2 retries; a failure is logged with the real error and returned as `502` (not `500`); if the row cannot be written, the ImageKit file is removed (no orphan). Used by upload and replace. +4 unit tests (761 pass, `tsc` clean). Live check 2026-10-09: 6 uploads in a row → `201` (0.7–1.1 s); the 6 test files were then deleted for good. The `502` path cannot be forced live (it needs ImageKit to fail) — it is covered by unit tests.
 2. **Worker could open another user's file** (note 2) — `GET /api/media/:id` was not limited by `scope = own` (the list was). **FIXED 2026-10-08** at the owner's request: `FindMediaHandler.findOne` now gets the actor and scope; another uploader's file is `404`. 2 unit tests added. Live: worker → owner's file `404`, own file `200`, owner → worker's file `200`. Not committed.
 
 ### Data left

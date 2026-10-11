@@ -1,8 +1,10 @@
+import { AdminUsersModule } from '../admin-users/admin-users.module';
 import { BullModule } from '@nestjs/bullmq';
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TokenModule } from '../auth/token.module';
 import { ClientsModule } from '../clients/clients.module';
 import { MediaModule } from '../media/media.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { PlansModule } from '../plans/plans.module';
 import { RolesModule } from '../roles/roles.module';
 import { StripeModule } from '../stripe/stripe.module';
@@ -20,6 +22,8 @@ import { FindUsageHandler } from './handlers/find-usage.handler';
 import { MySubscriptionHandler } from './handlers/my-subscription.handler';
 import { RequestDowngradeHandler } from './handlers/request-downgrade.handler';
 import { RunRenewalHandler } from './handlers/run-renewal.handler';
+import { BlockExpiredGraceHandler } from './handlers/block-expired-grace.handler';
+import { TrialReminderHandler } from './handlers/trial-reminder.handler';
 import { UsageCounterHelper } from './helpers/usage-counter.helper';
 import { RenewalProcessor } from './processors/renewal.processor';
 
@@ -42,10 +46,14 @@ import { RenewalProcessor } from './processors/renewal.processor';
     SubscriptionsModule,
     PlansModule,
     UsersModule,
+    AdminUsersModule,
     ClientsModule,
     SubcontractorsModule,
     MediaModule,
     StripeModule,
+    // The trial alerts (step 20). `forwardRef`: the same long cycle
+    // `StripeModule` documents (Notifications -> ... -> this module).
+    forwardRef(() => NotificationsModule),
   ],
   controllers: [BillingController, AdminBillingController],
   providers: [
@@ -57,6 +65,8 @@ import { RenewalProcessor } from './processors/renewal.processor';
     RequestDowngradeHandler,
     ApplyPendingPlanIfDueHandler,
     RunRenewalHandler,
+    TrialReminderHandler,
+    BlockExpiredGraceHandler,
     RenewalProcessor,
   ],
   // `UsageCounterHelper` is also used directly by `CronsModule` (step 16's

@@ -10,12 +10,8 @@ import {
  * `stock_movements` — the ledger. Append-only: no update/delete method
  * exists here on purpose.
  *
- * No `tx` parameter: nothing in this step composes a movement write with
- * another table's write inside one DB transaction (`replaceRecipe` is the
- * only multi-step write this step has, and it is self-contained on
- * `service.repository.ts`). If step 09 ever needs
- * `record-consumption.handler` + `consume-reservation.handler` to be
- * atomic, add it there against these same repositories.
+ * `create` and `createMany` take an optional `tx` for the callers that
+ * write movements inside a wider transaction (site reports, bulk import).
  */
 @Injectable()
 export class StockMovementRepository {
@@ -33,10 +29,15 @@ export class StockMovementRepository {
     return (tx ?? this.tenantPrisma.db).stockMovement.create({ data });
   }
 
+  /** `tx` — a bulk import writes all its movements inside one transaction. */
   async createMany(
     rows: Prisma.StockMovementUncheckedCreateInput[],
+    tx?: TenantTransactionClient,
   ): Promise<number> {
-    const { count } = await this.tenantPrisma.db.stockMovement.createMany({
+    if (rows.length === 0) return 0;
+    const { count } = await (
+      tx ?? this.tenantPrisma.db
+    ).stockMovement.createMany({
       data: rows,
     });
     return count;

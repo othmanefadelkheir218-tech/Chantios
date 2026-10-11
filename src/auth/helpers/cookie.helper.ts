@@ -2,12 +2,17 @@ import ms from 'ms';
 import type { Response } from 'express';
 import { env } from '../../config/env.config';
 
-/** httpOnly, secure in prod, sameSite lax (doc/notes/auth-tokens.md). */
+/**
+ * httpOnly, secure in prod, sameSite lax (doc/notes/auth-tokens.md). With
+ * `COOKIE_DOMAIN` set, every cookie is set AND cleared on that parent domain,
+ * so the frontend server sees the session cookie too.
+ */
 const BASE_OPTIONS = {
   httpOnly: true,
   secure: env.NODE_ENV === 'production',
   sameSite: 'lax' as const,
   path: '/',
+  ...(env.COOKIE_DOMAIN && { domain: env.COOKIE_DOMAIN }),
 };
 
 const ACCESS_MAX_AGE = ms(env.JWT_ACCESS_EXPIRES_IN as ms.StringValue);

@@ -97,4 +97,9 @@ export class QuotesService {
   sumAcceptedByProject(projectId: number) {
     return this.quotes.sumAcceptedByProject(projectId);
   }
+
+  /** Dashboard (step 18). */
+  summarizeSent() {
+    return this.quotes.summarizeSent();
+  }
 }

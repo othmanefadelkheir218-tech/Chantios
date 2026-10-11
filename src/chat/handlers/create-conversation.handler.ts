@@ -14,6 +14,10 @@ import { ConversationRepository } from '../repositories/conversation.repository'
  * automatically; every other member must be an ACTIVE user of THIS tenant
  * (`UsersService.findActiveInTenant` — never the unscoped lookup), so a user of
  * another company is refused. Conversation and members are one transaction.
+ *
+ * 1-to-1 (one other person, no project): the existing conversation of these
+ * two users is returned instead of a new one; an archived one is brought back
+ * (doc/notes/chat-conversations.md § 1-to-1).
  */
 @Injectable()
 export class CreateConversationHandler {
@@ -50,6 +54,11 @@ export class CreateConversationHandler {
       await this.projects.findOne(dto.project_id);
     }
 
+    if (memberIds.length === 2 && dto.project_id === undefined) {
+      const direct = await this.reuseDirect(memberIds[1], actor);
+      if (direct) return direct;
+    }
+
     const created = await this.tenantPrisma.db.$transaction((tx) =>
       this.conversations.create(
         {
@@ -74,5 +83,34 @@ export class CreateConversationHandler {
     });
     this.logger.info(`Conversation created: ${created.id}`);
     return entity;
+  }
+
+  /** The existing 1-to-1 with `otherUserId`, un-archived if needed — or `null`. */
+  private async reuseDirect(otherUserId: number, actor: AuthenticatedUser) {
+    const existing = await this.conversations.findDirect(
+      actor.userId,
+      otherUserId,
+    );
+    if (!existing) return null;
+    if (!existing.isArchived) {
+      this.logger.info(`Reusing 1-to-1 conversation ${existing.id}`);
+      return toConversationEntity(existing);
+    }
+
+    this.logger.info(
+      `Bringing back archived 1-to-1 conversation ${existing.id}`,
+    );
+    const restored = await this.conversations.setArchived(existing.id, false);
+    await this.audit.write({
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      action: 'restore',
+      entityType: 'conversation',
+      entityId: existing.id,
+      oldValue: { isArchived: true },
+      newValue: { isArchived: false },
+      ipAddress: null,
+    });
+    return toConversationEntity(restored);
   }
 }

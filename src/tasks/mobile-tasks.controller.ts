@@ -29,4 +29,12 @@ export class MobileTasksController {
   ) {
     return this.tasksService.findMine(query, actor);
   }
+
+  /** Name + address of the projects where the caller has a task (no `projects` permission needed). */
+  @Get('my-projects')
+  @TenantAuth()
+  @Module('tasks')
+  myProjects(@CurrentUser() actor: AuthenticatedUser) {
+    return this.tasksService.findMyProjects(actor);
+  }
 }

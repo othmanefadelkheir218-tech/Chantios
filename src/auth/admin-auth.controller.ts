@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Post,
   Req,
   Res,
@@ -9,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
+import { Actor } from '../common/decorators/actor.decorator';
+import type { RequestActor } from '../common/decorators/actor.decorator';
 import { AdminAuthGuard } from './guards/admin-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
 import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
@@ -16,6 +19,8 @@ import { AuthService } from './auth.service';
 import {
   ApiAdminLogin,
   ApiAdminLogout,
+  ApiAdminMe,
+  ApiAdminRefresh,
   ApiVerify2fa,
 } from './decorators/auth.swagger';
 import { AdminLoginDto } from './dto/admin-login.dto';
@@ -46,6 +51,19 @@ export class AdminAuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     return this.authService.adminVerify2fa(dto, req, res);
+  }
+
+  @Post('refresh')
+  @ApiAdminRefresh()
+  refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    return this.authService.adminRefreshSession(req, res);
+  }
+
+  @Get('me')
+  @UseGuards(AdminAuthGuard)
+  @ApiAdminMe()
+  me(@Actor() actor: RequestActor) {
+    return this.authService.adminMe(actor.adminUserId as number);
   }
 
   @Post('logout')

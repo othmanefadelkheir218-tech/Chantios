@@ -56,6 +56,7 @@ describe('Services handlers', () => {
   const repo = {
     create: jest.fn(),
     findById: jest.fn(),
+    findExistingIds: jest.fn(),
     findMany: jest.fn(),
     update: jest.fn(),
     setActive: jest.fn(),
@@ -149,12 +150,48 @@ describe('Services handlers', () => {
       const result = await findServices.execute({ page: 1, limit: 20 });
       expect(result.total).toBe(1);
     });
+
+    it('is_active=true lists active services only (the line picker)', async () => {
+      repo.findMany.mockResolvedValue([[service()], 1]);
+      await findServices.execute({
+        page: 1,
+        limit: 20,
+        search: 'paint',
+        is_active: true,
+      });
+      expect(repo.findMany).toHaveBeenCalledWith(
+        {
+          isActive: true,
+          description: { contains: 'paint', mode: 'insensitive' },
+        },
+        0,
+        20,
+      );
+    });
   });
 
   describe('FindServiceHandler', () => {
     it('rejects an unknown service', async () => {
       repo.findById.mockResolvedValue(null);
       await expect(findService.execute(99)).rejects.toThrow(NotFoundException);
+    });
+
+    it('line services: ids of this company pass, free lines (null) are skipped', async () => {
+      repo.findExistingIds.mockResolvedValue([10, 11]);
+      await findService.assertBelongToTenant([10, null, 11, 10, undefined]);
+      expect(repo.findExistingIds).toHaveBeenCalledWith([10, 11]);
+    });
+
+    it('line services: an id of another company (not found here) is a 400', async () => {
+      repo.findExistingIds.mockResolvedValue([10]);
+      await expect(findService.assertBelongToTenant([10, 99])).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('line services: only free lines → no query', async () => {
+      await findService.assertBelongToTenant([null, undefined]);
+      expect(repo.findExistingIds).not.toHaveBeenCalled();
     });
   });
 

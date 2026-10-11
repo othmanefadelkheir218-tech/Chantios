@@ -49,6 +49,13 @@ export class HandlePaymentSucceededHandler {
       periodStart,
       periodEnd,
     );
+    // A waiting plan change is due at the END of the period: follow the move.
+    if (subscription.pendingPlanId) {
+      await this.subscriptions.movePendingPlanDate(
+        subscription.tenantId,
+        periodEnd,
+      );
+    }
 
     const tenant = await this.tenants.findOne(subscription.tenantId);
     await this.notifications.dispatch('payment_received', {

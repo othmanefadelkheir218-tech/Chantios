@@ -55,6 +55,11 @@ export class ServicesService {
 
   // ---- Internal API for `stock` (recipe walk, step 05) and step 09 (pre-fill) ----
 
+  /** `400` unless every `service_id` of a quote/invoice line is a service of this company. */
+  assertLineServices(serviceIds: Array<number | null | undefined>) {
+    return this.findService.assertBelongToTenant(serviceIds);
+  }
+
   /** Raw `{ materialId, quantityPerUnit }` recipe rows for one service. */
   getRecipeRaw(serviceId: number) {
     return this.getRecipe.findRecipeRaw(serviceId);

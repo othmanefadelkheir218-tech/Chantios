@@ -51,7 +51,7 @@ Exactly one of `user_id` / `admin_user_id` is set per row.
 
 ## 2. `user_invitations`
 
-An employee never registers. The admin invites them.
+An employee never registers. The admin adds them — by invitation (below, the normal way) or directly (§ 2b).
 
 | Field | Meaning |
 |---|---|
@@ -61,18 +61,39 @@ An employee never registers. The admin invites them.
 | `name` | Their name, pre-filled by the admin |
 | `role_id` | FK → `roles.id` — the role they will get |
 | `token_hash` | sha256 — the raw token is only in the email link |
-| `invited_by` | FK → `users.id` |
+| `invited_by` | FK → `users.id` — **nullable**: set when a company user invites |
+| `invited_by_admin_user_id` | FK → `admin_users.id` — **nullable**: set when the super-admin creates a company and invites its first `admin` |
 | `expires_at` | Created + 7 days |
 | `accepted_at` | Set when they choose their password — nullable |
 | `created_at` | — |
 
 ### Rules
 
+- Exactly one of `invited_by` / `invited_by_admin_user_id` is set (same pattern as `refresh_tokens`).
 - One open invitation per email. Re-inviting replaces the old row.
 - A used invitation (`accepted_at` set) can never be used again.
 - Accepting creates the `users` row — the invitation does not create it earlier.
 - **An email belongs to one company only.** `users.email` is `UNIQUE` across the whole app, and so is an open invitation. Inviting an email that already works at another company is refused with a clear message.
 - The reason: login is email + password with no company field. If one email existed twice, the server could not know which company to open.
+
+---
+
+## 2b. Adding a member without the email
+
+Decided 2026-10-10 (owner: "I need both"). The `admin` may add a member directly, with no invitation email. Same right as inviting: `admin` only. `POST /api/invitations/direct`.
+
+**A — any role, with a temporary password.**
+- The admin gives: name, email, role, a temporary password (12 characters min, same rule as every password), and optional phone, hourly rate and PIN (worker only).
+- The `users` row is created at once. No email is sent. `email_verified_at` stays `NULL`.
+- `users.must_change_password = true`. After login, the frontend shows only the "choose your password" page until the user changes it (`POST /api/auth/change-password`). Any new password (change or reset) sets it back to `false`.
+- The email must be free, exactly like an invitation (§ 2 Rules). An open invitation for the same email at the same company is replaced (deleted).
+
+**B — `worker` only, with no email, PIN only.**
+- The admin gives: name, a PIN (4–6 digits), and optional phone and hourly rate. No email, no password.
+- The server gives the worker a **login code**: 8 digits, unique in the whole app (`users.login_code`). It is shown to the admin (team list and member page) and the worker uses it on the phone: `POST /api/mobile/login` with `login` = the code (or an email) + `pin`.
+- This worker can only use the phone (Field) login. No dashboard login, no "forgot password" — the admin sets a new PIN instead (`POST /api/users/:id/pin`).
+- Emails for this user are skipped (notifications still appear in the app).
+- A user with no email must stay a `worker`: changing their role is refused (`400`). A DB CHECK enforces it: `email IS NOT NULL OR (role_id = 5 AND login_code IS NOT NULL)`.
 
 ---
 
@@ -116,6 +137,38 @@ Over the attempt limit → the row is consumed and the user requests a new code.
 - **Nothing is stored in plain text.** Every token and code is sha256-hashed. The raw value exists only in the cookie, the email link or the user's phone.
 - **Compare hashes, never values.** Look the row up by hash.
 - A daily cron deletes rows where `expires_at` passed more than 30 days ago.
+
+---
+
+## Sessions seen by the frontend
+
+### Platform admin refresh — `POST /api/admin/auth/refresh`
+
+Same rules as the tenant refresh, with the admin cookies:
+- Reads the `admin_refresh_token` cookie. No body. `@Public()`.
+- Rotation: a new `refresh_tokens` row (`admin_user_id` set), the old one revoked.
+- A revoked token presented again → revoke **every** session of that admin, clear the admin cookies, `401`.
+- An inactive admin (`is_active = false`) → `401`, cookies cleared.
+- Sets new `admin_access_token` + `admin_refresh_token` cookies.
+
+### Platform admin "who am I" — `GET /api/admin/auth/me`
+
+Behind `AdminAuthGuard`. Returns the logged-in admin: `id`, `email`, `name`, `role` (`super_admin` / `staff`), `can_manage_billing`, `can_manage_tenants`. Never `password_hash` or `totp_secret`. The admin frontend uses it as its session check and to build its menu.
+
+### Impersonation flag in `GET /api/auth/me`
+
+`/auth/me` returns one more key, `impersonation`:
+- `null` for a normal login.
+- `{ admin_user_id, admin_name, expires_at }` when the access token carries `impersonatedBy`. `expires_at` = the token's `exp`.
+
+The frontend shows the "exit impersonation" banner from this key only.
+
+### Cookie domain
+
+Frontend and API share one parent domain in production (e.g. `app.example.com` + `api.example.com`). So:
+- `COOKIE_DOMAIN` env (optional, e.g. `.example.com`). When set, every auth cookie (set **and** clear) carries `domain: COOKIE_DOMAIN`, so the frontend server can see that a session cookie exists. Not set in dev (`localhost` shares cookies across ports).
+- `sameSite: 'lax'` stays: the two sub-domains are the same site.
+- `APP_URL` = the frontend origin (no locale, e.g. `https://app.example.com`). `PORTAL_BASE_URL` = `APP_URL` + `/portal`.
 
 ---
 

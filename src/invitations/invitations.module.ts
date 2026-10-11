@@ -7,6 +7,8 @@ import { AuditModule } from '../audit/audit.module';
 import { EmailModule } from '../email/email.module';
 import { UsersModule } from '../users/users.module';
 import { AcceptInvitationHandler } from './handlers/accept-invitation.handler';
+import { CreateFirstAdminInvitationHandler } from './handlers/create-first-admin-invitation.handler';
+import { CreateDirectMemberHandler } from './handlers/create-direct-member.handler';
 import { CreateInvitationHandler } from './handlers/create-invitation.handler';
 import { FindInvitationsHandler } from './handlers/find-invitations.handler';
 import { ResendInvitationHandler } from './handlers/resend-invitation.handler';
@@ -30,12 +32,14 @@ import { InvitationRepository } from './repositories/invitation.repository';
   providers: [
     InvitationsService,
     InvitationRepository,
+    CreateDirectMemberHandler,
     CreateInvitationHandler,
     FindInvitationsHandler,
     ResendInvitationHandler,
     RevokeInvitationHandler,
     VerifyInvitationHandler,
     AcceptInvitationHandler,
+    CreateFirstAdminInvitationHandler,
   ],
   exports: [InvitationsService],
 })

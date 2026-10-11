@@ -18,6 +18,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
 import {
   ApiAcceptInvitation,
+  ApiCreateDirectMember,
   ApiCreateInvitation,
   ApiFindInvitations,
   ApiResendInvitation,
@@ -25,6 +26,7 @@ import {
   ApiVerifyInvitation,
 } from './decorators/invitations.swagger';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
+import { CreateDirectMemberDto } from './dto/create-direct-member.dto';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
 import { FindInvitationsQueryDto } from './dto/find-invitations-query.dto';
 import { InvitationsService } from './invitations.service';
@@ -44,6 +46,17 @@ export class InvitationsController {
     @CurrentUser() actor: AuthenticatedUser,
   ) {
     return this.invitationsService.create(dto, actor);
+  }
+
+  @Post('direct')
+  @TenantAuth()
+  @Roles('admin')
+  @ApiCreateDirectMember()
+  createDirect(
+    @Body() dto: CreateDirectMemberDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.invitationsService.createDirect(dto, actor);
   }
 
   @Get()

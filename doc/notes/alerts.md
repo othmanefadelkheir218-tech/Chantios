@@ -21,7 +21,7 @@ No SMS in v1. SMS (and Telegram/WhatsApp) are v2.
 | Payment failed | A tenant's payment fails — shows who and the amount |
 | Tenant suspended / banned | Any tenant status change |
 | Support ticket opened | A tenant opens a new support ticket |
-| Unusual usage spike | Storage or AI tokens exceed a threshold |
+| Unusual usage spike | Storage reaches **90%** of the plan's `storage_gb` (AI tokens: v2) |
 
 ---
 
@@ -32,6 +32,11 @@ No SMS in v1. SMS (and Telegram/WhatsApp) are v2.
 | New message | Any new message in a conversation they are part of |
 | Payment received | Client pays an invoice — shows which invoice and amount |
 | Payment failed | Client payment fails — shows which invoice |
+| Subscription payment failed | ChantierOS could not charge the company's own subscription card (Stripe `payment_intent.payment_failed`) — asks to pay before the block date (now + 7 days) — **main admin only**, never the manager |
+| Trial ending | 3 days before the trial ends (day 11) — "add a payment method". Once |
+| Trial ended | The trial is over (day 14): the app still works for 7 days, banner on every page |
+| Company blocked | 7 days after a trial end or a failed payment, still no payment: the company is blocked until it pays. Email |
+| Subscription renewal upcoming | The next subscription payment is near (Stripe `invoice.upcoming`) — shows the date and amount — **main admin only**, never the manager |
 | Invoice late | `due_date` has passed and `balance_due > 0` — calculated, not a stored status |
 | Purchase bill due | A `purchase_invoices` due date is approaching — pay soon |
 | Stock below minimum | A material drops to or below `minimum_stock` |
@@ -50,7 +55,7 @@ No SMS in v1. SMS (and Telegram/WhatsApp) are v2.
 ## 3. Tenant Sub Admin / Manager
 
 Same as Main Admin **except**:
-- No billing alerts (payment received, payment failed, subcontractor bill due)
+- No billing alerts (payment received, payment failed, subcontractor bill due, **subscription payment failed, subscription renewal upcoming**)
 - Access depends on their `role_permissions`
 
 ---
@@ -96,8 +101,9 @@ Margin is recomputed after every time entry, consumption and purchase invoice. A
 
 ## Email templates & language (decided 2026-10-05, step 02)
 
-- **Location**: `src/email/templates/`, one file per template (`invite-employee.template.ts`, `password-reset.template.ts`, `email-verification.template.ts`...) — same shape as the existing `tenant-email-verification.template.ts`. Each template function takes a `locale: 'fr' | 'en' | 'ar'` parameter and returns `{ subject, html }`.
+- **Location**: `src/email/templates/`, one file per template (`invite-employee.template.ts`, `password-reset.template.ts`, `email-verification.template.ts`...) — same shape as the existing `tenant-email-verification.template.ts`. Each template function takes a `locale: 'fr' | 'en' | 'nl'` parameter and returns `{ subject, html }`. Every HTML email is built with the one shared layout in `src/email/templates/email-layout.ts` (see `DESIGN.md` § 6): black header with the ChantiOs wordmark and an orange line, white body, one orange button or a code box, black footer. Every email is also sent with a plain-text version made from the HTML (`htmlToText`).
 - **Which locale**: the invitation email and the password-reset email use the **tenant's** `locale` column — `clients` has no `locale` of its own, and these two emails never reach a client, only `users` of that tenant. A user's own emails always use their tenant's locale, not a personal preference (there is no per-user locale column).
+- **Supported languages**: `fr` (default), `en`, `nl` (Dutch, Belgium). Arabic was removed (2026-10-09); a company still on `ar` was moved to `fr` by a migration, and an unknown locale falls back to `en`.
 - **Unknown/missing locale**: falls back to `en`.
 
 ---

@@ -22,7 +22,7 @@ Create companies A and B by registration, build A's full team (one user per role
 | REG-01 | Set every plan `is_default = false` (DB), register `othmanefadelkheir218+nodefault@gmail.com` | `400`, a clear "no default plan" message, **nothing** written (no tenant, user or subscription). Restore `TEST Small` as default | PASS |
 | REG-02 | `POST /api/auth/register` `{ company_name: "TEST Alpha Renovation", email: "othmanefadelkheir218@gmail.com", password: "TestPass@2026!", name: "Othmane Owner", locale: "fr" }` | `201 { tenant_id, user }`, `role_id 1`, no hash in the body | PASS |
 | REG-03 | Check the 3 rows | `tenants` + `users` (admin) + `tenant_subscriptions` (`trialing`, plan `TEST Small`, `period_end = period_start + 14 days`) | PASS |
-| REG-04 | **[CHECK EMAIL]** `othmanefadelkheir218@gmail.com` — verification email, in **French** | received — **[SEND ME CODE]** | FAIL — see RESULTS.md |
+| REG-04 | **[CHECK EMAIL]** `othmanefadelkheir218@gmail.com` — verification email, in **French** | received — **[SEND ME CODE]** | FAIL — see RESULTS.md. **Fixed and seen live 2026-10-09** (read from Resend: `TEST Mail FR` → French, `TEST Mail NL` → Dutch) |
 | REG-05 | A platform alert was written | `notifications` row `tenant_signed_up`, `admin_user_id` set, `tenant_id` NULL | PASS |
 | REG-06 | Register the same email again | `409`, still one company | PASS |
 | REG-07 | Register company B: `TEST Beta Bouw`, `industrytechnology198@gmail.com`, `locale: "en"` | `201`, trialing on `TEST Small`. **[CHECK EMAIL]** verification email in **English** | PASS |

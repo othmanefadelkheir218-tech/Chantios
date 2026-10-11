@@ -13,9 +13,10 @@ import { TenantsService } from '../../tenants/tenants.service';
 import { toUserEntity } from '../../users/helpers/user.helper';
 import { UsersService } from '../../users/users.service';
 import { RegisterTenantDto } from '../dto/register-tenant.dto';
-
-const ADMIN_ROLE_ID = 1;
-const TRIAL_DAYS = 14;
+import {
+  ADMIN_ROLE_ID,
+  buildTrialSubscription,
+} from '../helpers/new-company.helper';
 
 /**
  * `POST /api/auth/register` — a new company. One transaction: `tenants` +
@@ -75,18 +76,8 @@ export class RegisterTenantHandler {
         tx,
       );
 
-      const now = new Date();
-      const periodEnd = new Date(
-        now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000,
-      );
       await this.subscriptions.create(
-        {
-          tenantId: tenant.id,
-          planId: defaultPlan.id,
-          status: 'trialing',
-          periodStart: now,
-          periodEnd,
-        },
+        buildTrialSubscription(tenant.id, defaultPlan.id),
         tx,
       );
 
@@ -116,7 +107,7 @@ export class RegisterTenantHandler {
       code,
       tenant.locale as EmailLocale,
     );
-    await this.email.send(user.email, subject, html);
+    await this.email.send(email, subject, html);
 
     this.logger.info(
       `Company registered: tenant ${tenant.id}, admin user ${user.id}`,

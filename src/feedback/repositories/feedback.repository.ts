@@ -66,4 +66,11 @@ export class FeedbackRepository {
       this.tenantPrisma.db.feedback.count({ where }),
     ]);
   }
+
+  // ---- Platform stats (GET /api/admin/stats) ----
+
+  /** Feedback in one status, all companies. */
+  countByStatus(status: FeedbackStatus): Promise<number> {
+    return this.prisma.feedback.count({ where: { status } });
+  }
 }

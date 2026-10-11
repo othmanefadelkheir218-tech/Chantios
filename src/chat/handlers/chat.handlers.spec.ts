@@ -32,6 +32,7 @@ import { AdminJoinSupportHandler } from './admin-join-support.handler';
 import { AdminSendSupportMessageHandler } from './admin-send-support-message.handler';
 import { ArchiveConversationHandler } from './archive-conversation.handler';
 import { CheckAccessHandler } from './check-access.handler';
+import { ClientMessagesHandler } from './client-messages.handler';
 import { CreateConversationHandler } from './create-conversation.handler';
 import { EnsureProjectConversationHandler } from './ensure-project-conversation.handler';
 import { FindConversationsHandler } from './find-conversations.handler';
@@ -112,6 +113,7 @@ describe('Chat handlers', () => {
     findById: jest.fn(),
     findMany: jest.fn(),
     findByProject: jest.fn(),
+    findDirect: jest.fn(),
     setArchived: jest.fn(),
     addMember: jest.fn(),
     findByTicketForAdmin: jest.fn(),
@@ -160,6 +162,7 @@ describe('Chat handlers', () => {
   let adminFind: AdminFindSupportMessagesHandler;
   let adminSend: AdminSendSupportMessageHandler;
   let adminJoin: AdminJoinSupportHandler;
+  let clientMessages: ClientMessagesHandler;
 
   beforeEach(async () => {
     jest.resetAllMocks();
@@ -179,6 +182,7 @@ describe('Chat handlers', () => {
       AdminFindSupportMessagesHandler,
       AdminSendSupportMessageHandler,
       AdminJoinSupportHandler,
+      ClientMessagesHandler,
     ];
     const module = await Test.createTestingModule({
       providers: [
@@ -214,6 +218,61 @@ describe('Chat handlers', () => {
     adminFind = module.get(AdminFindSupportMessagesHandler);
     adminSend = module.get(AdminSendSupportMessageHandler);
     adminJoin = module.get(AdminJoinSupportHandler);
+    clientMessages = module.get(ClientMessagesHandler);
+  });
+
+  describe('ClientMessagesHandler — the portal client writes', () => {
+    const clientThread = (over: Record<string, unknown> = {}) =>
+      conversation({
+        type: 'project_client',
+        projectId: 12,
+        members: [member({ userId: 1 }), member({ clientId: 4 })],
+        ...over,
+      });
+
+    it('writes the message and links the uploaded files in the SAME tx, with no uploader', async () => {
+      conversations.findByProject.mockResolvedValue(clientThread());
+      conversations.findById.mockResolvedValue(clientThread());
+      messages.create.mockResolvedValue(
+        message({ senderType: 'client', senderId: 4, content: 'Plan' }),
+      );
+      await clientMessages.send(12, 4, ' Plan ', [70, 71]);
+      expect(messages.create).toHaveBeenCalledWith(
+        containing({ senderType: 'client', senderId: 4, content: 'Plan' }),
+        tx,
+      );
+      expect(media.attachToEntity).toHaveBeenCalledWith(
+        [70, 71],
+        'message',
+        100,
+        { tenantId: 1, userId: null },
+        tx,
+      );
+      expect(gateway.emitNewMessage).toHaveBeenCalled();
+    });
+
+    it('assertCanSend refuses an archived thread and an empty text', async () => {
+      conversations.findByProject.mockResolvedValue(clientThread());
+      conversations.findById.mockResolvedValue(
+        clientThread({ isArchived: true }),
+      );
+      await expect(clientMessages.assertCanSend(12, 4, 'Hi')).rejects.toThrow(
+        BadRequestException,
+      );
+      conversations.findById.mockResolvedValue(clientThread());
+      await expect(clientMessages.assertCanSend(12, 4, '   ')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(messages.create).not.toHaveBeenCalled();
+    });
+
+    it('another client of the tenant is not a member → 403', async () => {
+      conversations.findByProject.mockResolvedValue(clientThread());
+      conversations.findById.mockResolvedValue(clientThread());
+      await expect(clientMessages.assertCanSend(12, 99, 'Hi')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
   });
 
   describe('CheckAccessHandler — the one membership check', () => {
@@ -287,6 +346,52 @@ describe('Chat handlers', () => {
       await expect(
         create.execute({ ...body, project_id: 99 }, actor),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    describe('1-to-1', () => {
+      const oneToOne = { type: 'internal' as const, member_user_ids: [2] };
+
+      it('returns the existing 1-to-1 instead of creating a second one', async () => {
+        users.findActiveInTenant.mockResolvedValue({ id: 2 });
+        conversations.findDirect.mockResolvedValue(conversation({ id: 40 }));
+        const result = await create.execute(oneToOne, actor);
+        expect(conversations.findDirect).toHaveBeenCalledWith(1, 2);
+        expect(result.id).toBe(40);
+        expect(conversations.create).not.toHaveBeenCalled();
+        expect(conversations.setArchived).not.toHaveBeenCalled();
+      });
+
+      it('brings back an archived 1-to-1 and audits it', async () => {
+        users.findActiveInTenant.mockResolvedValue({ id: 2 });
+        conversations.findDirect.mockResolvedValue(
+          conversation({ id: 41, isArchived: true }),
+        );
+        conversations.setArchived.mockResolvedValue(conversation({ id: 41 }));
+        const result = await create.execute(oneToOne, actor);
+        expect(conversations.setArchived).toHaveBeenCalledWith(41, false);
+        expect(audit.write).toHaveBeenCalledWith(
+          expect.objectContaining({ action: 'restore', entityId: 41 }),
+        );
+        expect(result.id).toBe(41);
+        expect(conversations.create).not.toHaveBeenCalled();
+      });
+
+      it('creates one when none exists', async () => {
+        users.findActiveInTenant.mockResolvedValue({ id: 2 });
+        conversations.findDirect.mockResolvedValue(null);
+        conversations.create.mockResolvedValue(conversation());
+        await create.execute(oneToOne, actor);
+        expect(conversations.create).toHaveBeenCalled();
+      });
+
+      it('a project conversation or a group is never reused', async () => {
+        users.findActiveInTenant.mockResolvedValue({ id: 2 });
+        conversations.create.mockResolvedValue(conversation());
+        await create.execute({ ...oneToOne, project_id: 5 }, actor);
+        await create.execute(body, actor);
+        expect(conversations.findDirect).not.toHaveBeenCalled();
+        expect(conversations.create).toHaveBeenCalledTimes(2);
+      });
     });
   });
 
@@ -831,22 +936,22 @@ describe('ChatGateway', () => {
     gateway = module.get(ChatGateway);
   });
 
-  it('a socket with no valid token is disconnected at the handshake', () => {
+  it('a socket with no valid token is disconnected at the handshake', async () => {
     tokens.verifyAccessToken.mockImplementation(() => {
       throw new Error('bad');
     });
     const client = socket();
-    gateway.handleConnection(client);
+    await gateway.handleConnection(client);
     expect(
       (client as unknown as { disconnect: jest.Mock }).disconnect,
     ).toHaveBeenCalledWith(true);
   });
 
-  it('a socket with no token at all is disconnected', () => {
+  it('a socket with no token at all is disconnected', async () => {
     const client = socket({
       handshake: { auth: {}, headers: {}, address: 'x' },
     });
-    gateway.handleConnection(client);
+    await gateway.handleConnection(client);
     expect(
       (client as unknown as { disconnect: jest.Mock }).disconnect,
     ).toHaveBeenCalled();
@@ -856,7 +961,7 @@ describe('ChatGateway', () => {
     tokens.verifyAccessToken.mockReturnValue({ sub: 1, tenantId: 4 });
     access.assertMember.mockResolvedValue({ id: 30 });
     const client = socket();
-    gateway.handleConnection(client);
+    await gateway.handleConnection(client);
 
     const ack = await gateway.join(client, { conversation_id: 30 });
 
@@ -874,20 +979,21 @@ describe('ChatGateway', () => {
       new ForbiddenException('You are not a member of this conversation'),
     );
     const client = socket();
-    gateway.handleConnection(client);
+    await gateway.handleConnection(client);
 
     const ack = await gateway.join(client, { conversation_id: 30 });
 
     expect(ack).toMatchObject({ ok: false, status: 403 });
+    // The presence rooms are joined at connect; the conversation room never is.
     expect(
       (client as unknown as { join: jest.Mock }).join,
-    ).not.toHaveBeenCalled();
+    ).not.toHaveBeenCalledWith('conversation:30');
   });
 
   it('a join with no conversation_id is refused', async () => {
     tokens.verifyAccessToken.mockReturnValue({ sub: 1, tenantId: 4 });
     const client = socket();
-    gateway.handleConnection(client);
+    await gateway.handleConnection(client);
     expect(await gateway.join(client, {})).toMatchObject({
       ok: false,
       status: 400,
@@ -908,7 +1014,7 @@ describe('ChatGateway', () => {
         address: '9.9.9.9',
       },
     });
-    gateway.handleConnection(client);
+    await gateway.handleConnection(client);
 
     expect(await gateway.join(client, { conversation_id: 30 })).toMatchObject({
       ok: false,

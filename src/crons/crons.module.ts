@@ -17,6 +17,7 @@ import { RetentionCron } from './retention.cron';
 import { StalledProjectCron } from './stalled-project.cron';
 import { TaskStartingCron } from './task-starting.cron';
 import { TenantRunner } from './tenant-runner.service';
+import { TrialEndCron } from './trial-end.cron';
 import { UsageSpikeCron } from './usage-spike.cron';
 
 /**
@@ -51,6 +52,7 @@ import { UsageSpikeCron } from './usage-spike.cron';
     MissingTimesheetCron,
     RetentionCron,
     BillingRenewalCron,
+    TrialEndCron,
     UsageSpikeCron,
   ],
 })

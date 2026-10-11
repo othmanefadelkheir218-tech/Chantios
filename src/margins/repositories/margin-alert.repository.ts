@@ -42,4 +42,30 @@ export class MarginAlertRepository {
     });
     return count;
   }
+
+  /**
+   * Dashboard (step 18): open (`in_progress`) projects at each alert level.
+   * A critical project also has a warning row, so `warning` counts the
+   * projects at warning only. Rows of a closed project are ignored.
+   */
+  async countOpenProjectsByLevel(): Promise<{
+    warning: number;
+    critical: number;
+  }> {
+    const [warning, critical] = await Promise.all([
+      this.tenantPrisma.db.projectMarginAlert.count({
+        where: {
+          level: 'warning',
+          project: {
+            status: 'in_progress',
+            marginAlerts: { none: { level: 'critical' } },
+          },
+        },
+      }),
+      this.tenantPrisma.db.projectMarginAlert.count({
+        where: { level: 'critical', project: { status: 'in_progress' } },
+      }),
+    ]);
+    return { warning, critical };
+  }
 }

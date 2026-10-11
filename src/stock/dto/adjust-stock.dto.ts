@@ -31,7 +31,10 @@ export class AdjustStockDto {
   @IsNotEmpty()
   note: string;
 
-  @ApiPropertyOptional({ description: 'FK -> projects.id, optional' })
+  @ApiPropertyOptional({
+    description:
+      'FK -> projects.id, optional. When set, the row also counts in that project material cost.',
+  })
   @IsOptional()
   @IsInt()
   project_id?: number;

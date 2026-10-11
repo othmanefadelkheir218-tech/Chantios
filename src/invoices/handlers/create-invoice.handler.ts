@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
+import { ServicesService } from '../../services/services.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
 import { ClientsService } from '../../clients/clients.service';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
@@ -39,6 +40,7 @@ export class CreateInvoiceHandler {
     private readonly quotes: QuotesService,
     private readonly tenants: TenantsService,
     private readonly audit: AuditService,
+    private readonly services: ServicesService,
   ) {}
 
   async execute(dto: CreateInvoiceDto, actor: AuthenticatedUser) {
@@ -60,6 +62,9 @@ export class CreateInvoiceHandler {
     for (const line of dto.lines) {
       assertNonZeroQuantity(line.quantity);
     }
+    await this.services.assertLineServices(
+      dto.lines.map((line) => line.service_id),
+    );
 
     const tenant = await this.tenants.findOne(actor.tenantId);
     const issueDate = dto.issue_date ? new Date(dto.issue_date) : new Date();

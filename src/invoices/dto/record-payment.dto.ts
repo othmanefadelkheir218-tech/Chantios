@@ -5,6 +5,7 @@ import {
   IsNumberString,
   IsOptional,
   IsString,
+  MaxLength,
 } from 'class-validator';
 
 export const PAYMENT_METHODS = [
@@ -17,13 +18,17 @@ export type PaymentMethodValue = (typeof PAYMENT_METHODS)[number];
 
 /**
  * `POST /api/invoices/:id/payments` — one ledger row, append-only. No
- * update/delete route exists, ever (client-invoices.md § payments). Format
- * validated only (`@IsNumberString` cannot combine with `@Min` in this
- * `class-validator` version) — the `> 0` bound is both a handler check and
- * backed by the `chk_payment_positive` DB constraint.
+ * update/delete route exists, ever (client-invoices.md § payments). A
+ * negative amount is a correction and needs `note`. Format validated here;
+ * the `<> 0` and "note on a correction" rules are handler checks, backed by
+ * the `chk_payment_not_zero` / `chk_payment_correction_note` DB constraints.
  */
 export class RecordPaymentDto {
-  @ApiProperty({ description: 'Must be > 0', example: '3630.00' })
+  @ApiProperty({
+    description:
+      'Never 0. Negative = a correction of an earlier payment (note required). The total paid can never go below 0.',
+    example: '3630.00',
+  })
   @IsNumberString()
   amount: string;
 
@@ -40,4 +45,13 @@ export class RecordPaymentDto {
   @IsOptional()
   @IsDateString()
   payment_date?: string;
+
+  @ApiPropertyOptional({
+    description: 'Why this row exists. Required when amount is negative.',
+    example: 'Typed 1 100 instead of 1 000',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
 }

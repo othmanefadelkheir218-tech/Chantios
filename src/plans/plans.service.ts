@@ -7,6 +7,7 @@ import { CreatePlanHandler } from './handlers/create-plan.handler';
 import { DeactivatePlanHandler } from './handlers/deactivate-plan.handler';
 import { FindPlanHandler } from './handlers/find-plan.handler';
 import { FindPlansHandler } from './handlers/find-plans.handler';
+import { FindPublicPlansHandler } from './handlers/find-public-plans.handler';
 import { SetDefaultPlanHandler } from './handlers/set-default-plan.handler';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
@@ -19,6 +20,7 @@ export class PlansService {
     private readonly deactivatePlan: DeactivatePlanHandler,
     private readonly setDefaultPlan: SetDefaultPlanHandler,
     private readonly createPlanVersion: CreatePlanVersionHandler,
+    private readonly findPublicPlans: FindPublicPlansHandler,
   ) {}
 
   create(dto: CreatePlanDto) {
@@ -29,8 +31,18 @@ export class PlansService {
     return this.findPlans.execute(query);
   }
 
+  /** The public pricing page. */
+  findPublic() {
+    return this.findPublicPlans.execute();
+  }
+
   findOne(id: number) {
     return this.findPlan.execute(id);
+  }
+
+  /** Id + name of these plans, old versions included. */
+  findNames(ids: number[]) {
+    return this.findPlan.executeNames(ids);
   }
 
   /** The plan a new signup lands on, or null when none is set. */

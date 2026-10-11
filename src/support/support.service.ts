@@ -13,6 +13,7 @@ import { FindTicketHandler } from './handlers/find-ticket.handler';
 import { FindTicketsAdminHandler } from './handlers/find-tickets-admin.handler';
 import { FindTicketsHandler } from './handlers/find-tickets.handler';
 import { SetStatusHandler } from './handlers/set-status.handler';
+import { SupportTicketRepository } from './repositories/support-ticket.repository';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
 @Injectable()
@@ -25,6 +26,7 @@ export class SupportService {
     private readonly setStatus: SetStatusHandler,
     private readonly assignTicket: AssignTicketHandler,
     private readonly closeTicket: CloseTicketHandler,
+    private readonly tickets: SupportTicketRepository,
   ) {}
 
   // ---- Tenant side ----
@@ -57,5 +59,10 @@ export class SupportService {
 
   close(id: number, actor: RequestActor) {
     return this.closeTicket.execute(id, actor);
+  }
+
+  /** Platform stats: tickets not closed yet, and the `high` ones among them. */
+  countOpenForAdmin() {
+    return this.tickets.countOpenForAdmin();
   }
 }

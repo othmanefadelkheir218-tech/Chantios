@@ -38,6 +38,7 @@ describe('EmailService', () => {
       to: 'tenant@example.test',
       subject: 'Subject',
       html: '<p>Body</p>',
+      text: 'Body',
     });
   });
 

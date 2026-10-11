@@ -61,3 +61,9 @@ When a phase/step is finished (build done, verified, docs updated, `state.md` up
 
 ## End of every session
 Update `doc/notes/WhereIStop/state.md`: current step, status, next action, and anything that broke.
+
+## Never start or stop the server
+- **Never run `yarn start:dev`, `yarn run start:dev`, `nest start`, `node dist/main` or any command that starts the API.** The owner runs the server in their own terminal to read the logs. A second instance blocks port 5300 (`EADDRINUSE`) and steals email jobs from the shared Redis.
+- Do not kill the owner's server either. Test against the running API on port 5300 with HTTP requests. If the server is down, ask the owner to start it.
+- **Never run the server in the background** — no `run_in_background`, no `&`, no `( ... &)`, no detached process. A background server is easy to forget and keeps port 5300 and the shared Redis (a second instance steals jobs). If the owner allows a start in one session, ask them to run it in their own terminal, or run it in the foreground only for a short, bounded check, then stop it and confirm that nothing listens on port 5300.
+- Do not push to GitHub unless the owner asks in the current session (overrides "Git push at the end of each phase" when they say so).

@@ -9,6 +9,7 @@ export function toInvitationEntity(invitation: UserInvitation) {
     name: invitation.name,
     roleId: invitation.roleId,
     invitedBy: invitation.invitedBy,
+    invitedByAdminUserId: invitation.invitedByAdminUserId,
     expiresAt: invitation.expiresAt,
     acceptedAt: invitation.acceptedAt,
     createdAt: invitation.createdAt,

@@ -11,16 +11,18 @@ import { env } from '../../config/env.config';
 import { verifyPassword } from '../../common/helpers/password.helper';
 import { SessionsService } from '../../sessions/sessions.service';
 import { TenantsService } from '../../tenants/tenants.service';
-import { toUserEntity } from '../../users/helpers/user.helper';
+import { toUserEntity, WORKER_ROLE_ID } from '../../users/helpers/user.helper';
 import { UsersService } from '../../users/users.service';
 import { setAuthCookies } from '../helpers/cookie.helper';
 import { TokenHelper } from '../helpers/token.helper';
 import { MobileLoginDto } from '../dto/mobile-login.dto';
 
-const WORKER_ROLE_ID = 5;
 const MAX_FAILED_PIN = 5;
 
-/** `POST /api/mobile/login` — email + PIN, `worker` role only. Locks after 5 wrong tries. */
+/**
+ * `POST /api/mobile/login` — email or login code + PIN, `worker` role only.
+ * Locks after 5 wrong tries. `login` with an `@` is an email, else a code.
+ */
 @Injectable()
 export class MobileLoginHandler {
   constructor(
@@ -33,11 +35,13 @@ export class MobileLoginHandler {
   ) {}
 
   async execute(dto: MobileLoginDto, req: Request, res: Response) {
-    const email = dto.email.toLowerCase();
-    const user = await this.users.findByEmail(email);
+    const login = dto.login.trim().toLowerCase();
+    const user = login.includes('@')
+      ? await this.users.findByEmail(login)
+      : await this.users.findByLoginCode(login.replace(/\s/g, ''));
     if (!user || !user.mobilePinHash || user.roleId !== WORKER_ROLE_ID) {
       this.logger.warn(
-        `Mobile login failed: ${email} not found or not a worker`,
+        `Mobile login failed: ${login} not found or not a worker`,
       );
       throw new UnauthorizedException('Invalid credentials');
     }

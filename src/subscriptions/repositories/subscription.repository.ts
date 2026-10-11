@@ -109,16 +109,55 @@ export class SubscriptionRepository {
     });
   }
 
-  /** Called by the Stripe webhook handlers (step 14), never mid-request. */
-  setStatus(
+  /**
+   * Status and grace date together. `graceEndsAt` undefined = left as it is.
+   * The rule of WHEN to clear it lives in `SetStatusHandler`.
+   */
+  setStatusAndGrace(
     tenantId: number,
     status: SubscriptionStatus,
+    graceEndsAt: Date | null | undefined,
     tx?: Prisma.TransactionClient,
   ): Promise<TenantSubscription> {
     const client = tx ?? this.prisma;
     return client.tenantSubscription.update({
       where: { tenantId },
-      data: { status },
+      data: { status, graceEndsAt },
+    });
+  }
+
+  /** Dev tools only: the four dates, already shifted by the handler. */
+  setDates(
+    tenantId: number,
+    data: Pick<
+      Prisma.TenantSubscriptionUpdateInput,
+      'periodStart' | 'periodEnd' | 'pendingPlanEffectiveAt' | 'graceEndsAt'
+    >,
+  ): Promise<TenantSubscription> {
+    return this.prisma.tenantSubscription.update({
+      where: { tenantId },
+      data,
+    });
+  }
+
+  setStripeCustomerId(
+    tenantId: number,
+    stripeCustomerId: string,
+  ): Promise<TenantSubscription> {
+    return this.prisma.tenantSubscription.update({
+      where: { tenantId },
+      data: { stripeCustomerId },
+    });
+  }
+
+  /**
+   * Moves the date of a waiting plan change. A no-op when no plan is waiting
+   * (`pending_plan_id` is null), so it never invents a date.
+   */
+  movePendingPlanDate(tenantId: number, effectiveAt: Date) {
+    return this.prisma.tenantSubscription.updateMany({
+      where: { tenantId, pendingPlanId: { not: null } },
+      data: { pendingPlanEffectiveAt: effectiveAt },
     });
   }
 
@@ -157,5 +196,29 @@ export class SubscriptionRepository {
         pendingPlanEffectiveAt: null,
       },
     });
+  }
+
+  // ---- Platform stats (GET /api/admin/stats) ----
+
+  /** Subscriptions of live companies, per status. */
+  async countByStatus(): Promise<
+    { status: SubscriptionStatus; count: number }[]
+  > {
+    const rows = await this.prisma.tenantSubscription.groupBy({
+      by: ['status'],
+      where: { tenant: { deletedAt: null } },
+      _count: { _all: true },
+    });
+    return rows.map((r) => ({ status: r.status, count: r._count._all }));
+  }
+
+  /** Live, not-cancelled companies per current plan id. */
+  async countByPlan(): Promise<{ planId: number; count: number }[]> {
+    const rows = await this.prisma.tenantSubscription.groupBy({
+      by: ['planId'],
+      where: { tenant: { deletedAt: null }, status: { not: 'cancelled' } },
+      _count: { _all: true },
+    });
+    return rows.map((r) => ({ planId: r.planId, count: r._count._all }));
   }
 }

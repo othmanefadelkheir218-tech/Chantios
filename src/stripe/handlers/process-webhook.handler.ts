@@ -13,6 +13,12 @@ import { HandleSubscriptionDeletedHandler } from './handle-subscription-deleted.
  * before this was ever queued — see its doc comment). Marks the row
  * processed on success, or records the error and re-throws so BullMQ retries
  * this job — never re-inserts the row.
+ *
+ * A job can be handed to the worker more than once (a stalled-job redelivery
+ * after the API restarts, a retry after the work was done but before the row
+ * was marked). The row's `processed_at` is the guard: an event already
+ * processed is skipped, so its effects (status, period roll, alerts) happen
+ * once.
  */
 @Injectable()
 export class ProcessWebhookHandler {
@@ -27,6 +33,14 @@ export class ProcessWebhookHandler {
   ) {}
 
   async execute(eventRowId: number, event: Stripe.Event): Promise<void> {
+    const row = await this.stripeEvents.findById(eventRowId);
+    if (row?.processedAt) {
+      this.logger.warn(
+        `Stripe event ${event.id} was already processed at ${row.processedAt.toISOString()} — skipping`,
+      );
+      return;
+    }
+
     try {
       await this.dispatch(event);
       await this.stripeEvents.markProcessed(eventRowId);

@@ -114,7 +114,7 @@ For each cell, send:
 | ID | Do | Expected | Result |
 |---|---|---|---|
 | OVR-01 | `GET /api/roles` | 7 roles, ids 1–7 | PASS |
-| OVR-02 | `GET /api/roles/permissions` | 7 × 16 = 112 rows, equal to the tables above | FAIL — see RESULTS.md |
+| OVR-02 | `GET /api/roles/permissions` | 7 × 16 = 112 rows, equal to the tables above | FAIL — see RESULTS.md. **Fixed 2026-10-09** (worker is view only on tasks and reports) |
 | OVR-03 | A owner: `PUT /api/roles/2/permissions/invoices` `{ can_view: true, can_create: false, can_edit: false, can_delete: false, scope: "all" }` | `200`; A's manager `GET /api/invoices` → `200` now | PASS |
 | OVR-04 | B owner: `GET /api/roles/permissions` | B's manager still has **no** invoices access | PASS |
 | OVR-05 | A owner overrides `worker` / `projects` to `can_view: true, scope: "own"` | the worker can now `GET /api/projects` | PASS |
@@ -128,10 +128,10 @@ Needs data from later phases. Re-run this section at the end of phase 11.
 | ID | Do | Expected | Result |
 |---|---|---|---|
 | OWN-01 | Worker `GET /api/auth/me` | `tasks`, `time_entries`, `reports`, `media`, `chat` have `scope: "own"`; for admin/manager they are `"all"` | PASS |
-| OWN-02 | Worker `GET /api/tasks` | only tasks they are assigned to; another task by id → `404` | SKIP — needs data from phases 06–11, re-run after phase 11 |
-| OWN-03 | Worker `GET /api/time-entries?user_id=<worker 2>` | still only their own rows | SKIP — needs data from phases 06–11, re-run after phase 11 |
-| OWN-04 | Worker `GET /api/media` | only files they uploaded; admin sees all | SKIP — needs data from phases 06–11, re-run after phase 11 |
-| OWN-05 | Worker `GET /api/conversations` | only threads they are a member of | SKIP — needs data from phases 06–11, re-run after phase 11 |
+| OWN-02 | Worker `GET /api/tasks` | only tasks they are assigned to; another task by id → `404` | PASS (2026-10-09) — worker 5 sees tasks 1, 2, 7, 8, 9 (all assigned to them), worker 2 sees 1, 5, 8, 9; every other task by id → `404`; own tasks by id → `200` |
+| OWN-03 | Worker `GET /api/time-entries?user_id=<worker 2>` | still only their own rows | PASS (2026-10-09) — admin sees 13 rows (6 + 7); worker 5 gets only their 6, worker 2 only their 7, also with `?user_id=<the other worker>`; another worker's entry by id → `404` |
+| OWN-04 | Worker `GET /api/media` | only files they uploaded; admin sees all | PASS (2026-10-09) — admin sees 54 files; worker 5 sees 4 (all uploaded by them), worker 2 sees 0; another user's file by id → `404` |
+| OWN-05 | Worker `GET /api/conversations` | only threads they are a member of | PASS (2026-10-09) — no chat had a worker as member, so two test chats were created: 12 (admin + worker 5) and 13 (admin + manager + leader). Worker 5 sees only 12, worker 2 sees none; worker 5 on chat 13 and its messages → `403`, own chat 12 → `200` |
 
 ## 4. Company isolation (A vs B)
 

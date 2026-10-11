@@ -26,9 +26,11 @@ Every **business** table has `tenant_id NOT NULL`. The platform tables have none
 | `city` | — |
 | `country` | ISO 2-letter code |
 | `logo_media_id` | FK → `media.id` — printed on quotes and invoices |
+| `iban` | **Nullable.** Bank account — printed in the invoice payment block |
+| `bic` | **Nullable.** Bank code — printed next to the IBAN |
 | `default_vat_rate` | VAT pre-fill for new document lines — `21.00` |
 | `default_payment_days` | How many days a client gets to pay — `30`. Fills `invoices.due_date` |
-| `locale` | `fr` / `en` / `ar` |
+| `locale` | `fr` / `en` / `nl` |
 | `currency` | ISO code — `EUR` |
 | `timezone` | e.g. `Europe/Brussels` |
 | `end_of_day_reminder_time` | When the hours reminder fires — default `18:00` |
@@ -38,7 +40,7 @@ Every **business** table has `tenant_id NOT NULL`. The platform tables have none
 
 `default_vat_rate` is what makes the VAT rate owner-configurable. Each quote and invoice copies it at creation as its own `default_vat_rate`, so changing it later never shifts an existing document. The rate that actually counts sits on each **line** — see § VAT below.
 
-**Decision (2026-10-05):** soft delete added at the user's request. `deleted_at` is a separate column from `status` — deleting a tenant is not the same action as banning it, and a banned tenant can still be un-banned without touching `deleted_at`. A deleted tenant (`deleted_at IS NOT NULL`) is excluded from normal list/find queries. `DELETE /api/admin/tenants/:id` and bulk `DELETE /api/admin/tenants` (body `{ ids }`) set it; `PATCH /api/admin/tenants/:id/restore` and bulk `PATCH /api/admin/tenants/restore` (body `{ ids }`) clear it. See [Phaces/01-platform.md](Phaces/01-platform.md) for the routes.
+**Decision (2026-10-05):** soft delete added at the user's request. `deleted_at` is a separate column from `status` — deleting a tenant is not the same action as banning it, and a banned tenant can still be un-banned without touching `deleted_at`. A deleted tenant (`deleted_at IS NOT NULL`) is excluded from normal list/find queries. **Decision (2026-10-10):** `GET /api/admin/tenants?deleted=true` lists only the deleted tenants, so the super-admin can find and restore them; `GET /api/admin/tenants/:id` still never returns a deleted one. `DELETE /api/admin/tenants/:id` and bulk `DELETE /api/admin/tenants` (body `{ ids }`) set it; `PATCH /api/admin/tenants/:id/restore` and bulk `PATCH /api/admin/tenants/restore` (body `{ ids }`) clear it. See [Phaces/01-platform.md](Phaces/01-platform.md) for the routes.
 
 **Decision (2026-10-05):** tenant email verification added at the user's request, independent of the (unbuilt) `users.email_verified_at` from step 02 — this one is for the tenant's own contact `email`, reachable before any `users` row exists. Flow: `POST /api/admin/tenants/:id/send-verification-email` generates a 6-digit code (`one_time_codes`, type `email_verification`, `tenant_id` set, 24h lifetime, no attempt limit — same rules as the step 02 table), emails it via the new `src/email/` module (Resend), and `PATCH /api/admin/tenants/:id/verify-email` (body `{ code }`) consumes it and sets `email_verified_at`. Generating a new code consumes any still-active one for that tenant first, so only the latest code works. Nothing in the app currently *requires* a verified email — this only records the fact.
 

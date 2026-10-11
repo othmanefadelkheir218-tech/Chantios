@@ -47,6 +47,18 @@ export class SubscriptionEntity {
   updated_at: Date;
 }
 
+/** A row of `GET /admin/subscriptions`: the subscription plus the names the list shows. */
+export class SubscriptionListItemEntity extends SubscriptionEntity {
+  @ApiProperty({ example: 'Rénovation Dupont' })
+  tenant_name: string;
+
+  @ApiProperty({ example: 'Pro' })
+  plan_name: string;
+
+  @ApiProperty({ nullable: true, example: 'Pro' })
+  pending_plan_name: string | null;
+}
+
 export class UsageSnapshotEntity {
   @ApiProperty()
   id: number;

@@ -24,6 +24,7 @@ export class MySubscriptionHandler {
       period_end: subscription.periodEnd,
       pending_plan_id: subscription.pendingPlanId,
       pending_plan_effective_at: subscription.pendingPlanEffectiveAt,
+      grace_ends_at: subscription.graceEndsAt,
       plan: {
         id: plan.id,
         name: plan.name,

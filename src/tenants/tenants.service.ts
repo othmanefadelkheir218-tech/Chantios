@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
 import { RequestActor } from '../common/decorators/actor.decorator';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { FindTenantsQueryDto } from './dto/find-tenants-query.dto';
 import { SetTenantStatusDto } from './dto/suspend-tenant.dto';
+import { UpdateTenantProfileDto } from './dto/update-tenant-profile.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { VerifyTenantEmailDto } from './dto/verify-tenant-email.dto';
 import { CreateTenantHandler } from './handlers/create-tenant.handler';
@@ -15,6 +17,7 @@ import { SendTenantVerificationEmailHandler } from './handlers/send-tenant-verif
 import { SetTenantStatusHandler } from './handlers/set-tenant-status.handler';
 import { SoftDeleteTenantHandler } from './handlers/soft-delete-tenant.handler';
 import { SoftDeleteTenantsHandler } from './handlers/soft-delete-tenants.handler';
+import { UpdateTenantProfileHandler } from './handlers/update-tenant-profile.handler';
 import { UpdateTenantHandler } from './handlers/update-tenant.handler';
 import { VerifyTenantEmailHandler } from './handlers/verify-tenant-email.handler';
 import { TenantRepository } from './repositories/tenant.repository';
@@ -34,6 +37,7 @@ export class TenantsService {
     private readonly restoreTenants: RestoreTenantsHandler,
     private readonly sendVerificationEmail: SendTenantVerificationEmailHandler,
     private readonly verifyEmail: VerifyTenantEmailHandler,
+    private readonly updateTenantProfile: UpdateTenantProfileHandler,
     private readonly tenants: TenantRepository,
   ) {}
 
@@ -56,6 +60,15 @@ export class TenantsService {
 
   update(id: number, dto: UpdateTenantDto, actor: RequestActor) {
     return this.updateTenant.execute(id, dto, actor);
+  }
+
+  /** The company edits its own profile (`PATCH /api/tenant`, route in `company-profile`). */
+  updateProfile(
+    dto: UpdateTenantProfileDto,
+    actor: AuthenticatedUser,
+    ip: string | null,
+  ) {
+    return this.updateTenantProfile.execute(dto, actor, ip);
   }
 
   setStatus(id: number, dto: SetTenantStatusDto, actor: RequestActor) {
@@ -91,6 +104,13 @@ export class TenantsService {
     return this.tenants.findById(id);
   }
 
+  /** Id + name of these companies — the admin subscription list shows names, not ids. */
+  findNamesByIds(ids: number[]) {
+    return ids.length === 0
+      ? Promise.resolve([])
+      : this.tenants.findNamesByIds(ids);
+  }
+
   /** The companies the crons walk (status `active`, not deleted). */
   findAllActive() {
     return this.tenants.findAllActive();
@@ -104,5 +124,15 @@ export class TenantsService {
    */
   setLogoMediaId(id: number, mediaId: number) {
     return this.tenants.setLogoMediaId(id, mediaId);
+  }
+
+  /** Platform stats: live companies per status. */
+  countByStatus() {
+    return this.tenants.countByStatus();
+  }
+
+  /** Platform stats: new live companies per month since `since`. */
+  countCreatedPerMonth(since: Date) {
+    return this.tenants.countCreatedPerMonth(since);
   }
 }

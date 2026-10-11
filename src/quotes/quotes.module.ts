@@ -7,6 +7,7 @@ import { MarginsModule } from '../margins/margins.module';
 import { MediaModule } from '../media/media.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ProjectsModule } from '../projects/projects.module';
+import { ServicesModule } from '../services/services.module';
 import { RolesModule } from '../roles/roles.module';
 import { StockModule } from '../stock/stock.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
@@ -41,6 +42,8 @@ import { QuotesService } from './quotes.service';
     // flips the project to `in_progress` through `ProjectsService` — never
     // either module's repository.
     ProjectsModule,
+    // every line `service_id` must be a service of this company (`ServicesService`).
+    ServicesModule,
     // `accept-quote.handler` creates stock reservations through
     // `StockService`, inside its own transaction.
     StockModule,

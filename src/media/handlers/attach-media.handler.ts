@@ -1,9 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { MediaEntityType } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
-import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
 import { TenantTransactionClient } from '../../common/prisma/tenant-prisma.service';
-import { PENDING_ENTITY_ID } from '../helpers/media.helper';
+import { MediaUploader, PENDING_ENTITY_ID } from '../helpers/media.helper';
 import { MediaRepository } from '../repositories/media.repository';
 
 /**
@@ -17,6 +16,8 @@ import { MediaRepository } from '../repositories/media.repository';
  * A file may be attached only if it is of the right type, still pending,
  * uploaded by this same user, and not in the trash — so one user can never
  * hang another user's file (or an already-attached one) on their message.
+ * The portal client (`userId = null`) never names ids itself: the portal
+ * handler passes the ids it has just uploaded in the same request.
  * `tx` — the caller writes the message and links its files in ONE transaction,
  * so a bad id leaves no message behind. No audit row here: the file was already
  * audited when it was uploaded.
@@ -33,7 +34,7 @@ export class AttachMediaHandler {
     mediaIds: number[],
     entityType: MediaEntityType,
     entityId: number,
-    actor: AuthenticatedUser,
+    actor: MediaUploader,
     tx?: TenantTransactionClient,
   ): Promise<void> {
     if (mediaIds.length === 0) return;

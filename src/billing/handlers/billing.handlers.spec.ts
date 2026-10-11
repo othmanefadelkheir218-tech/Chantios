@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { getLoggerToken } from 'nestjs-pino';
 import { addOneMonth } from '../../common/helpers/billing-period.helper';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { PlansService } from '../../plans/plans.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { SubscriptionsService } from '../../subscriptions/subscriptions.service';
@@ -10,7 +11,9 @@ import { UsageCounterHelper } from '../helpers/usage-counter.helper';
 import { ApplyPendingPlanIfDueHandler } from './apply-pending-plan-if-due.handler';
 import { CountUsageHandler } from './count-usage.handler';
 import { RequestDowngradeHandler } from './request-downgrade.handler';
+import { BlockExpiredGraceHandler } from './block-expired-grace.handler';
 import { RunRenewalHandler } from './run-renewal.handler';
+import { TrialReminderHandler } from './trial-reminder.handler';
 
 const plan = (over: Record<string, unknown> = {}) => ({
   id: 1,
@@ -49,7 +52,10 @@ describe('RunRenewalHandler / RequestDowngradeHandler (step 14)', () => {
     snapshotUsage: jest.fn(),
     setPeriod: jest.fn(),
     changePlan: jest.fn(),
+    startGrace: jest.fn(),
+    setStatus: jest.fn(),
   };
+  const notifications = { dispatch: jest.fn() };
   const plans = { findOne: jest.fn() };
   const stripe = { pushOverageInvoiceItem: jest.fn() };
   const countUsage = { execute: jest.fn() };
@@ -64,10 +70,17 @@ describe('RunRenewalHandler / RequestDowngradeHandler (step 14)', () => {
 
   let runRenewal: RunRenewalHandler;
   let requestDowngrade: RequestDowngradeHandler;
+  let trialReminder: TrialReminderHandler;
+  let blockGrace: BlockExpiredGraceHandler;
 
   beforeEach(async () => {
     jest.resetAllMocks();
-    const handlers = [RunRenewalHandler, RequestDowngradeHandler];
+    const handlers = [
+      RunRenewalHandler,
+      RequestDowngradeHandler,
+      TrialReminderHandler,
+      BlockExpiredGraceHandler,
+    ];
     const module = await Test.createTestingModule({
       providers: [
         ...handlers,
@@ -77,6 +90,7 @@ describe('RunRenewalHandler / RequestDowngradeHandler (step 14)', () => {
         { provide: CountUsageHandler, useValue: countUsage },
         { provide: UsageCounterHelper, useValue: usageCounter },
         { provide: ApplyPendingPlanIfDueHandler, useValue: applyPendingPlan },
+        { provide: NotificationsService, useValue: notifications },
         ...handlers.map((h) => ({
           provide: getLoggerToken(h.name),
           useValue: logger,
@@ -86,6 +100,113 @@ describe('RunRenewalHandler / RequestDowngradeHandler (step 14)', () => {
 
     runRenewal = module.get(RunRenewalHandler);
     requestDowngrade = module.get(RequestDowngradeHandler);
+    trialReminder = module.get(TrialReminderHandler);
+    blockGrace = module.get(BlockExpiredGraceHandler);
+  });
+
+  describe('End of the trial (step 20)', () => {
+    const NOW = new Date('2026-10-11T10:00:00Z');
+
+    it('renewal of a trialing subscription ends the trial + trial_ended alert', async () => {
+      subscriptions.findByTenant.mockResolvedValue(
+        subscription({ status: 'trialing' }),
+      );
+      plans.findOne.mockResolvedValue(plan());
+      countUsage.execute.mockResolvedValue({});
+      subscriptions.startGrace.mockResolvedValue(
+        new Date('2026-02-08T00:00:00Z'),
+      );
+      await runRenewal.execute(7);
+      expect(subscriptions.startGrace).toHaveBeenCalledWith(
+        7,
+        new Date('2026-02-01T00:00:00Z'),
+      );
+      expect(notifications.dispatch).toHaveBeenCalledWith('trial_ended', {
+        tenantId: 7,
+        payload: { entity_id: 7, grace_ends_at: '2026-02-08' },
+      });
+    });
+
+    it('renewal of an active subscription does not touch the trial', async () => {
+      subscriptions.findByTenant.mockResolvedValue(subscription());
+      plans.findOne.mockResolvedValue(plan());
+      countUsage.execute.mockResolvedValue({});
+      await runRenewal.execute(7);
+      expect(subscriptions.startGrace).not.toHaveBeenCalled();
+    });
+
+    it('a cancelled (blocked) company is skipped: no snapshot, no period move', async () => {
+      subscriptions.findByTenant.mockResolvedValue(
+        subscription({ status: 'cancelled' }),
+      );
+      const result = await runRenewal.execute(7);
+      expect(result.skipped).toBe(true);
+      expect(subscriptions.snapshotUsage).not.toHaveBeenCalled();
+      expect(subscriptions.setPeriod).not.toHaveBeenCalled();
+    });
+
+    it('day 11: reminder when the trial ends within 3 days, once (dedupe)', async () => {
+      subscriptions.findByTenant.mockResolvedValue(
+        subscription({
+          status: 'trialing',
+          periodEnd: new Date('2026-10-14T10:00:00Z'),
+        }),
+      );
+      expect(await trialReminder.execute(7, NOW)).toBe(true);
+      expect(notifications.dispatch).toHaveBeenCalledWith('trial_ending', {
+        tenantId: 7,
+        dedupeDays: 14,
+        payload: { entity_id: 7, trial_end: '2026-10-14' },
+      });
+    });
+
+    it('no reminder 4 days before, nor for an active company', async () => {
+      subscriptions.findByTenant.mockResolvedValue(
+        subscription({
+          status: 'trialing',
+          periodEnd: new Date('2026-10-15T11:00:00Z'),
+        }),
+      );
+      expect(await trialReminder.execute(7, NOW)).toBe(false);
+      subscriptions.findByTenant.mockResolvedValue(
+        subscription({ periodEnd: new Date('2026-10-13T10:00:00Z') }),
+      );
+      expect(await trialReminder.execute(7, NOW)).toBe(false);
+      expect(notifications.dispatch).not.toHaveBeenCalled();
+    });
+
+    it('grace over (trial or failed payment) → cancelled + subscription_blocked', async () => {
+      subscriptions.findByTenant.mockResolvedValue(
+        subscription({
+          status: 'past_due',
+          graceEndsAt: new Date('2026-10-11T09:00:00Z'),
+        }),
+      );
+      expect(await blockGrace.execute(7, NOW)).toBe(true);
+      expect(subscriptions.setStatus).toHaveBeenCalledWith(7, 'cancelled');
+      expect(notifications.dispatch).toHaveBeenCalledWith(
+        'subscription_blocked',
+        {
+          tenantId: 7,
+          payload: { entity_id: 7 },
+        },
+      );
+    });
+
+    it('no block before the grace date, nor for a failed payment (no grace date)', async () => {
+      subscriptions.findByTenant.mockResolvedValue(
+        subscription({
+          status: 'past_due',
+          graceEndsAt: new Date('2026-10-12T09:00:00Z'),
+        }),
+      );
+      expect(await blockGrace.execute(7, NOW)).toBe(false);
+      subscriptions.findByTenant.mockResolvedValue(
+        subscription({ status: 'past_due', graceEndsAt: null }),
+      );
+      expect(await blockGrace.execute(7, NOW)).toBe(false);
+      expect(subscriptions.setStatus).not.toHaveBeenCalled();
+    });
   });
 
   describe('RunRenewalHandler — the renewal math', () => {

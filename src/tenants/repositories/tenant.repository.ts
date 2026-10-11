@@ -43,6 +43,14 @@ export class TenantRepository {
     });
   }
 
+  /** Id + name of these companies, deleted ones included (a list must still name them). */
+  findNamesByIds(ids: number[]): Promise<{ id: number; name: string }[]> {
+    return this.prisma.tenant.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true },
+    });
+  }
+
   /** Bypasses the soft-delete filter — restore needs to find an already-deleted row. */
   findByIdIncludingDeleted(id: number): Promise<Tenant | null> {
     return this.prisma.tenant.findUnique({ where: { id } });
@@ -106,5 +114,30 @@ export class TenantRepository {
       where: { id },
       data: { logoMediaId: mediaId },
     });
+  }
+
+  // ---- Platform stats (GET /api/admin/stats) ----
+
+  /** Live companies per status. Deleted companies are left out. */
+  async countByStatus(): Promise<{ status: TenantStatus; count: number }[]> {
+    const rows = await this.prisma.tenant.groupBy({
+      by: ['status'],
+      where: { deletedAt: null },
+      _count: { _all: true },
+    });
+    return rows.map((r) => ({ status: r.status, count: r._count._all }));
+  }
+
+  /** New live companies per calendar month (`YYYY-MM`, Brussels time) since `since`. */
+  countCreatedPerMonth(
+    since: Date,
+  ): Promise<{ month: string; count: number }[]> {
+    return this.prisma.$queryRaw`
+      SELECT to_char(date_trunc('month', created_at AT TIME ZONE 'Europe/Brussels'), 'YYYY-MM') AS month,
+             count(*)::int AS count
+      FROM tenants
+      WHERE deleted_at IS NULL AND created_at >= ${since}
+      GROUP BY 1
+      ORDER BY 1`;
   }
 }

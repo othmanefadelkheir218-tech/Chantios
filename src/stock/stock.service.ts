@@ -15,6 +15,10 @@ import { FindMovementsHandler } from './handlers/find-movements.handler';
 import { FindReservationsHandler } from './handlers/find-reservations.handler';
 import { RecordAdjustmentHandler } from './handlers/record-adjustment.handler';
 import { RecordConsumptionHandler } from './handlers/record-consumption.handler';
+import {
+  ImportedMovement,
+  RecordImportedMovementsHandler,
+} from './handlers/record-imported-movements.handler';
 import { RecordPurchaseHandler } from './handlers/record-purchase.handler';
 import { ReleaseReservationsHandler } from './handlers/release-reservations.handler';
 import { WalkRecipeHandler } from './handlers/walk-recipe.handler';
@@ -34,6 +38,7 @@ export class StockService {
     private readonly releaseReservations: ReleaseReservationsHandler,
     private readonly checkCoverage: CheckCoverageHandler,
     private readonly walkRecipe: WalkRecipeHandler,
+    private readonly recordImported: RecordImportedMovementsHandler,
   ) {}
 
   purchase(dto: CreateMovementDto, actor: AuthenticatedUser) {
@@ -93,6 +98,20 @@ export class StockService {
    */
   walkRecipeFor(lines: RecipeLine[]) {
     return this.walkRecipe.execute(lines);
+  }
+
+  /**
+   * `imports`: the purchases / adjustments of a bulk import, inside its
+   * transaction, each carrying `import_batch_id`. No coverage check here —
+   * the caller runs `checkMaterialCoverage` once per material after commit.
+   */
+  recordImportedMovements(
+    rows: ImportedMovement[],
+    importBatchId: number,
+    actor: ActingParty,
+    tx: TenantTransactionClient,
+  ) {
+    return this.recordImported.execute(rows, importBatchId, actor, tx);
   }
 
   /** `projects`' `cancel-project.handler` calls this on cancellation. */

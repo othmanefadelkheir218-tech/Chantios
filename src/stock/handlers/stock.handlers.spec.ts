@@ -14,6 +14,7 @@ import { ConsumeReservationHandler } from './consume-reservation.handler';
 import { CreateReservationsHandler } from './create-reservations.handler';
 import { FindMovementsHandler } from './find-movements.handler';
 import { FindReservationsHandler } from './find-reservations.handler';
+import { MarginsService } from '../../margins/margins.service';
 import { RecordAdjustmentHandler } from './record-adjustment.handler';
 import { RecordConsumptionHandler } from './record-consumption.handler';
 import { RecordPurchaseHandler } from './record-purchase.handler';
@@ -83,6 +84,7 @@ describe('Stock handlers', () => {
   const materials = { findByIdRaw: jest.fn(), getStockLevel: jest.fn() };
   const services = { getRecipeRaw: jest.fn() };
   const audit = { write: jest.fn() };
+  const margins = { findOne: jest.fn(), checkProjectThresholds: jest.fn() };
   const notifications = { dispatch: jest.fn() };
   const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn() };
 
@@ -118,6 +120,7 @@ describe('Stock handlers', () => {
         { provide: MaterialsService, useValue: materials },
         { provide: ServicesService, useValue: services },
         { provide: AuditService, useValue: audit },
+        { provide: MarginsService, useValue: margins },
         ...handlers.map((h) => ({
           provide: getLoggerToken(h.name),
           useValue: logger,
@@ -260,6 +263,32 @@ describe('Stock handlers', () => {
         actor,
       );
       expect(materials.getStockLevel).toHaveBeenCalledWith(5);
+    });
+
+    it('a project-linked adjustment checks the project and re-runs its margin check', async () => {
+      materials.findByIdRaw.mockResolvedValue(material());
+      movementsRepo.create.mockResolvedValue(
+        movement({
+          type: 'adjustment',
+          quantity: new Prisma.Decimal('5'),
+          projectId: 17,
+        }),
+      );
+
+      await recordAdjustment.execute(
+        {
+          material_id: 5,
+          quantity: '5',
+          note: 'wrong consumption',
+          project_id: 17,
+        },
+        actor,
+      );
+      expect(margins.findOne).toHaveBeenCalledWith(17);
+      expect(movementsRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: 17 }),
+      );
+      expect(margins.checkProjectThresholds).toHaveBeenCalledWith(17, actor);
     });
   });
 

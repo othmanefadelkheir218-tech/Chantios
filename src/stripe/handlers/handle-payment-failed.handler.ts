@@ -41,7 +41,11 @@ export class HandlePaymentFailedHandler {
       return;
     }
 
-    await this.subscriptions.setStatus(subscription.tenantId, 'past_due');
+    // 7 days to pay, then blocked (doc/notes/subscription-plans.md § A failed payment).
+    const graceEndsAt = await this.subscriptions.startGrace(
+      subscription.tenantId,
+      new Date(),
+    );
 
     const amount = (intent.amount / 100).toFixed(2);
     const tenant = await this.tenants.findOne(subscription.tenantId);
@@ -55,11 +59,16 @@ export class HandlePaymentFailedHandler {
     await this.notifications.dispatch('subscription_payment_failed', {
       tenantId: subscription.tenantId,
       dedupeDays: 1,
-      payload: { amount },
+      payload: {
+        amount,
+        ...(graceEndsAt && {
+          grace_ends_at: graceEndsAt.toISOString().slice(0, 10),
+        }),
+      },
     });
 
     this.logger.info(
-      `Tenant ${subscription.tenantId} subscription past_due (payment of ${amount} failed)`,
+      `Tenant ${subscription.tenantId}: payment of ${amount} failed, to pay before ${graceEndsAt?.toISOString() ?? '(already blocked)'}`,
     );
   }
 }

@@ -1,8 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsEmail,
   IsIn,
   IsNotEmpty,
+  IsOptional,
   IsString,
   MinLength,
 } from 'class-validator';
@@ -31,4 +33,24 @@ export class CreateAdminUserDto {
   @ApiProperty({ enum: ADMIN_ROLES })
   @IsIn(ADMIN_ROLES)
   role: AdminRole;
+
+  @ApiProperty({
+    required: false,
+    default: false,
+    description:
+      'A staff admin may change plans and billing only when this is true. A super_admin is always allowed.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  can_manage_billing?: boolean;
+
+  @ApiProperty({
+    required: false,
+    default: false,
+    description:
+      'A staff admin may suspend or reactivate a company only when this is true. A super_admin is always allowed.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  can_manage_tenants?: boolean;
 }

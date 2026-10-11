@@ -58,7 +58,7 @@ export class PortalAcceptQuoteHandler {
       action: 'portal_accept',
       entityType: 'quote',
       entityId: quoteId,
-      newValue: { clientId: portal.clientId, portalTokenId: portal.tokenId },
+      newValue: { clientId: portal.clientId, portalLinkId: portal.tokenId },
       ipAddress: portal.ip,
     });
 

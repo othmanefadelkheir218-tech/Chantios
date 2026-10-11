@@ -5,6 +5,7 @@ import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { getLoggerToken } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
+import { ServicesService } from '../../services/services.service';
 import { ClientsService } from '../../clients/clients.service';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 import { DocumentsService } from '../../documents/documents.service';
@@ -126,6 +127,7 @@ describe('Invoices handlers', () => {
   const tenantsService = { findOne: jest.fn() };
   const documentsService = { allocateNumber: jest.fn() };
   const audit = { write: jest.fn() };
+  const services = { assertLineServices: jest.fn() };
   const freezeInvoicePdf = {
     execute: jest.fn().mockResolvedValue({
       media: { id: 999, fileUrl: 'https://cdn.test/invoice.pdf' },
@@ -186,6 +188,7 @@ describe('Invoices handlers', () => {
         { provide: TenantsService, useValue: tenantsService },
         { provide: DocumentsService, useValue: documentsService },
         { provide: AuditService, useValue: audit },
+        { provide: ServicesService, useValue: services },
         { provide: TenantPrismaService, useValue: tenantPrisma },
         { provide: FreezeInvoicePdfHandler, useValue: freezeInvoicePdf },
         ...handlers.map((h) => ({
@@ -366,6 +369,22 @@ describe('Invoices handlers', () => {
       expect(repo.replaceLines).toHaveBeenCalled();
       expect(result.id).toBe(50);
     });
+
+    it('a service_id of another company is refused, nothing is written', async () => {
+      repo.findById.mockResolvedValue(invoice());
+      services.assertLineServices.mockRejectedValue(
+        new BadRequestException('Service not found: 99'),
+      );
+      await expect(
+        setLines.execute(
+          50,
+          { lines: [{ ...dto.lines[0], service_id: 99 }] },
+          actor,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(services.assertLineServices).toHaveBeenCalledWith([99]);
+      expect(repo.replaceLines).not.toHaveBeenCalled();
+    });
   });
 
   describe('SendInvoiceHandler', () => {
@@ -449,6 +468,83 @@ describe('Invoices handlers', () => {
         recordPayment.execute(50, { ...dto, amount: '0' }, actor),
       ).rejects.toThrow(BadRequestException);
       expect(paymentsRepo.create).not.toHaveBeenCalled();
+    });
+
+    // Step 18 — payment corrections (client-invoices.md § payments).
+    const balanceOf = (paid: string, due: string) => ({
+      invoiceId: 50,
+      tenantId: 1,
+      amountInclVat: new Prisma.Decimal('1000.00'),
+      amountPaid: new Prisma.Decimal(paid),
+      balanceDue: new Prisma.Decimal(due),
+      isLate: false,
+    });
+
+    it('a negative correction without a note -> 400, nothing written', async () => {
+      await expect(
+        recordPayment.execute(50, { ...dto, amount: '-100.00' }, actor),
+      ).rejects.toThrow('note is required');
+      expect(paymentsRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('a correction with a note reopens paid -> partially_paid', async () => {
+      repo.findById.mockResolvedValue(invoice({ status: 'paid' }));
+      paymentsRepo.create.mockResolvedValue(
+        payment({ amount: new Prisma.Decimal('-200.00') }),
+      );
+      // 1 100 was paid on a 1 000 invoice, then -200: 900 paid, 100 due
+      repo.findWithBalance.mockResolvedValue(balanceOf('900.00', '100.00'));
+      repo.setStatus.mockResolvedValue(invoice({ status: 'partially_paid' }));
+      repo.findLines.mockResolvedValue([invoiceLine()]);
+
+      await recordPayment.execute(
+        50,
+        { ...dto, amount: '-200.00', note: ' typed 1 100 ' },
+        actor,
+      );
+
+      expect(paymentsRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: '-200.00', note: 'typed 1 100' }),
+        txMock,
+      );
+      expect(repo.setStatus).toHaveBeenCalledWith(
+        50,
+        'partially_paid',
+        {},
+        txMock,
+      );
+      expect(notifications.dispatch).not.toHaveBeenCalled();
+    });
+
+    it('a correction back to 0 paid -> status sent', async () => {
+      repo.findById.mockResolvedValue(invoice({ status: 'paid' }));
+      paymentsRepo.create.mockResolvedValue(payment());
+      repo.findWithBalance.mockResolvedValue(balanceOf('0', '1000.00'));
+      repo.setStatus.mockResolvedValue(invoice({ status: 'sent' }));
+      repo.findLines.mockResolvedValue([invoiceLine()]);
+
+      await recordPayment.execute(
+        50,
+        { ...dto, amount: '-1000.00', note: 'refunded' },
+        actor,
+      );
+      expect(repo.setStatus).toHaveBeenCalledWith(50, 'sent', {}, txMock);
+    });
+
+    it('a correction that makes the total paid negative -> 400 inside the transaction', async () => {
+      repo.findById.mockResolvedValue(invoice({ status: 'partially_paid' }));
+      paymentsRepo.create.mockResolvedValue(payment());
+      repo.findWithBalance.mockResolvedValue(balanceOf('-50.00', '1050.00'));
+
+      await expect(
+        recordPayment.execute(
+          50,
+          { ...dto, amount: '-550.00', note: 'x' },
+          actor,
+        ),
+      ).rejects.toThrow('below 0');
+      expect(repo.setStatus).not.toHaveBeenCalled();
+      expect(audit.write).not.toHaveBeenCalled();
     });
 
     it('rejects a payment on a draft invoice', async () => {

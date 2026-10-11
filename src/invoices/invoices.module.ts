@@ -5,6 +5,7 @@ import { ClientsModule } from '../clients/clients.module';
 import { DocumentsModule } from '../documents/documents.module';
 import { MediaModule } from '../media/media.module';
 import { ProjectsModule } from '../projects/projects.module';
+import { ServicesModule } from '../services/services.module';
 import { QuotesModule } from '../quotes/quotes.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RolesModule } from '../roles/roles.module';
@@ -45,6 +46,8 @@ import { ProjectInvoiceCoverageController } from './project-invoice-coverage.con
     // `project-invoice-coverage.controller` 404s an unknown project through
     // `ProjectsService` — never either module's repository.
     ProjectsModule,
+    // every line `service_id` must be a service of this company (`ServicesService`).
+    ServicesModule,
     // `create-invoice.handler` validates an optional `quote_id`;
     // `invoice-coverage.handler` reads `sumAcceptedByProject` — both through
     // `QuotesService`, never its repository.

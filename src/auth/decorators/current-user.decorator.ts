@@ -6,7 +6,11 @@ export interface AuthenticatedUser {
   userId: number;
   tenantId: number;
   roleId: number;
-  email: string;
+  email: string | null;
+  /** Set only while a platform admin impersonates this user: `admin_users.id`. */
+  impersonatedBy?: number;
+  /** When the access token expires — the end of an impersonation session. */
+  accessExpiresAt?: Date;
 }
 
 /**

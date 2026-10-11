@@ -1,13 +1,23 @@
 import { Injectable } from '@nestjs/common';
-import { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
+import {
+  ActingParty,
+  AuthenticatedUser,
+} from '../auth/decorators/current-user.decorator';
+import { TenantTransactionClient } from '../common/prisma/tenant-prisma.service';
 import { CreateMaterialDto } from './dto/create-material.dto';
 import { FindMaterialsQueryDto } from './dto/find-materials-query.dto';
 import { UpdateMaterialDto } from './dto/update-material.dto';
 import { ArchiveMaterialHandler } from './handlers/archive-material.handler';
 import { CreateMaterialHandler } from './handlers/create-material.handler';
+import { ExportMaterialsHandler } from './handlers/export-materials.handler';
 import { FindLowStockHandler } from './handlers/find-low-stock.handler';
 import { FindMaterialHandler } from './handlers/find-material.handler';
 import { FindMaterialsHandler } from './handlers/find-materials.handler';
+import {
+  ImportMaterialsHandler,
+  MaterialImportCreate,
+  MaterialImportUpdate,
+} from './handlers/import-materials.handler';
 import { StockLevelHandler } from './handlers/stock-level.handler';
 import { UpdateMaterialHandler } from './handlers/update-material.handler';
 
@@ -22,6 +32,8 @@ export class MaterialsService {
     private readonly archiveMaterial: ArchiveMaterialHandler,
     private readonly stockLevel: StockLevelHandler,
     private readonly findLowStock: FindLowStockHandler,
+    private readonly exportMaterials: ExportMaterialsHandler,
+    private readonly importMaterials: ImportMaterialsHandler,
   ) {}
 
   create(dto: CreateMaterialDto, actor: AuthenticatedUser) {
@@ -48,11 +60,30 @@ export class MaterialsService {
     return this.findLowStock.execute();
   }
 
+  exportAll() {
+    return this.exportMaterials.execute();
+  }
+
   // ---- Internal API for other modules (`services`, `stock`) ----
 
   /** Raw Prisma row — `services` (recipe) and `stock` (movements) validate against this. */
   findByIdRaw(id: number) {
     return this.findMaterial.findByIdRaw(id);
+  }
+
+  /** `imports`: the rows a materials or stock file names, and the descriptions already taken. */
+  loadForImport(ids: number[], normalizedDescriptions: string[]) {
+    return this.importMaterials.load(ids, normalizedDescriptions);
+  }
+
+  /** `imports`: writes a checked materials file inside its transaction. */
+  writeImport(
+    creates: MaterialImportCreate[],
+    updates: MaterialImportUpdate[],
+    actor: ActingParty,
+    tx: TenantTransactionClient,
+  ) {
+    return this.importMaterials.write(creates, updates, actor, tx);
   }
 
   /** `on_hand` / `reserved` / `available` for one material — `stock`'s `check-coverage.handler`. */

@@ -2,6 +2,7 @@ import { BadGatewayException, Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { env } from '../config/env.config';
 import { resend } from '../config/resend.config';
+import { htmlToText } from './helpers/html-to-text.helper';
 
 /** The only place in the app that calls Resend. Every module sends mail through this. */
 @Injectable()
@@ -29,6 +30,7 @@ export class EmailService {
       to,
       subject,
       html,
+      text: htmlToText(html),
       ...(attachments && attachments.length > 0 && { attachments }),
     });
 

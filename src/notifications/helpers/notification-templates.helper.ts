@@ -1,3 +1,7 @@
+import {
+  renderEmailLayout,
+  toEmailLocale,
+} from '../../email/templates/email-layout';
 import { EmailLocale } from '../../email/templates/invite-employee.template';
 import { NotificationType } from '../notification.types';
 
@@ -19,7 +23,9 @@ function s(value: unknown): string {
 /** The portal link, only when the caller has one (the raw token is shown once, never stored). */
 function link(p: Payload): string {
   const url = s(p.portal_url);
-  return url ? `<br><a href="${url}">${url}</a>` : '';
+  return url
+    ? `<br><a href="${url}" style="color:#0B0B0C;font-weight:bold;">${url}</a>`
+    : '';
 }
 
 const c =
@@ -27,7 +33,7 @@ const c =
   (p) => ({ subject: subject(p), body: body(p) });
 
 /**
- * Subject + body for every alert, per locale (`fr`, `en`, `ar`; a missing or
+ * Subject + body for every alert, per locale (`fr`, `en`, `nl`; a missing or
  * unknown locale falls back to `en`). The platform alerts are for ChantierOS
  * staff and exist in English only. The same copy feeds the in-app text and
  * the email.
@@ -44,10 +50,10 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) =>
         `${s(p.material_name)} est à ${s(p.on_hand)} ${s(p.unit)}, au niveau du minimum ou en dessous. Il faut commander.`,
     ),
-    ar: c(
-      (p) => `مخزون منخفض: ${s(p.material_name)}`,
+    nl: c(
+      (p) => `Lage voorraad: ${s(p.material_name)}`,
       (p) =>
-        `${s(p.material_name)} عند ${s(p.on_hand)} ${s(p.unit)}، أي عند الحد الأدنى أو أقل. حان وقت الطلب.`,
+        `${s(p.material_name)} staat op ${s(p.on_hand)} ${s(p.unit)}, op of onder het minimum. Tijd om te bestellen.`,
     ),
   },
   reservation_unmet: {
@@ -61,10 +67,10 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) =>
         `Les réservations de ${s(p.material_name)} dépassent le stock (manque ${s(p.short_by)}). Commandez-en plus.`,
     ),
-    ar: c(
-      (p) => `حجز غير مغطى: ${s(p.material_name)}`,
+    nl: c(
+      (p) => `Reservering niet gedekt: ${s(p.material_name)}`,
       (p) =>
-        `حجوزات ${s(p.material_name)} أكبر من المخزون (النقص ${s(p.short_by)}). اطلب المزيد.`,
+        `De reserveringen voor ${s(p.material_name)} zijn hoger dan de voorraad (tekort van ${s(p.short_by)}). Bestel meer.`,
     ),
   },
   margin_warning: {
@@ -78,10 +84,10 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) =>
         `Ce chantier approche de sa limite de budget (${s(p.cost_pct)} % du budget dépensé) : ${s(p.project_name)}.`,
     ),
-    ar: c(
-      (p) => `تنبيه الميزانية: ${s(p.project_name)}`,
+    nl: c(
+      (p) => `Budgetwaarschuwing: ${s(p.project_name)}`,
       (p) =>
-        `يقترب هذا المشروع من حد ميزانيته (${s(p.cost_pct)}٪ من الميزانية): ${s(p.project_name)}.`,
+        `Dit project nadert zijn budgetlimiet (${s(p.cost_pct)} % van het budget is uitgegeven): ${s(p.project_name)}.`,
     ),
   },
   margin_critical: {
@@ -95,10 +101,10 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) =>
         `Ce chantier dépasse son budget — examen immédiat nécessaire (${s(p.cost_pct)} % dépensé) : ${s(p.project_name)}.`,
     ),
-    ar: c(
-      (p) => `الميزانية حرجة: ${s(p.project_name)}`,
+    nl: c(
+      (p) => `Budget kritiek: ${s(p.project_name)}`,
       (p) =>
-        `تجاوز هذا المشروع ميزانيته — مراجعة فورية مطلوبة (${s(p.cost_pct)}٪): ${s(p.project_name)}.`,
+        `Dit project overschrijdt zijn budget — onmiddellijke controle nodig (${s(p.cost_pct)} % uitgegeven): ${s(p.project_name)}.`,
     ),
   },
   invoice_late: {
@@ -112,10 +118,10 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) =>
         `La facture ${s(p.invoice_ref)} a dépassé son échéance. Solde dû : ${s(p.balance_due)}.`,
     ),
-    ar: c(
-      (p) => `فاتورة متأخرة ${s(p.invoice_ref)}`,
+    nl: c(
+      (p) => `Factuur ${s(p.invoice_ref)} te laat`,
       (p) =>
-        `الفاتورة ${s(p.invoice_ref)} تجاوزت موعد استحقاقها. الرصيد المستحق: ${s(p.balance_due)}.`,
+        `Factuur ${s(p.invoice_ref)} is over de vervaldatum. Openstaand saldo: ${s(p.balance_due)}.`,
     ),
   },
   invoice_paid: {
@@ -128,9 +134,10 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) =>
         `La facture ${s(p.invoice_ref)} est entièrement payée (${s(p.amount)}).`,
     ),
-    ar: c(
-      (p) => `تم دفع الفاتورة ${s(p.invoice_ref)}`,
-      (p) => `الفاتورة ${s(p.invoice_ref)} مدفوعة بالكامل (${s(p.amount)}).`,
+    nl: c(
+      (p) => `Factuur ${s(p.invoice_ref)} betaald`,
+      (p) =>
+        `Factuur ${s(p.invoice_ref)} is volledig betaald (${s(p.amount)}).`,
     ),
   },
   purchase_due: {
@@ -144,10 +151,10 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) =>
         `La facture ${s(p.invoice_ref)} est due le ${s(p.due_date)}. À payer bientôt.`,
     ),
-    ar: c(
-      (p) => `فاتورة مورد مستحقة: ${s(p.invoice_ref)}`,
+    nl: c(
+      (p) => `Leveranciersfactuur te betalen: ${s(p.invoice_ref)}`,
       (p) =>
-        `الفاتورة ${s(p.invoice_ref)} مستحقة في ${s(p.due_date)}. ادفعها قريبا.`,
+        `Factuur ${s(p.invoice_ref)} vervalt op ${s(p.due_date)}. Betaal ze binnenkort.`,
     ),
   },
   abnormal_hours: {
@@ -161,10 +168,10 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) =>
         `${s(p.employee_name)} a déclaré ${s(p.hours)} h le ${s(p.date)} sur l'ensemble des chantiers (plus de 12 h).`,
     ),
-    ar: c(
-      (p) => `ساعات غير عادية: ${s(p.employee_name)}`,
+    nl: c(
+      (p) => `Abnormale uren: ${s(p.employee_name)}`,
       (p) =>
-        `سجل ${s(p.employee_name)} ${s(p.hours)} ساعة في ${s(p.date)} عبر كل المشاريع (أكثر من 12 ساعة).`,
+        `${s(p.employee_name)} registreerde ${s(p.hours)} u op ${s(p.date)} over alle projecten heen (meer dan 12 u).`,
     ),
   },
   missing_timesheet: {
@@ -178,10 +185,10 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) =>
         `${s(p.employee_name)} a une tâche en cours aujourd'hui mais aucune heure déclarée.`,
     ),
-    ar: c(
-      (p) => `ساعات غير مسجلة: ${s(p.employee_name)}`,
+    nl: c(
+      (p) => `Ontbrekend urenblad: ${s(p.employee_name)}`,
       (p) =>
-        `لدى ${s(p.employee_name)} مهمة قيد التنفيذ اليوم ولكن لا ساعات مسجلة.`,
+        `${s(p.employee_name)} heeft vandaag een taak in uitvoering maar geen uren geregistreerd.`,
     ),
   },
   stalled_project: {
@@ -195,9 +202,10 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) =>
         `Aucune heure n'a été déclarée sur ${s(p.project_name)} depuis ${s(p.days)} jours.`,
     ),
-    ar: c(
-      (p) => `مشروع متوقف: ${s(p.project_name)}`,
-      (p) => `لم تسجل أي ساعات على ${s(p.project_name)} منذ ${s(p.days)} أيام.`,
+    nl: c(
+      (p) => `Project ligt stil: ${s(p.project_name)}`,
+      (p) =>
+        `Er zijn al ${s(p.days)} dagen geen uren geregistreerd op ${s(p.project_name)}.`,
     ),
   },
   missing_report: {
@@ -211,10 +219,10 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) =>
         `${s(p.project_name)} est en cours sans rapport de chantier depuis ${s(p.days)} jours.`,
     ),
-    ar: c(
-      (p) => `تقرير موقع مفقود: ${s(p.project_name)}`,
+    nl: c(
+      (p) => `Ontbrekend werfverslag: ${s(p.project_name)}`,
       (p) =>
-        `${s(p.project_name)} قيد التنفيذ بدون تقرير موقع منذ ${s(p.days)} أيام.`,
+        `${s(p.project_name)} is bezig zonder werfverslag sinds ${s(p.days)} dagen.`,
     ),
   },
   progress_stalled: {
@@ -228,9 +236,10 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) =>
         `L'avancement de ${s(p.project_name)} n'a pas bougé depuis ${s(p.days)} jours.`,
     ),
-    ar: c(
-      (p) => `التقدم متوقف: ${s(p.project_name)}`,
-      (p) => `لم يتغير تقدم ${s(p.project_name)} منذ ${s(p.days)} أيام.`,
+    nl: c(
+      (p) => `Voortgang stilgevallen: ${s(p.project_name)}`,
+      (p) =>
+        `De voortgang van ${s(p.project_name)} is al ${s(p.days)} dagen niet gewijzigd.`,
     ),
   },
   project_cancelled: {
@@ -244,10 +253,10 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) =>
         `${s(p.project_name)} a été annulé. Pensez à facturer le client pour le travail déjà réalisé.`,
     ),
-    ar: c(
-      (p) => `تم إلغاء المشروع: ${s(p.project_name)}`,
+    nl: c(
+      (p) => `Project geannuleerd: ${s(p.project_name)}`,
       (p) =>
-        `تم إلغاء ${s(p.project_name)}. تذكر إصدار فاتورة للعميل عن العمل المنجز.`,
+        `${s(p.project_name)} werd geannuleerd. Vergeet de klant niet te factureren voor het reeds uitgevoerde werk.`,
     ),
   },
   new_message: {
@@ -259,22 +268,22 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) => `Nouveau message de ${s(p.sender_name)}`,
       (p) => `${s(p.sender_name)} : ${s(p.preview)}`,
     ),
-    ar: c(
-      (p) => `رسالة جديدة من ${s(p.sender_name)}`,
+    nl: c(
+      (p) => `Nieuw bericht van ${s(p.sender_name)}`,
       (p) => `${s(p.sender_name)}: ${s(p.preview)}`,
     ),
   },
   support_reply: {
     en: c(
-      () => 'New reply from ChantierOS support',
+      () => 'New reply from ChantiOs support',
       (p) => s(p.preview),
     ),
     fr: c(
-      () => 'Nouvelle réponse du support ChantierOS',
+      () => 'Nouvelle réponse du support ChantiOs',
       (p) => s(p.preview),
     ),
-    ar: c(
-      () => 'رد جديد من دعم ChantierOS',
+    nl: c(
+      () => 'Nieuw antwoord van de ChantiOs-support',
       (p) => s(p.preview),
     ),
   },
@@ -288,9 +297,9 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) => `Nouvelle tâche : ${s(p.task_title)}`,
       (p) => `Vous avez reçu « ${s(p.task_title)} » (${s(p.project_name)}).`,
     ),
-    ar: c(
-      (p) => `مهمة جديدة: ${s(p.task_title)}`,
-      (p) => `تم تكليفك بـ "${s(p.task_title)}" (${s(p.project_name)}).`,
+    nl: c(
+      (p) => `Nieuwe taak: ${s(p.task_title)}`,
+      (p) => `U kreeg "${s(p.task_title)}" toegewezen (${s(p.project_name)}).`,
     ),
   },
   task_starting: {
@@ -304,10 +313,10 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) =>
         `« ${s(p.task_title)} » (${s(p.project_name)}) commence le ${s(p.start_date)}.`,
     ),
-    ar: c(
-      (p) => `مهمة تبدأ غدا: ${s(p.task_title)}`,
+    nl: c(
+      (p) => `Taak start morgen: ${s(p.task_title)}`,
       (p) =>
-        `"${s(p.task_title)}" (${s(p.project_name)}) تبدأ في ${s(p.start_date)}.`,
+        `"${s(p.task_title)}" (${s(p.project_name)}) start op ${s(p.start_date)}.`,
     ),
   },
   task_status_changed: {
@@ -319,9 +328,9 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) => `Tâche mise à jour : ${s(p.task_title)}`,
       (p) => `« ${s(p.task_title)} » est maintenant ${s(p.status)}.`,
     ),
-    ar: c(
-      (p) => `تم تحديث المهمة: ${s(p.task_title)}`,
-      (p) => `"${s(p.task_title)}" أصبحت ${s(p.status)}.`,
+    nl: c(
+      (p) => `Taak bijgewerkt: ${s(p.task_title)}`,
+      (p) => `"${s(p.task_title)}" is nu ${s(p.status)}.`,
     ),
   },
   end_of_day_reminder: {
@@ -335,26 +344,33 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       () =>
         "Vous n'avez déclaré aucune heure aujourd'hui. Faites-le avant de partir.",
     ),
-    ar: c(
-      () => 'سجل ساعات عملك اليوم',
-      () => 'لم تسجل أي ساعات اليوم. يرجى القيام بذلك قبل المغادرة.',
+    nl: c(
+      () => 'Registreer uw uren van vandaag',
+      () =>
+        'U hebt vandaag nog geen uren geregistreerd. Doe dit voordat u vertrekt.',
     ),
   },
   subscription_payment_failed: {
     en: c(
       () => 'Your subscription payment failed',
       (p) =>
-        `We could not charge your card for ${s(p.amount)}. Your account still works, but please update your payment details before the next renewal.`,
+        p.grace_ends_at
+          ? `We could not charge ${s(p.amount)}. Please pay before ${s(p.grace_ends_at)} on the billing page, or your company will be blocked.`
+          : `We could not charge ${s(p.amount)}. Your company stays blocked until the subscription is paid.`,
     ),
     fr: c(
       () => 'Le paiement de votre abonnement a échoué',
       (p) =>
-        `Nous n'avons pas pu prélever ${s(p.amount)}. Votre compte reste actif, mais merci de mettre à jour vos informations de paiement avant le prochain renouvellement.`,
+        p.grace_ends_at
+          ? `Nous n'avons pas pu prélever ${s(p.amount)}. Merci de payer avant le ${s(p.grace_ends_at)} sur la page Abonnement, sinon votre entreprise sera bloquée.`
+          : `Nous n'avons pas pu prélever ${s(p.amount)}. Votre entreprise reste bloquée jusqu'au paiement de l'abonnement.`,
     ),
-    ar: c(
-      () => 'فشل دفع اشتراكك',
+    nl: c(
+      () => 'De betaling van uw abonnement is mislukt',
       (p) =>
-        `لم نتمكن من تحصيل ${s(p.amount)}. حسابك لا يزال يعمل، يرجى تحديث بيانات الدفع قبل التجديد القادم.`,
+        p.grace_ends_at
+          ? `We konden ${s(p.amount)} niet afschrijven. Betaal vóór ${s(p.grace_ends_at)} op de abonnementspagina, anders wordt uw bedrijf geblokkeerd.`
+          : `We konden ${s(p.amount)} niet afschrijven. Uw bedrijf blijft geblokkeerd tot het abonnement betaald is.`,
     ),
   },
   subscription_renewal_upcoming: {
@@ -368,9 +384,95 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) =>
         `Votre prochain prélèvement de ${s(p.amount_due)} aura lieu le ${s(p.period_end)}.`,
     ),
-    ar: c(
-      () => 'سيتجدد اشتراكك قريبا',
-      (p) => `الدفعة القادمة بقيمة ${s(p.amount_due)} في ${s(p.period_end)}.`,
+    nl: c(
+      () => 'Uw abonnement wordt binnenkort verlengd',
+      (p) =>
+        `Uw volgende afschrijving van ${s(p.amount_due)} gebeurt op ${s(p.period_end)}.`,
+    ),
+  },
+  trial_ending: {
+    en: c(
+      () => 'Your free trial ends in 3 days',
+      (p) =>
+        `Your ChantiOs trial ends on ${s(p.trial_end)}. Add a payment method on the billing page to keep using the app without a break.`,
+    ),
+    fr: c(
+      () => 'Votre essai gratuit se termine dans 3 jours',
+      (p) =>
+        `Votre essai ChantiOs se termine le ${s(p.trial_end)}. Ajoutez un moyen de paiement sur la page Abonnement pour continuer sans interruption.`,
+    ),
+    nl: c(
+      () => 'Uw gratis proefperiode eindigt over 3 dagen',
+      (p) =>
+        `Uw ChantiOs-proefperiode eindigt op ${s(p.trial_end)}. Voeg een betaalmethode toe op de abonnementspagina om zonder onderbreking verder te werken.`,
+    ),
+  },
+  trial_ended: {
+    en: c(
+      () => 'Your free trial has ended',
+      (p) =>
+        `Your trial is over. The app keeps working until ${s(p.grace_ends_at)}: add a payment method before that date, or your company will be blocked.`,
+    ),
+    fr: c(
+      () => 'Votre essai gratuit est terminé',
+      (p) =>
+        `Votre essai est terminé. L'application reste ouverte jusqu'au ${s(p.grace_ends_at)} : ajoutez un moyen de paiement avant cette date, sinon votre entreprise sera bloquée.`,
+    ),
+    nl: c(
+      () => 'Uw gratis proefperiode is afgelopen',
+      (p) =>
+        `Uw proefperiode is voorbij. De app blijft werken tot ${s(p.grace_ends_at)}: voeg vóór die datum een betaalmethode toe, anders wordt uw bedrijf geblokkeerd.`,
+    ),
+  },
+  subscription_blocked: {
+    en: c(
+      () => 'Your company is blocked',
+      () =>
+        'No payment was received, so your company is blocked. Your data is kept. Log in and open the billing page to subscribe and open everything again.',
+    ),
+    fr: c(
+      () => 'Votre entreprise est bloquée',
+      () =>
+        "Aucun paiement n'a été reçu : votre entreprise est bloquée. Vos données sont conservées. Connectez-vous et ouvrez la page Abonnement pour vous abonner et tout rouvrir.",
+    ),
+    nl: c(
+      () => 'Uw bedrijf is geblokkeerd',
+      () =>
+        'Er is geen betaling ontvangen, dus uw bedrijf is geblokkeerd. Uw gegevens blijven bewaard. Log in en open de abonnementspagina om u te abonneren en alles weer te openen.',
+    ),
+  },
+  import_done: {
+    en: c(
+      (p) => `Import finished: ${s(p.file_name)}`,
+      (p) =>
+        `Your file "${s(p.file_name)}" was imported: ${s(p.created_count)} created, ${s(p.updated_count)} updated.`,
+    ),
+    fr: c(
+      (p) => `Import terminé : ${s(p.file_name)}`,
+      (p) =>
+        `Votre fichier « ${s(p.file_name)} » est importé : ${s(p.created_count)} créé(s), ${s(p.updated_count)} mis à jour.`,
+    ),
+    nl: c(
+      (p) => `Import klaar: ${s(p.file_name)}`,
+      (p) =>
+        `Uw bestand "${s(p.file_name)}" is geïmporteerd: ${s(p.created_count)} aangemaakt, ${s(p.updated_count)} bijgewerkt.`,
+    ),
+  },
+  import_failed: {
+    en: c(
+      (p) => `Import failed: ${s(p.file_name)}`,
+      (p) =>
+        `Your file "${s(p.file_name)}" was not imported: ${s(p.error_count)} error(s). Nothing was saved. Open the import to see each line.`,
+    ),
+    fr: c(
+      (p) => `Import échoué : ${s(p.file_name)}`,
+      (p) =>
+        `Votre fichier « ${s(p.file_name)} » n'est pas importé : ${s(p.error_count)} erreur(s). Rien n'a été enregistré. Ouvrez l'import pour voir chaque ligne.`,
+    ),
+    nl: c(
+      (p) => `Import mislukt: ${s(p.file_name)}`,
+      (p) =>
+        `Uw bestand "${s(p.file_name)}" is niet geïmporteerd: ${s(p.error_count)} fout(en). Er is niets opgeslagen. Open de import om elke regel te zien.`,
     ),
   },
   tenant_signed_up: {
@@ -416,11 +518,11 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
     ),
     fr: c(
       (p) => `${s(p.company_name)} vous a envoyé un devis`,
-      (p) => `Merci de consulter le devis ${s(p.quote_ref)} .${link(p)}`,
+      (p) => `Merci de consulter le devis ${s(p.quote_ref)}.${link(p)}`,
     ),
-    ar: c(
-      (p) => `أرسلت ${s(p.company_name)} عرض سعر إليك`,
-      (p) => `يرجى مراجعة عرض السعر ${s(p.quote_ref)}.${link(p)}`,
+    nl: c(
+      (p) => `${s(p.company_name)} stuurde u een offerte`,
+      (p) => `Bekijk offerte ${s(p.quote_ref)}.${link(p)}`,
     ),
   },
   client_invoice_sent: {
@@ -432,9 +534,9 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) => `Facture ${s(p.invoice_ref)} de ${s(p.company_name)}`,
       (p) => `Merci de régler la facture ${s(p.invoice_ref)} (${s(p.amount)}).`,
     ),
-    ar: c(
-      (p) => `فاتورة ${s(p.invoice_ref)} من ${s(p.company_name)}`,
-      (p) => `يرجى دفع الفاتورة ${s(p.invoice_ref)} (${s(p.amount)}).`,
+    nl: c(
+      (p) => `Factuur ${s(p.invoice_ref)} van ${s(p.company_name)}`,
+      (p) => `Gelieve factuur ${s(p.invoice_ref)} (${s(p.amount)}) te betalen.`,
     ),
   },
   client_invoice_late: {
@@ -448,10 +550,10 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) =>
         `La facture ${s(p.invoice_ref)} de ${s(p.company_name)} n'est toujours pas réglée. Solde dû : ${s(p.balance_due)}.`,
     ),
-    ar: c(
-      (p) => `تذكير: الفاتورة ${s(p.invoice_ref)} متأخرة`,
+    nl: c(
+      (p) => `Herinnering: factuur ${s(p.invoice_ref)} is vervallen`,
       (p) =>
-        `الفاتورة ${s(p.invoice_ref)} من ${s(p.company_name)} لم تُدفع بعد. الرصيد المستحق: ${s(p.balance_due)}.`,
+        `Factuur ${s(p.invoice_ref)} van ${s(p.company_name)} is nog niet betaald. Openstaand saldo: ${s(p.balance_due)}.`,
     ),
   },
   client_portal_message: {
@@ -463,8 +565,8 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       (p) => `Nouveau message de ${s(p.company_name)}`,
       (p) => `${s(p.preview)}${link(p)}`,
     ),
-    ar: c(
-      (p) => `رسالة جديدة من ${s(p.company_name)}`,
+    nl: c(
+      (p) => `Nieuw bericht van ${s(p.company_name)}`,
       (p) => `${s(p.preview)}${link(p)}`,
     ),
   },
@@ -476,6 +578,12 @@ export interface RenderedNotification {
   html: string;
 }
 
+const OPEN_BUTTON: Record<EmailLocale, string> = {
+  fr: 'Ouvrir',
+  en: 'Open',
+  nl: 'Openen',
+};
+
 export function renderNotification(
   type: NotificationType,
   payload: Payload | null | undefined,
@@ -483,10 +591,25 @@ export function renderNotification(
 ): RenderedNotification {
   const copies: Partial<Record<string, Copy>> = TEMPLATES[type];
   const copy = (locale ? copies[locale] : undefined) ?? TEMPLATES[type].en;
-  const { subject, body } = copy(payload ?? {});
+  const data = payload ?? {};
+  const { subject, body } = copy(data);
+
+  // In the email the portal link becomes the orange button; the in-app `body`
+  // keeps the link inline.
+  const portalLink = link(data);
+  const portalUrl = s(data.portal_url);
+  const emailLocale = toEmailLocale(locale);
+
   return {
     subject,
     body,
-    html: `<p><strong>${subject}</strong></p><p>${body}</p>`,
+    html: renderEmailLayout({
+      locale: emailLocale,
+      title: subject,
+      bodyHtml: `<p style="margin:0;">${portalLink ? body.replace(portalLink, '') : body}</p>`,
+      ...(portalUrl && {
+        button: { label: OPEN_BUTTON[emailLocale], url: portalUrl },
+      }),
+    }),
   };
 }

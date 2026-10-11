@@ -8,6 +8,7 @@ import {
   toMaterialEntity,
 } from '../helpers/material.helper';
 import { MaterialRepository } from '../repositories/material.repository';
+import { CheckDescriptionHandler } from './check-description.handler';
 
 /** `POST /api/materials`. No quantity field here — `materials` never stores one. */
 @Injectable()
@@ -17,12 +18,14 @@ export class CreateMaterialHandler {
     private readonly logger: PinoLogger,
     private readonly materials: MaterialRepository,
     private readonly audit: AuditService,
+    private readonly checkDescription: CheckDescriptionHandler,
   ) {}
 
   async execute(dto: CreateMaterialDto, actor: AuthenticatedUser) {
     this.logger.info(`Creating material ${dto.description}`);
     assertNonNegative(dto.purchase_price, 'purchase_price');
     assertNonNegative(dto.minimum_stock, 'minimum_stock');
+    await this.checkDescription.assertFree(dto.description);
 
     const created = await this.materials.create({
       description: dto.description,

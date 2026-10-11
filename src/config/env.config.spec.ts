@@ -43,3 +43,59 @@ describe('validateEnv (Stripe + ImageKit + Resend)', () => {
     expect(() => validateEnv({ ...valid, [key]: value })).toThrow(key);
   });
 });
+
+describe('validateEnv (production must not use localhost links)', () => {
+  const prod = {
+    ...valid,
+    NODE_ENV: 'production',
+    APP_URL: 'https://app.chantieros.com',
+    PORTAL_BASE_URL: 'https://app.chantieros.com/portal',
+  };
+
+  it('accepts real public URLs in production', () => {
+    expect(() => validateEnv(prod)).not.toThrow();
+  });
+
+  it.each([
+    ['APP_URL', 'http://localhost:5300/i'],
+    ['APP_URL', 'http://127.0.0.1:3000'],
+    ['PORTAL_BASE_URL', 'http://localhost:3000/portal'],
+  ])('rejects %s = %s in production', (key, url) => {
+    expect(() => validateEnv({ ...prod, [key]: url })).toThrow(
+      `${key} must not point to localhost`,
+    );
+  });
+
+  it('lists every localhost variable at once', () => {
+    expect(() =>
+      validateEnv({
+        ...prod,
+        APP_URL: 'http://localhost:5300/i',
+        PORTAL_BASE_URL: 'http://localhost:3000/portal',
+      }),
+    ).toThrow('APP_URL, PORTAL_BASE_URL must not point to localhost');
+  });
+
+  it('allows localhost in development and test', () => {
+    for (const NODE_ENV of ['development', 'test']) {
+      expect(() =>
+        validateEnv({ ...valid, NODE_ENV, APP_URL: 'http://localhost:5300/i' }),
+      ).not.toThrow();
+    }
+  });
+});
+
+describe('validateEnv COOKIE_DOMAIN (step 18)', () => {
+  it.each(['', '.example.com', 'app.example.com'])('accepts "%s"', (value) => {
+    expect(() => validateEnv({ ...valid, COOKIE_DOMAIN: value })).not.toThrow();
+  });
+
+  it.each(['localhost', 'https://example.com', 'exa mple.com'])(
+    'refuses "%s"',
+    (value) => {
+      expect(() => validateEnv({ ...valid, COOKIE_DOMAIN: value })).toThrow(
+        'COOKIE_DOMAIN',
+      );
+    },
+  );
+});

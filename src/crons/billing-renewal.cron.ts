@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { BillingService } from '../billing/billing.service';
+import { isBilled } from '../subscriptions/helpers/subscription.helper';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { TenantRunner } from './tenant-runner.service';
 
@@ -29,6 +30,7 @@ export class BillingRenewalCron {
       await this.runner.forEachTenant('billing-renewal', async (tenant) => {
         const subscription = await this.subscriptions.findByTenant(tenant.id);
         if (!subscription || subscription.periodEnd > new Date()) return;
+        if (!isBilled(subscription.status)) return;
         await this.billing.enqueueRenewal(tenant.id);
         queued += 1;
       });

@@ -8,6 +8,9 @@ import {
 import { MATERIAL_COST_TYPE_NAME } from '../../cost-types/helpers/cost-type.helper';
 import { computeDocumentTotals } from '../../documents/helpers/document-totals.helper';
 
+/** A bill due within this many days (overdue ones too) is "due soon": the cron alert and the dashboard. */
+export const PURCHASE_DUE_DAYS = 7;
+
 /** What may leave the module. Internal only — never shown to the client portal. */
 export function toPurchaseInvoiceEntity(invoice: PurchaseInvoice) {
   return {

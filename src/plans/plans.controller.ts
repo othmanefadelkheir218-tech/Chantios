@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { AdminBillingAccessGuard } from '../admin-users/guards/admin-billing-access.guard';
 import { AuditLog } from '../audit/decorators/audit-log.decorator';
 import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
 import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
@@ -35,6 +36,7 @@ export class PlansController {
   constructor(private readonly plansService: PlansService) {}
 
   @Post()
+  @UseGuards(AdminBillingAccessGuard)
   @AuditLog('create', 'plan')
   @ApiCreatePlan()
   create(@Body() dto: CreatePlanDto) {
@@ -54,6 +56,7 @@ export class PlansController {
   }
 
   @Patch(':id/deactivate')
+  @UseGuards(AdminBillingAccessGuard)
   @AuditLog('deactivate', 'plan')
   @ApiDeactivatePlan()
   deactivate(@Param('id', ParseIntPipe) id: number) {
@@ -61,6 +64,7 @@ export class PlansController {
   }
 
   @Patch(':id/default')
+  @UseGuards(AdminBillingAccessGuard)
   @AuditLog('set_default', 'plan')
   @ApiSetDefaultPlan()
   setDefault(@Param('id', ParseIntPipe) id: number) {
@@ -68,6 +72,7 @@ export class PlansController {
   }
 
   @Post(':id/version')
+  @UseGuards(AdminBillingAccessGuard)
   @AuditLog('create_version', 'plan')
   @ApiCreatePlanVersion()
   createVersion(

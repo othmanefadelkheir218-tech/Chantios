@@ -46,7 +46,7 @@ export class PortalRefuseQuoteHandler {
       action: 'portal_refuse',
       entityType: 'quote',
       entityId: quoteId,
-      newValue: { clientId: portal.clientId, portalTokenId: portal.tokenId },
+      newValue: { clientId: portal.clientId, portalLinkId: portal.tokenId },
       ipAddress: portal.ip,
     });
     return { id: quoteId, status: 'refused' as const };

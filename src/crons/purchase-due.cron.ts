@@ -2,11 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PURCHASE_DUE_DAYS } from '../purchase-invoices/helpers/purchase-invoice.helper';
 import { PurchaseInvoicesService } from '../purchase-invoices/purchase-invoices.service';
 import { TenantRunner } from './tenant-runner.service';
 
-/** A bill due within this many days (overdue ones too) raises the alert. */
-export const PURCHASE_DUE_DAYS = 7;
 /** The same bill alerts again only after this many days. */
 const REPEAT_DAYS = 3;
 

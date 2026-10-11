@@ -13,10 +13,16 @@ export class FindServicesHandler {
     private readonly services: ServiceRepository,
   ) {}
 
-  async execute({ page, limit, category_id, search }: FindServicesQueryDto) {
+  async execute({
+    page,
+    limit,
+    category_id,
+    search,
+    is_active,
+  }: FindServicesQueryDto) {
     this.logger.debug(`Listing services (page ${page}, limit ${limit})`);
     const [data, total] = await this.services.findMany(
-      buildServiceFilter(category_id, search),
+      buildServiceFilter(category_id, search, is_active),
       toSkip(page, limit),
       limit,
     );

@@ -62,6 +62,14 @@ export class ChatController {
     return this.chatService.unread(actor);
   }
 
+  /** Who the caller can start a conversation with. Declared before `:id`. */
+  @Get('contacts')
+  @TenantAuth()
+  @Module('chat')
+  contacts(@CurrentUser() actor: AuthenticatedUser) {
+    return this.chatService.contacts(actor);
+  }
+
   @Get(':id')
   @TenantAuth()
   @Module('chat')

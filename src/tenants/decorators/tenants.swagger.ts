@@ -2,7 +2,6 @@ import { applyDecorators } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
-  ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -15,24 +14,12 @@ import { TenantEntity } from '../entities/tenant.entity';
 
 const idParam = () => ApiIntParam('id', 'Tenant id');
 
-export const ApiCreateTenant = () =>
-  applyDecorators(
-    ApiOperation({
-      summary: 'Create a tenant (super_admin)',
-      description:
-        'Creates a company. The email must be unique. One entry is written to audit_logs.',
-    }),
-    ApiCreatedResponse({ description: 'Tenant created', type: TenantEntity }),
-    ApiBadRequestResponse({ description: 'Invalid data (validation error)' }),
-    ApiConflictResponse({ description: 'Email already used' }),
-  );
-
 export const ApiFindTenants = () =>
   applyDecorators(
     ApiOperation({
       summary: 'List tenants (admin staff)',
       description:
-        'Paginated, newest first. Filter with `search` and `status`.',
+        'Paginated, newest first. Filter with `search` and `status`. `deleted=true` lists only soft-deleted tenants (to restore them).',
     }),
     ApiPaginatedResponse(TenantEntity, 'Paginated list of tenants'),
   );

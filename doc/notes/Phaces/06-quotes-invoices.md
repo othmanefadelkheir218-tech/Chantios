@@ -130,7 +130,7 @@ The portal's own accept/refuse routes are step 12. **Both paths call the same ha
 ## DTOs
 
 ### `quote-line.dto.ts`
-`service_id` optional integer (`null` = free-text line). `description` required. `unit` optional. `quantity` `@IsNumberString`, not zero. `unit_price_excl_vat` `@IsNumberString @Min(0)`. `vat_rate` `@IsNumberString` — **required**, pre-filled by the client from the service or the tenant default. `position` `@IsInt`.
+`service_id` optional integer (`null` = free-text line) — must be a service of the same company, else `400` (checked through `ServicesService`, quotes and invoices alike). Picker rules: [catalogue-stock-tables-and-cost-storage.md](../catalogue-stock-tables-and-cost-storage.md) § Picking a service. `description` required. `unit` optional. `quantity` `@IsNumberString`, not zero. `unit_price_excl_vat` `@IsNumberString @Min(0)`. `vat_rate` `@IsNumberString` — **required**, pre-filled by the client from the service or the tenant default. `position` `@IsInt`.
 
 ### `create-quote.dto.ts`
 `client_id`, `project_id` both `@IsInt` **required**. `issue_date` optional. `valid_until` optional. `note` optional. `lines` — array of `quote-line.dto`.

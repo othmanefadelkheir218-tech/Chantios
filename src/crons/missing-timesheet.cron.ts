@@ -6,7 +6,7 @@ import { TimeEntriesService } from '../time-entries/time-entries.service';
 import {
   isReminderHour,
   localMoment,
-} from './helpers/tenant-local-time.helper';
+} from '../common/helpers/tenant-local-time.helper';
 import { TenantRunner } from './tenant-runner.service';
 
 /** The manager is told one hour AFTER the employees' own reminder. */

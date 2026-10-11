@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
+import { ServicesService } from '../../services/services.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 import { computeDocumentTotals } from '../../documents/helpers/document-totals.helper';
@@ -31,6 +32,7 @@ export class SetInvoiceLinesHandler {
     private readonly tenantPrisma: TenantPrismaService,
     private readonly invoices: InvoiceRepository,
     private readonly audit: AuditService,
+    private readonly services: ServicesService,
   ) {}
 
   async execute(
@@ -58,6 +60,9 @@ export class SetInvoiceLinesHandler {
     for (const line of dto.lines) {
       assertNonZeroQuantity(line.quantity);
     }
+    await this.services.assertLineServices(
+      dto.lines.map((line) => line.service_id),
+    );
 
     const { updated, lines } = await this.tenantPrisma.db.$transaction(
       async (tx) => {

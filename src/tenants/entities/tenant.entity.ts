@@ -42,6 +42,20 @@ export class TenantEntity {
   @ApiProperty({ nullable: true })
   logo_media_id: number | null;
 
+  @ApiProperty({
+    nullable: true,
+    description: 'Bank account, printed in the invoice payment block',
+    example: 'BE68539007547034',
+  })
+  iban: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Bank code',
+    example: 'GKCCBEBB',
+  })
+  bic: string | null;
+
   @ApiProperty({ description: 'Money and rates are strings', example: '21.00' })
   default_vat_rate: string;
 

@@ -1,3 +1,4 @@
+import { UserEntity } from '../../users/entities/user.entity';
 import { applyDecorators } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -27,6 +28,22 @@ export const ApiCreateInvitation = () =>
       type: InvitationEntity,
     }),
     ApiBadRequestResponse({ description: 'Invalid data' }),
+    ApiConflictResponse({
+      description: 'Email already used or invited elsewhere',
+    }),
+  );
+
+export const ApiCreateDirectMember = () =>
+  applyDecorators(
+    ApiOperation({
+      summary: 'Add a member without the invitation email (admin)',
+      description:
+        'Email + temporary password (any role; the user must choose a new password after login), or a worker with no email: PIN only, the response carries an 8-digit login_code for the phone login. No email is sent.',
+    }),
+    ApiCreatedResponse({ description: 'Member created', type: UserEntity }),
+    ApiBadRequestResponse({
+      description: 'Invalid data, or a shape that is not allowed',
+    }),
     ApiConflictResponse({
       description: 'Email already used or invited elsewhere',
     }),

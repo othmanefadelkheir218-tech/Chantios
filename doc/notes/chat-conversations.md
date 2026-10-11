@@ -28,10 +28,19 @@ All conversations are **scoped by `tenant_id`** — a message can never cross co
 
 Team communication inside the company.
 
-- Any employee can start a conversation
+- Any employee can start a conversation — the `worker` too, with anyone of the company (see § Contacts)
 - Members are `users` only (same `tenant_id`)
 - Not linked to any project — general purpose
 - Or can be linked to a project for team discussion on that site
+
+### 1-to-1 — one conversation per pair
+
+Decided 2026-10-10 (owner).
+
+- `POST /api/conversations` with **one** other person and **no** `project_id` returns the existing 1-to-1 conversation of these two users (internal, no project, exactly these two members) instead of creating a second one.
+- If that conversation is archived, it is brought back (`is_archived = false`, audit `restore`) — all the history stays in one thread.
+- A group (2+ other people) or a project conversation is always new.
+- The tenant top bar chat menu has a **Contacts** tab (every active user of the company, with search, from `GET /api/conversations/contacts`). A click calls this endpoint and opens the chat window.
 
 ---
 
@@ -114,6 +123,8 @@ There is **no `attachments` column on `messages`.** Every attachment is a `media
 
 Allowed types in chat: **images + PDF only**.
 
+The client in the portal can attach files to its own messages too, with the same types and limits — see [[client-portal]] § Files in the portal chat. A client's file has `uploaded_by = NULL`.
+
 ---
 
 ## Archive, not delete
@@ -127,6 +138,27 @@ Conversations and messages are **never deleted** — only archived. Both carry `
 New message → notification + email to all members of that conversation. See [[alerts]] for full delivery rules.
 
 ---
+
+## Contacts — who you can start a chat with
+
+Decided 2026-10-10 (owner: "whole team").
+
+- `GET /api/conversations/contacts`, right `chat:view` — so the `worker`, `sales`, `accountant` (no `team` right) can use it.
+- Returns every **active** user of the caller's company, the caller included: `id`, `name`, `role`, `avatar_url` (newest `user` media, or null) only. **Never** email, phone or hourly rate.
+- Used by the "new conversation" and "add someone" pickers, and for the names shown in the chat when the user has no `team` right.
+- Inactive users are not listed. Their old messages show `#id` to a user without the `team` right.
+
+---
+
+## Online status
+
+**Decision (2026-10-10, owner):** a company user can see which colleagues are online.
+
+- **Online** = at least one socket of that user is connected (several tabs = still one person). **Offline** = none. Nothing else: no "last seen", no "away". Nothing is stored in the database.
+- **Same company only.** Presence events go to the company's room `presence:tenant:<id>`; another company never hears them.
+- **An impersonation session does not count**: a platform admin acting as the company's admin does not make that admin look online.
+- Socket API (chat gateway): `presence` server → company `{ user_id, online }` on the first connect / last disconnect of a user; `online_users` client → server, ack `{ user_ids: number[] }` — asked at every (re)connect, since missed events are never replayed. Works across API instances through the Redis adapter.
+- Clients and platform admins have no online status.
 
 ## Related notes
 - [[business-logic-overview]]

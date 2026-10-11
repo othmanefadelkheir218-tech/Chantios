@@ -111,6 +111,9 @@ From [technical/build-order.md](../technical/build-order.md). Phase numbers are 
 | 15 | [15-documents.md](15-documents.md) | 15 | no |
 | 16 | [16-support-feedback.md](16-support-feedback.md) | 16 | no |
 | — | [17-ai-layer.md](17-ai-layer.md) | 17 | **v2 — do not build** |
+| 18 | [18-frontend-support.md](18-frontend-support.md) | — | no — API additions the frontend needs (planned) |
+| 19 | [19-bulk-import.md](19-bulk-import.md) | — | no — `.xlsx` import of materials and stock (planned) |
+| 20 | [20-trial-end-dev-tools.md](20-trial-end-dev-tools.md) | — | no — end of the trial (grace, block) + super-admin dev tools |
 
 ### Why three steps move
 

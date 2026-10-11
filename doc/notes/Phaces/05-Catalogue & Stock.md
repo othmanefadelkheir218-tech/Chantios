@@ -81,7 +81,7 @@ src/
 | `PATCH` | `/api/categories/:id` | `admin` | own rows only — never a `NULL` default |
 | `DELETE` | `/api/categories/:id` | `admin` | `is_active = false`, own rows only |
 | `POST` | `/api/services` | `catalogue:create` | |
-| `GET` | `/api/services` | `catalogue:view` | `?category_id=&search=` |
+| `GET` | `/api/services` | `catalogue:view` | `?category_id=&search=&is_active=` (`is_active=true` = the line picker's list) |
 | `GET` | `/api/services/:id` | `catalogue:view` | |
 | `PATCH` | `/api/services/:id` | `catalogue:edit` | |
 | `DELETE` | `/api/services/:id` | `catalogue:delete` | `is_active = false` |

@@ -1,3 +1,4 @@
+import { AdminUsersModule } from '../admin-users/admin-users.module';
 import { SessionsModule } from '../sessions/sessions.module';
 import { TokenModule } from '../auth/token.module';
 import { Module } from '@nestjs/common';
@@ -13,6 +14,7 @@ import { SendTenantVerificationEmailHandler } from './handlers/send-tenant-verif
 import { SetTenantStatusHandler } from './handlers/set-tenant-status.handler';
 import { SoftDeleteTenantHandler } from './handlers/soft-delete-tenant.handler';
 import { SoftDeleteTenantsHandler } from './handlers/soft-delete-tenants.handler';
+import { UpdateTenantProfileHandler } from './handlers/update-tenant-profile.handler';
 import { UpdateTenantHandler } from './handlers/update-tenant.handler';
 import { VerifyTenantEmailHandler } from './handlers/verify-tenant-email.handler';
 import { TenantRepository } from './repositories/tenant.repository';
@@ -21,6 +23,7 @@ import { TenantsService } from './tenants.service';
 
 @Module({
   imports: [
+    AdminUsersModule,
     SessionsModule,
     TokenModule,
     AuditModule,
@@ -35,6 +38,7 @@ import { TenantsService } from './tenants.service';
     FindTenantsHandler,
     FindTenantHandler,
     UpdateTenantHandler,
+    UpdateTenantProfileHandler,
     SetTenantStatusHandler,
     SoftDeleteTenantHandler,
     SoftDeleteTenantsHandler,

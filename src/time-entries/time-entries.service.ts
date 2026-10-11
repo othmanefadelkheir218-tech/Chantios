@@ -80,4 +80,9 @@ export class TimeEntriesService {
   projectLabourCost(projectId: number, actor: AuthenticatedUser) {
     return this.labourCost.execute(projectId, actor);
   }
+
+  /** Dashboard (step 18). `userId` is set for a user with scope `own`. */
+  sumHoursBetween(from: Date, to: Date, userId?: number) {
+    return this.entries.sumHoursBetween(from, to, userId);
+  }
 }

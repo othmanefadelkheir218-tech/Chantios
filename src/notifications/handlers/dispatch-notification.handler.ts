@@ -108,7 +108,11 @@ export class DispatchNotificationHandler {
       );
       const byUser = new Map(recipients.map((user) => [user.id, user]));
       for (const row of rows) {
-        this.deliver(row, byUser.get(row.userId ?? 0)?.email, tenant.locale);
+        this.deliver(
+          row,
+          byUser.get(row.userId ?? 0)?.email ?? undefined,
+          tenant.locale,
+        );
       }
       return rows.length;
     });

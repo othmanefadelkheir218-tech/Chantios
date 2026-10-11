@@ -90,8 +90,8 @@ Two controllers on purpose: `portal-admin.controller.ts` for staff (behind `Auth
 | `POST` | `/api/portal/:token/quotes/:id/refuse` | |
 | `GET` | `/api/portal/:token/invoices` | `sent`, `partially_paid`, `paid` only |
 | `GET` | `/api/portal/:token/documents/:mediaId` | the frozen PDF. Writes a `download` event |
-| `GET` | `/api/portal/:token/messages` | the `project_client` thread |
-| `POST` | `/api/portal/:token/messages` | `sender_type = 'client'` |
+| `GET` | `/api/portal/:token/messages` | the `project_client` thread; each attachment has `file_url` |
+| `POST` | `/api/portal/:token/messages` | `sender_type = 'client'`. JSON `{content}`, or `multipart/form-data` with `content` + up to 10 `files` (images + PDF, 10 MB each — the media module's rule). Files are uploaded, then linked to the message in one transaction |
 
 All client routes are `@Public()` at the Nest level — the `PortalTokenGuard` is their only gate. Rate-limit them: the token is in the URL and will end up in logs and browser history.
 
@@ -115,7 +115,7 @@ Build the portal response from an explicit **allow-list** of fields. Never seria
 No body needed. Optionally `expires_in_days` `@IsInt @Min(1) @Max(365)`, default 90.
 
 ### `portal-message.dto.ts`
-`content` `@IsNotEmpty @MaxLength(5000)`.
+`content` `@IsNotEmpty @MaxLength(5000)`. The files come through `FilesInterceptor('files', 10)`, not the DTO.
 
 ## Repository methods
 

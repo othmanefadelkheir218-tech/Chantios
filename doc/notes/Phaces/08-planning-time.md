@@ -79,6 +79,7 @@ src/
 | `PUT` | `/api/tasks/:id/assignees` | `tasks:edit` | replaces the set |
 | `DELETE` | `/api/tasks/:id` | `tasks:delete` | |
 | `GET` | `/api/mobile/my-tasks` | `AuthGuard` | the `worker` screen — own tasks only |
+| `GET` | `/api/mobile/my-projects` | `AuthGuard` | name + address of the projects where the caller has a task ([planning-time-entries.md](../planning-time-entries.md) § The worker's projects) |
 | `POST` | `/api/time-entries` | `time_entries:create` | |
 | `GET` | `/api/time-entries` | `time_entries:view` | `?user_id=&project_id=&from=&to=` |
 | `PATCH` | `/api/time-entries/:id` | `time_entries:edit` | the correction rules below |

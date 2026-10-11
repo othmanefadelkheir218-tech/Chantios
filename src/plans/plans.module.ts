@@ -1,3 +1,4 @@
+import { AdminUsersModule } from '../admin-users/admin-users.module';
 import { TokenModule } from '../auth/token.module';
 import { forwardRef, Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
@@ -7,14 +8,21 @@ import { CreatePlanHandler } from './handlers/create-plan.handler';
 import { DeactivatePlanHandler } from './handlers/deactivate-plan.handler';
 import { FindPlanHandler } from './handlers/find-plan.handler';
 import { FindPlansHandler } from './handlers/find-plans.handler';
+import { FindPublicPlansHandler } from './handlers/find-public-plans.handler';
 import { SetDefaultPlanHandler } from './handlers/set-default-plan.handler';
+import { PlansPublicController } from './plans-public.controller';
 import { PlansController } from './plans.controller';
 import { PlansService } from './plans.service';
 import { PlanRepository } from './repositories/plan.repository';
 
 @Module({
-  imports: [TokenModule, AuditModule, forwardRef(() => StripeModule)],
-  controllers: [PlansController],
+  imports: [
+    TokenModule,
+    AuditModule,
+    AdminUsersModule,
+    forwardRef(() => StripeModule),
+  ],
+  controllers: [PlansController, PlansPublicController],
   providers: [
     PlansService,
     PlanRepository,
@@ -24,6 +32,7 @@ import { PlanRepository } from './repositories/plan.repository';
     DeactivatePlanHandler,
     SetDefaultPlanHandler,
     CreatePlanVersionHandler,
+    FindPublicPlansHandler,
   ],
   exports: [PlansService],
 })

@@ -172,7 +172,11 @@ This matches what's already planned for the `/time-entries` manager page (per th
 ### Manager side
 - **Missing timesheet alert** — an employee has a task `in_progress` today but no `time_entries` row for today.
 - **Abnormal hours alert** — someone logged unusually high hours in one day (e.g. over 12h) — worth a quick review.
-- **Stalled project alert** — a project is `in_progress` but no hours have been logged on it in several days.
+- **Stalled project alert** — a project is `in_progress` but no hours have been logged on it in **5 days** (`STALLED_PROJECT_DAYS`).
+
+## The worker's projects
+
+**Decision (2026-10-10, owner):** the `worker` has no `projects` permission, but their task cards and hours form must show the project **name and address**. `GET /api/mobile/my-projects` (tasks module, `@Module('tasks')`) returns `id`, `name`, `address_line1`, `address_line2`, `postal_code`, `city` of **every project where the caller is an assignee on at least one task** — the same rule as the worker hour scope (`isAssignedToProject`). Nothing else about the project (client, money, status) is sent.
 
 ## Related notes
 - [[business-logic-overview]]

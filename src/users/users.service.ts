@@ -68,6 +68,11 @@ export class UsersService {
     return this.users.findByEmail(email);
   }
 
+  /** Phone login of a worker with no email — not tenant-filtered, like `findByEmail`. */
+  findByLoginCode(loginCode: string): Promise<User | null> {
+    return this.users.findByLoginCode(loginCode);
+  }
+
   findByIdRaw(id: number): Promise<User | null> {
     return this.users.findByIdUnscoped(id);
   }

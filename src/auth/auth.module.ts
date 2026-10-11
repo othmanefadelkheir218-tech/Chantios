@@ -10,7 +10,9 @@ import { SessionsModule } from '../sessions/sessions.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { UsersModule } from '../users/users.module';
+import { InvitationsModule } from '../invitations/invitations.module';
 import { AdminAuthController } from './admin-auth.controller';
+import { AdminTenantsController } from './admin-tenants.controller';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './guards/auth.guard';
@@ -18,8 +20,11 @@ import { PermissionGuard } from './guards/permission.guard';
 import { SubscriptionGuard } from './guards/subscription.guard';
 import { TenantStatusGuard } from './guards/tenant-status.guard';
 import { TenantGuard } from './guards/tenant.guard';
+import { AdminCreateTenantHandler } from './handlers/admin-create-tenant.handler';
 import { AdminLoginHandler } from './handlers/admin-login.handler';
 import { AdminLogoutHandler } from './handlers/admin-logout.handler';
+import { AdminRefreshHandler } from './handlers/admin-refresh.handler';
+import { GetAdminMeHandler } from './handlers/get-admin-me.handler';
 import { ChangePasswordHandler } from './handlers/change-password.handler';
 import { ForgotPasswordHandler } from './handlers/forgot-password.handler';
 import { GetMeHandler } from './handlers/get-me.handler';
@@ -60,12 +65,14 @@ import { TokenModule } from './token.module';
     PlansModule,
     NotificationsModule, // tenant_signed_up
     AuditModule, // impersonate_enter / impersonate_exit
+    InvitationsModule, // step 18 — first-admin invitation of a company created by the super-admin
   ],
   controllers: [
     AuthController,
     MobileAuthController,
     AdminAuthController,
     ImpersonateController,
+    AdminTenantsController,
   ],
   providers: [
     AuthService,
@@ -91,6 +98,9 @@ import { TokenModule } from './token.module';
     AdminLoginHandler,
     Verify2faHandler,
     AdminLogoutHandler,
+    AdminRefreshHandler,
+    GetAdminMeHandler,
+    AdminCreateTenantHandler,
     ImpersonateEnterHandler,
     ImpersonateExitHandler,
   ],

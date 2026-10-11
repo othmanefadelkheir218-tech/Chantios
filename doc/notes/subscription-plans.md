@@ -65,7 +65,42 @@ A `tenant_subscriptions` row is created **in the same transaction as the tenant*
 
 Without this row a company that just registered would be locked out of its own app, because the guard would find no subscription to check. Pointing `plan_id` at a real plan from minute one also means billing at the end of the trial needs no special case — the renewal job counts usage the same way it always does.
 
+**A company created by the super-admin gets the same start.** `POST /api/admin/tenants` creates, in one transaction: the `tenants` row, the trial `tenant_subscriptions` row above, and an **invitation** for the company's first `admin` user (`owner_name` + `owner_email` in the request). The boss sets their own password through the normal invitation link. The super-admin never chooses a password for anyone.
+
 **Operational rule:** plans are never seeded, so the super-admin must create at least one plan and set `is_default = true` **before the app can accept signups**. Registration fails without a default plan, and that is correct — it is a setup error, not a user error.
+
+## Decided — the end of the trial (grace period, then block)
+
+Decided 2026-10-10. A trial ends; it never runs forever. **The same 7-day grace, then block, applies to a failed payment** (§ A failed payment, below).
+
+| Day (from signup) | What happens |
+|---|---|
+| **11** (`period_end` − 3 days, still `trialing`) | Reminder `trial_ending` — in-app + email, sent once: "your trial ends in 3 days, add a payment method" |
+| **14** (the trial's `period_end`) | The first renewal of a `trialing` subscription ends the trial: usage is counted as usual, the period rolls forward, then `status = past_due` and `grace_ends_at = old period_end + 7 days`. Alert `trial_ended`. The app still works; every page shows a banner "your trial has ended — X days left to add a payment method" |
+| **21** (`grace_ends_at`) | Still `past_due` and no payment → `status = cancelled`, `grace_ends_at` cleared. Alert `subscription_blocked` (email). The company is blocked |
+| **Payment** (step 3, Stripe Checkout) | `status = active`, `grace_ends_at` cleared — everything opens again at once |
+
+**Blocked (`cancelled`) means:** people can still log in and see who they are (`/auth/me`), and the billing read routes (`GET /api/billing/subscription`, `/usage`, `/invoices`) still answer, so the company admin can see the billing page and pay. Every other company route is refused by `SubscriptionGuard` — the Field area too. **No data is ever deleted.**
+
+Other rules that come with it:
+
+- `grace_ends_at` exists only while the status is `past_due`. Any other status clears it.
+- The banner and the blocked page say "no payment received" — the same words for both causes.
+- The renewal job skips a `cancelled` subscription: a blocked company is not billed and its period does not move.
+- The alerts go to the company's staff who can see `settings` (the same rule as the other subscription alerts).
+
+### A failed payment
+
+Decided 2026-10-10 (owner: "7 days and then a block, and ask him to pay").
+
+- A Stripe payment failure → `status = past_due` and `grace_ends_at = now + 7 days`.
+- Alert `subscription_payment_failed` asks the company to pay and gives the date: "pay before <date>, or your company will be blocked". The banner shows on every page, as after a trial.
+- Day 7 with no payment → the same block as the trial (`cancelled`, alert `subscription_blocked`).
+- **A second failure during the 7 days does not move the date.** The grace starts at the first unpaid event and is never extended.
+- **A failure on a blocked (`cancelled`) company keeps it blocked** — it never reopens a company; only a successful payment does.
+- A successful payment → `active`, `grace_ends_at` cleared.
+
+Fast-forwarding these dates to test them: the super-admin dev tools, [Phaces/20-trial-end-dev-tools.md](Phaces/20-trial-end-dev-tools.md) — never available in production.
 
 ## Decided
 
@@ -116,6 +151,16 @@ A signup always needs a default plan, so the platform guards it:
   - Usage already ≤ new target → downgrade accepted immediately.
   - Usage still above the new target → downgrade **refused**, customer is told to delete/reduce files down to the target first, then the change can be applied.
 - **Why storage differs from employees**: deactivating an employee drops usage instantly. Storage doesn't — the files physically still exist until deleted, so the system must check *before* accepting the downgrade rather than relying on usage naturally dropping on its own.
+
+## Public plan list — the pricing page
+
+`GET /api/plans` — `@Public()`, no login. It feeds the public pricing page.
+
+- Returns only plans with `is_active = true`. A new version deactivates the row it replaces, so these are exactly the current versions — old versions kept for existing subscribers never show.
+- Per plan: `id`, `name`, `base_price`, `is_default`, and `features`: `[{ feature_key, limit_value, overage_rate }]`.
+- Never returns `stripe_price_id`, `parent_plan_id`, or any subscriber count.
+- Sorted by `base_price`, cheapest first.
+- Read-only. Plans are still created and changed only through `/api/admin/plans`.
 
 ## Related notes
 
@@ -170,7 +215,7 @@ The Stripe calls live in `src/stripe/` (`CreatePlanPriceHandler`, `ArchivePlanPr
 
 **Decision (2026-10-05): `overage_rate: "0"` means unlimited for that dimension, at no extra cost.** This was already true by the billing formula — `bill = base_price + Σ max(0, actual − allowance) × overage_rate` — a `0` rate contributes nothing no matter how far over the `limit_value` actual usage goes, so a tenant with 5 included workers and 500 actual workers pays the same base price either way. Writing it down so it isn't re-derived from the formula each time; same spirit as the existing `retention_days` carve-out, just explicit now instead of implicit.
 
-**Decision (2026-10-05): no feature-translation table.** `feature_key` stays a plain code on the wire — the API never returns a display label. The 6 keys are fixed and only need 3 locales (`fr`/`en`/`ar`), so this is static UI copy, not data: whichever frontend consumes `GET /api/admin/plans` maps `feature_key` → its own i18n bundle for the label, the same way it would for any other fixed enum. Revisit only if the backend itself ever needs to render the label server-side (a server-rendered billing page, a PDF, an email) — nothing does today.
+**Decision (2026-10-05): no feature-translation table.** `feature_key` stays a plain code on the wire — the API never returns a display label. The 6 keys are fixed and only need 3 locales (`fr`/`en`/`nl`), so this is static UI copy, not data: whichever frontend consumes `GET /api/admin/plans` maps `feature_key` → its own i18n bundle for the label, the same way it would for any other fixed enum. Revisit only if the backend itself ever needs to render the label server-side (a server-rendered billing page, a PDF, an email) — nothing does today.
 
 ---
 

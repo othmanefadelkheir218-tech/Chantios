@@ -38,7 +38,10 @@ export class TenantFeedbackController {
 
   @Get('mine')
   @TenantAuth()
-  findMine(@Query() query: PaginationQueryDto) {
-    return this.feedbackService.findMine(query);
+  findMine(
+    @Query() query: PaginationQueryDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.feedbackService.findMine(query, actor);
   }
 }

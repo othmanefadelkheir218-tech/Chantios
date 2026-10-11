@@ -6,9 +6,9 @@ import { RequestActor } from '../../common/decorators/actor.decorator';
 import { UsersService } from '../../users/users.service';
 import { setImpersonationCookie } from '../helpers/cookie.helper';
 import { TokenHelper } from '../helpers/token.helper';
+import { ADMIN_ROLE_ID } from '../helpers/new-company.helper';
 
 /** The 7 seeded roles are fixed (prisma/seeds/data.seed.ts) — admin is id 1. */
-const ADMIN_ROLE_ID = 1;
 
 /**
  * `POST /api/admin/impersonate/:tenantId` — a scoped, short-lived tenant

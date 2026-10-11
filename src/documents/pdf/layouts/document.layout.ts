@@ -5,6 +5,7 @@ import {
   DocumentTotals,
   VatLine,
 } from '../../helpers/document-totals.helper';
+import { PdfLabels } from './pdf-labels';
 
 /** The line shape both `QuoteLine` and `InvoiceLine` satisfy — the only fields this layout prints. */
 export interface DocumentLineLike extends VatLine {
@@ -27,14 +28,15 @@ function money(value: Prisma.Decimal.Value, currency: string): string {
 export function buildLinesTable(
   lines: DocumentLineLike[],
   currency: string,
+  labels: PdfLabels,
 ): Content {
   const header: TableCell[] = [
-    { text: 'Description', style: 'tableHeader' },
-    { text: 'Unit', style: 'tableHeader' },
-    { text: 'Qty', style: 'tableHeader', alignment: 'right' },
-    { text: 'Unit price', style: 'tableHeader', alignment: 'right' },
-    { text: 'VAT %', style: 'tableHeader', alignment: 'right' },
-    { text: 'Total excl. VAT', style: 'tableHeader', alignment: 'right' },
+    { text: labels.description, style: 'tableHeader' },
+    { text: labels.unit, style: 'tableHeader' },
+    { text: labels.quantity, style: 'tableHeader', alignment: 'right' },
+    { text: labels.unitPrice, style: 'tableHeader', alignment: 'right' },
+    { text: labels.vatPercent, style: 'tableHeader', alignment: 'right' },
+    { text: labels.lineTotal, style: 'tableHeader', alignment: 'right' },
   ];
 
   const rows: TableCell[][] = lines.map((line) => [
@@ -72,6 +74,7 @@ export function buildTotalsBlock(
   lines: VatLine[],
   totals: DocumentTotals,
   currency: string,
+  labels: PdfLabels,
 ): Content {
   const breakdown = computeVatBreakdown(lines);
 
@@ -82,9 +85,9 @@ export function buildTotalsBlock(
   ]);
 
   const vatHeader: TableCell[] = [
-    { text: 'VAT rate', style: 'tableHeader' },
-    { text: 'Base excl. VAT', style: 'tableHeader', alignment: 'right' },
-    { text: 'VAT', style: 'tableHeader', alignment: 'right' },
+    { text: labels.vatRate, style: 'tableHeader' },
+    { text: labels.baseExclVat, style: 'tableHeader', alignment: 'right' },
+    { text: labels.vat, style: 'tableHeader', alignment: 'right' },
   ];
 
   const vatTable: Content =
@@ -104,15 +107,15 @@ export function buildTotalsBlock(
   // this literal as plain `Content` would make `width` an excess property.
   const summaryRows: TableCell[][] = [
     [
-      { text: 'Total excl. VAT' },
+      { text: labels.totalExclVat },
       { text: money(totals.amountExclVat, currency), alignment: 'right' },
     ],
     [
-      { text: 'Total VAT' },
+      { text: labels.totalVat },
       { text: money(totals.vatAmount, currency), alignment: 'right' },
     ],
     [
-      { text: 'Total incl. VAT', style: 'totalLabel' },
+      { text: labels.totalInclVat, style: 'totalLabel' },
       {
         text: money(totals.amountInclVat, currency),
         style: 'totalLabel',

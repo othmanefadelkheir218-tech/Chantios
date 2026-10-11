@@ -10,6 +10,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { Actor } from '../common/decorators/actor.decorator';
+import type { RequestActor } from '../common/decorators/actor.decorator';
 import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
 import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
 import {
@@ -38,7 +40,8 @@ export class FeedbackController {
   updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateFeedbackStatusDto,
+    @Actor() actor: RequestActor,
   ) {
-    return this.feedbackService.updateStatus(id, dto);
+    return this.feedbackService.updateStatus(id, dto, actor);
   }
 }

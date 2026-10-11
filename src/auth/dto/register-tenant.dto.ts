@@ -31,8 +31,8 @@ export class RegisterTenantDto {
   @IsString()
   phone?: string;
 
-  @ApiPropertyOptional({ enum: ['fr', 'en', 'ar'], default: 'fr' })
+  @ApiPropertyOptional({ enum: ['fr', 'en', 'nl'], default: 'fr' })
   @IsOptional()
-  @IsIn(['fr', 'en', 'ar'])
+  @IsIn(['fr', 'en', 'nl'])
   locale?: string;
 }

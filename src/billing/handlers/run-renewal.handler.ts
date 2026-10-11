@@ -2,8 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { addOneMonth } from '../../common/helpers/billing-period.helper';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { PlansService } from '../../plans/plans.service';
-import { computeOverageAmount } from '../../subscriptions/helpers/subscription.helper';
+import {
+  computeOverageAmount,
+  isBilled,
+} from '../../subscriptions/helpers/subscription.helper';
 import { SubscriptionsService } from '../../subscriptions/subscriptions.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { ApplyPendingPlanIfDueHandler } from './apply-pending-plan-if-due.handler';
@@ -22,7 +26,11 @@ import { CountUsageHandler } from './count-usage.handler';
  *      only summed again from the same inputs for the Stripe push below);
  *   3. push the total overage to Stripe, best-effort;
  *   4. roll `period_start`/`period_end` forward one month;
- *   5. apply a pending plan if its effective date has now passed.
+ *   5. apply a pending plan if its effective date has now passed;
+ *   6. a `trialing` subscription: its first renewal IS the end of the trial
+ *      → `past_due` + `grace_ends_at`, alert `trial_ended` (step 20).
+ * A `cancelled` (blocked) company is skipped: never billed, period frozen
+ * (doc/notes/subscription-plans.md § The end of the trial).
  */
 @Injectable()
 export class RunRenewalHandler {
@@ -34,12 +42,19 @@ export class RunRenewalHandler {
     private readonly countUsage: CountUsageHandler,
     private readonly applyPendingPlan: ApplyPendingPlanIfDueHandler,
     private readonly stripe: StripeService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async execute(tenantId: number) {
     this.logger.info(`Running renewal for tenant ${tenantId}`);
 
     const subscription = await this.subscriptions.findByTenant(tenantId);
+    if (!isBilled(subscription.status)) {
+      this.logger.info(
+        `Renewal skipped for tenant ${tenantId}: subscription is ${subscription.status}`,
+      );
+      return { skipped: true, usage: null, totalOverage: '0' };
+    }
     const plan = await this.plans.findOne(subscription.planId);
     const usage = await this.countUsage.execute(tenantId);
 
@@ -77,12 +92,28 @@ export class RunRenewalHandler {
     const newPeriodEnd = addOneMonth(newPeriodStart);
     await this.subscriptions.setPeriod(tenantId, newPeriodStart, newPeriodEnd);
     await this.applyPendingPlan.execute(tenantId, subscription, newPeriodStart);
+    if (subscription.status === 'trialing') {
+      await this.endTrial(tenantId, subscription.periodEnd);
+    }
 
     this.logger.info(
       `Renewal done for tenant ${tenantId}: overage ${totalOverage.toString()} EUR, ` +
         `period rolled to ${newPeriodEnd.toISOString()}`,
     );
 
-    return { usage, totalOverage: totalOverage.toString() };
+    return { skipped: false, usage, totalOverage: totalOverage.toString() };
+  }
+
+  /** Day 14: `past_due` for 7 days, then the block (`BlockExpiredGraceHandler`). */
+  private async endTrial(tenantId: number, trialEnd: Date): Promise<void> {
+    const graceEndsAt = await this.subscriptions.startGrace(tenantId, trialEnd);
+    if (!graceEndsAt) return;
+    await this.notifications.dispatch('trial_ended', {
+      tenantId,
+      payload: {
+        entity_id: tenantId,
+        grace_ends_at: graceEndsAt.toISOString().slice(0, 10),
+      },
+    });
   }
 }

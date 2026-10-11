@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { MarginAlertRepository } from './repositories/margin-alert.repository';
 import {
   ActingParty,
   AuthenticatedUser,
@@ -24,6 +25,7 @@ export class MarginsService {
     private readonly writeSnapshot: WriteSnapshotHandler,
     private readonly voidSnapshot: VoidSnapshotHandler,
     private readonly checkThresholds: CheckThresholdsHandler,
+    private readonly alerts: MarginAlertRepository,
   ) {}
 
   findAll(query: FindMarginsQueryDto) {
@@ -70,5 +72,10 @@ export class MarginsService {
   checkProjectThresholds(projectId: number | null, actor: ActingParty) {
     if (projectId === null) return Promise.resolve();
     return this.checkThresholds.execute(projectId, actor.tenantId);
+  }
+
+  /** Dashboard (step 18): the alert levels the threshold check already stored. */
+  countOpenProjectsByLevel() {
+    return this.alerts.countOpenProjectsByLevel();
   }
 }

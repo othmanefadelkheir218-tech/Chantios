@@ -15,6 +15,10 @@ export class StripeEventRepository {
     return this.prisma.stripeEvent.findUnique({ where: { stripeEventId } });
   }
 
+  findById(id: number): Promise<StripeEvent | null> {
+    return this.prisma.stripeEvent.findUnique({ where: { id } });
+  }
+
   markProcessed(id: number): Promise<StripeEvent> {
     return this.prisma.stripeEvent.update({
       where: { id },

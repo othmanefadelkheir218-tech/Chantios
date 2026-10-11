@@ -79,8 +79,12 @@ export class PortalService {
     return this.messages.execute(portal, query);
   }
 
-  postMessage(portal: PortalContextData, dto: PortalMessageDto) {
-    return this.sendMessage.execute(portal, dto);
+  postMessage(
+    portal: PortalContextData,
+    dto: PortalMessageDto,
+    files: Express.Multer.File[],
+  ) {
+    return this.sendMessage.execute(portal, dto, files);
   }
 
   /** The URL of a document the client may open (and a `download` tracking row). */

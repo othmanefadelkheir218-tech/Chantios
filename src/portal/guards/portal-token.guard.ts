@@ -4,8 +4,9 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { TenantContextService } from '../../common/cls/tenant-context.service';
+import { setPortalHeaders } from '../interceptors/portal-headers.interceptor';
 import { PortalContextData } from '../decorators/portal-context.decorator';
 import {
   hashToken,
@@ -40,7 +41,10 @@ export class PortalTokenGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const req = context.switchToHttp().getRequest<Request>();
+    const http = context.switchToHttp();
+    // First of all: a refused request (403) must not be cached either.
+    setPortalHeaders(http.getResponse<Response>());
+    const req = http.getRequest<Request>();
     const rawToken = req.params?.token;
     if (typeof rawToken !== 'string' || rawToken.length === 0) {
       throw new ForbiddenException(PORTAL_EXPIRED_MESSAGE);

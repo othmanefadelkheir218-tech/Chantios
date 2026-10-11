@@ -26,6 +26,12 @@ The quote handles its own sent/accepted tracking. The project only needs to know
 | `accepted` | Client accepted → triggers project `in_progress` |
 | `refused` | Client rejected → project stays `prospect` |
 
+### Quote PDF language
+
+The quote PDF is printed in the company's language (`tenants.locale`), French as the fallback — the same rule as the invoice PDF, written once in [[client-invoices]] § PDF language.
+
+---
+
 ## 2) Stock reservation — how it works
 
 Stock is a **shared pool** across all projects. When two projects need the same material, the system must know early — not on site day.

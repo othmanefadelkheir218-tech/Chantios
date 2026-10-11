@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getLoggerToken } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
@@ -169,6 +173,7 @@ describe('Media handlers', () => {
       expect(uploadMock).toHaveBeenCalledTimes(1);
       expect(uploadMock).toHaveBeenCalledWith(
         expect.objectContaining({ folder: '/Chantios/tenant-1/report/5' }),
+        expect.objectContaining({ timeout: 30_000, maxRetries: 2 }),
       );
       expect(repo.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -181,6 +186,50 @@ describe('Media handlers', () => {
       );
       expect(result.id).toBe(10);
       expect(audit.write).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns 502, not 500, when ImageKit fails — and writes no row', async () => {
+      uploadMock.mockRejectedValue(new Error('timeout'));
+
+      await expect(
+        uploadMedia.execute(
+          file(),
+          { entity_type: 'report', entity_id: 5 },
+          actor,
+        ),
+      ).rejects.toThrow(BadGatewayException);
+      expect(repo.create).not.toHaveBeenCalled();
+      expect(audit.write).not.toHaveBeenCalled();
+    });
+
+    it('returns 502 when ImageKit answers without a file id', async () => {
+      uploadMock.mockResolvedValue({});
+
+      await expect(
+        uploadMedia.execute(
+          file(),
+          { entity_type: 'report', entity_id: 5 },
+          actor,
+        ),
+      ).rejects.toThrow(BadGatewayException);
+      expect(repo.create).not.toHaveBeenCalled();
+    });
+
+    it('removes the ImageKit file when the row cannot be written', async () => {
+      uploadMock.mockResolvedValue({
+        fileId: 'ik_orphan',
+        url: 'https://ik.io/orphan.jpg',
+      });
+      repo.create.mockRejectedValue(new Error('db down'));
+
+      await expect(
+        uploadMedia.execute(
+          file(),
+          { entity_type: 'report', entity_id: 5 },
+          actor,
+        ),
+      ).rejects.toThrow('db down');
+      expect(deleteMock).toHaveBeenCalledWith('ik_orphan');
     });
   });
 
@@ -310,6 +359,19 @@ describe('Media handlers', () => {
   });
 
   describe('ReplaceMediaHandler', () => {
+    it('returns 502 and keeps the old file when ImageKit fails', async () => {
+      repo.findByEntityAndType.mockResolvedValue(
+        media({ id: 1, fileId: 'old-file', entityType: 'user', entityId: 7 }),
+      );
+      uploadMock.mockRejectedValue(new Error('timeout'));
+
+      await expect(
+        replaceMedia.execute('user', 7, file(), actor),
+      ).rejects.toThrow(BadGatewayException);
+      expect(deleteMock).not.toHaveBeenCalled();
+      expect(repo.hardDelete).not.toHaveBeenCalled();
+    });
+
     it('uploads the new file, then hard-deletes the old one', async () => {
       repo.findByEntityAndType.mockResolvedValue(
         media({ id: 1, fileId: 'old-file', entityType: 'user', entityId: 7 }),
@@ -327,6 +389,7 @@ describe('Media handlers', () => {
 
       expect(uploadMock).toHaveBeenCalledWith(
         expect.objectContaining({ folder: '/Chantios/tenant-1/user/7' }),
+        expect.anything(),
       );
       expect(deleteMock).toHaveBeenCalledWith('old-file');
       expect(repo.hardDelete).toHaveBeenCalledWith([1]);

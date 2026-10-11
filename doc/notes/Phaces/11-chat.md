@@ -66,7 +66,7 @@ src/chat/
 
 | Method | Path | Guard | Notes |
 |---|---|---|---|
-| `POST` | `/api/conversations` | `chat:create` | `internal` only from here |
+| `POST` | `/api/conversations` | `chat:create` | `internal` only from here. One other person + no project → returns the existing 1-to-1 (un-archived if needed) |
 | `GET` | `/api/conversations` | `chat:view` | `?type=&project_id=&archived=` |
 | `GET` | `/api/conversations/:id` | `chat:view` | members included |
 | `POST` | `/api/conversations/:id/members` | `chat:edit` | `internal` only |
@@ -75,6 +75,7 @@ src/chat/
 | `POST` | `/api/conversations/:id/messages` | `chat:create` | `sender_type = 'employee'` |
 | `POST` | `/api/conversations/:id/read` | `chat:view` | writes `message_reads` |
 | `GET` | `/api/conversations/unread-count` | `chat:view` | per conversation |
+| `GET` | `/api/conversations/contacts` | `chat:view` | active users of the company: `id`, `name`, `role`, `avatar_url` only (`find-contacts.handler`, photos in one `MediaService.findByEntityIds` call) — see `chat-conversations.md` § Contacts |
 | `POST` | `/api/admin/support/:ticketId/messages` | `AdminAuthGuard` | `sender_type = 'admin'`, **writes `audit_logs`** |
 | `GET` | `/api/admin/support/:ticketId/messages` | `AdminAuthGuard` | the escape hatch above |
 
@@ -87,6 +88,8 @@ The client's portal messaging routes are step 12. They write `sender_type = 'cli
 | `join` | client → server | `conversation_id`, after an access check |
 | `new_message` | server → room | the message |
 | `message_read` | server → room | `message_id`, reader |
+| `presence` | server → company (`presence:tenant:<id>`) | `{ user_id, online }` — [chat-conversations.md](../chat-conversations.md) § Online status |
+| `online_users` | client → server (ack) | `{ user_ids }` of the caller's company online now |
 
 One Socket.io room per conversation. Use the **Redis adapter** so it still works with more than one API instance. The access check in `chat-access.helper.ts` runs on `join`, not only on the HTTP routes — an unchecked socket is a leak.
 

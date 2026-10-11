@@ -21,6 +21,11 @@ export class FindPlanHandler {
     return plan;
   }
 
+  /** Id + name of these plans — the admin subscription list shows names, not ids. */
+  async executeNames(ids: number[]) {
+    return ids.length === 0 ? [] : this.plans.findNamesByIds(ids);
+  }
+
   /** The plan a new signup lands on — used by step 02 registration. */
   async executeDefault() {
     return this.plans.findDefault();

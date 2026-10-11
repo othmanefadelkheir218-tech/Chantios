@@ -1,17 +1,20 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { toFile } from '@imagekit/nodejs';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
-import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
-import { imagekit } from '../../config/imagekit.config';
+import { MediaEntityType } from '@prisma/client';
 import { UploadMediaDto } from '../dto/upload-media.dto';
 import {
   ALLOWED_MIME_TYPES,
   buildMediaFolder,
   isMimeAllowed,
   MAX_FILE_SIZE_BYTES,
+  MediaUploader,
   toMediaEntity,
 } from '../helpers/media.helper';
+import {
+  discardUploadedFile,
+  uploadToImageKit,
+} from '../helpers/imagekit-upload.helper';
 import { MediaRepository } from '../repositories/media.repository';
 
 /**
@@ -38,48 +41,37 @@ export class UploadMediaHandler {
   async execute(
     file: Express.Multer.File,
     dto: UploadMediaDto,
-    actor: AuthenticatedUser,
+    actor: MediaUploader,
     isLocked = false,
   ) {
-    if (!file) {
-      throw new BadRequestException('No file was sent');
-    }
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      throw new BadRequestException(
-        `File too large: max ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB`,
-      );
-    }
-    if (!isMimeAllowed(dto.entity_type, file.mimetype)) {
-      throw new BadRequestException(
-        `${file.mimetype} is not allowed for ${dto.entity_type} — allowed: ${ALLOWED_MIME_TYPES[dto.entity_type].join(', ')}`,
-      );
-    }
+    this.assertUploadable(file, dto.entity_type);
 
     this.logger.info(`Uploading media for ${dto.entity_type}:${dto.entity_id}`);
 
-    const uploaded = await imagekit.files.upload({
-      file: await toFile(file.buffer, file.originalname, {
-        type: file.mimetype,
-      }),
-      fileName: file.originalname,
-      folder: buildMediaFolder(actor.tenantId, dto.entity_type, dto.entity_id),
-    });
-    if (!uploaded.fileId || !uploaded.url) {
-      throw new BadRequestException('ImageKit upload did not return a file');
-    }
+    const uploaded = await uploadToImageKit(
+      file,
+      buildMediaFolder(actor.tenantId, dto.entity_type, dto.entity_id),
+      this.logger,
+    );
 
-    const created = await this.media.create({
-      tenantId: actor.tenantId,
-      entityType: dto.entity_type,
-      entityId: dto.entity_id,
-      fileName: file.originalname,
-      fileId: uploaded.fileId,
-      fileUrl: uploaded.url,
-      fileType: file.mimetype,
-      fileSize: BigInt(file.size),
-      uploadedBy: actor.userId,
-      isLocked,
-    });
+    let created;
+    try {
+      created = await this.media.create({
+        tenantId: actor.tenantId,
+        entityType: dto.entity_type,
+        entityId: dto.entity_id,
+        fileName: file.originalname,
+        fileId: uploaded.fileId,
+        fileUrl: uploaded.url,
+        fileType: file.mimetype,
+        fileSize: BigInt(file.size),
+        uploadedBy: actor.userId,
+        isLocked,
+      });
+    } catch (err: unknown) {
+      await discardUploadedFile(uploaded.fileId, this.logger);
+      throw err;
+    }
     const entity = toMediaEntity(created);
 
     await this.audit.write({
@@ -93,5 +85,26 @@ export class UploadMediaHandler {
     });
     this.logger.info(`Media uploaded: id ${created.id}`);
     return entity;
+  }
+
+  /**
+   * The size and type rule, alone — a caller that uploads several files at
+   * once (the portal chat) checks them all BEFORE the first one goes to
+   * ImageKit, so a bad third file leaves no first file behind.
+   */
+  assertUploadable(file: Express.Multer.File, entityType: MediaEntityType) {
+    if (!file) {
+      throw new BadRequestException('No file was sent');
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      throw new BadRequestException(
+        `File too large: max ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB`,
+      );
+    }
+    if (!isMimeAllowed(entityType, file.mimetype)) {
+      throw new BadRequestException(
+        `${file.mimetype} is not allowed for ${entityType} — allowed: ${ALLOWED_MIME_TYPES[entityType].join(', ')}`,
+      );
+    }
   }
 }

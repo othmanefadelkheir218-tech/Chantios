@@ -21,6 +21,11 @@ export const TENANT_ALERT_TYPES = [
   'end_of_day_reminder',
   'subscription_payment_failed',
   'subscription_renewal_upcoming',
+  'trial_ending',
+  'trial_ended',
+  'subscription_blocked',
+  'import_done',
+  'import_failed',
 ] as const;
 
 /** Alerts for ChantierOS staff (stored in `notifications.admin_user_id`, `tenant_id` NULL). */

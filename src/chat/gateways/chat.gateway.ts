@@ -3,6 +3,7 @@ import {
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
+  OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -17,10 +18,16 @@ import { ALLOWED_ORIGINS } from '../../config/env.config';
 import { AdminJoinSupportHandler } from '../handlers/admin-join-support.handler';
 import { CheckAccessHandler } from '../handlers/check-access.handler';
 import { conversationRoom, readCookie } from '../helpers/chat-access.helper';
+import {
+  onlineUserIds,
+  PresenceEvent,
+  tenantPresenceRoom,
+  userPresenceRoom,
+} from '../helpers/presence.helper';
 
 /** Who a connected socket is. Set once, at the handshake, from a signed token. */
 export type SocketIdentity =
-  | { kind: 'user'; tenantId: number; userId: number }
+  | { kind: 'user'; tenantId: number; userId: number; impersonated: boolean }
   | { kind: 'admin'; adminUserId: number; ip: string | null };
 
 interface JoinPayload {
@@ -51,7 +58,7 @@ export interface JoinAck {
 @WebSocketGateway({
   cors: { origin: ALLOWED_ORIGINS, credentials: true },
 })
-export class ChatGateway implements OnGatewayConnection {
+export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
@@ -65,7 +72,7 @@ export class ChatGateway implements OnGatewayConnection {
     private readonly adminJoin: AdminJoinSupportHandler,
   ) {}
 
-  handleConnection(client: Socket): void {
+  async handleConnection(client: Socket): Promise<void> {
     const identity = this.authenticate(client);
     if (!identity) {
       this.logger.warn(`Socket ${client.id} refused: no valid token`);
@@ -75,6 +82,31 @@ export class ChatGateway implements OnGatewayConnection {
     }
     client.data = { identity };
     this.logger.debug(`Socket ${client.id} connected (${identity.kind})`);
+    if (identity.kind === 'user') await this.enterPresence(client, identity);
+  }
+
+  /** The user's last socket is gone: tell their company they are offline. */
+  async handleDisconnect(client: Socket): Promise<void> {
+    const identity = (client.data as { identity?: SocketIdentity }).identity;
+    if (identity?.kind !== 'user' || identity.impersonated) return;
+    const left = await this.server
+      ?.in(userPresenceRoom(identity.userId))
+      .fetchSockets();
+    if (left?.length === 0)
+      this.emitPresence(identity.tenantId, identity.userId, false);
+  }
+
+  /** `online_users` — client → server: who of my company is online now. The return value is the ack. */
+  @SubscribeMessage('online_users')
+  async onlineUsers(
+    @ConnectedSocket() client: Socket,
+  ): Promise<{ user_ids: number[] }> {
+    const identity = (client.data as { identity?: SocketIdentity }).identity;
+    if (identity?.kind !== 'user') return { user_ids: [] };
+    const sockets = await this.server
+      ?.in(tenantPresenceRoom(identity.tenantId))
+      .fetchSockets();
+    return { user_ids: onlineUserIds(sockets ?? []) };
   }
 
   /** `join` — client → server, after an access check. The return value is the ack. */
@@ -165,6 +197,34 @@ export class ChatGateway implements OnGatewayConnection {
     });
   }
 
+  /**
+   * Every user socket hears its company's presence updates. Only a real login
+   * counts as online: an impersonation socket listens but is not counted.
+   */
+  private async enterPresence(
+    client: Socket,
+    identity: Extract<SocketIdentity, { kind: 'user' }>,
+  ): Promise<void> {
+    await client.join(tenantPresenceRoom(identity.tenantId));
+    if (identity.impersonated) return;
+    await client.join(userPresenceRoom(identity.userId));
+    const sockets = await this.server
+      ?.in(userPresenceRoom(identity.userId))
+      .fetchSockets();
+    if (sockets?.length === 1)
+      this.emitPresence(identity.tenantId, identity.userId, true);
+  }
+
+  /** `presence` — server → the company: one user came online or went offline. */
+  private emitPresence(
+    tenantId: number,
+    userId: number,
+    online: boolean,
+  ): void {
+    const event: PresenceEvent = { user_id: userId, online };
+    this.server?.to(tenantPresenceRoom(tenantId)).emit('presence', event);
+  }
+
   private authenticate(client: Socket): SocketIdentity | null {
     const auth = client.handshake.auth as
       { role?: string; token?: string } | undefined;
@@ -183,7 +243,12 @@ export class ChatGateway implements OnGatewayConnection {
       const token = auth?.token ?? readCookie(cookie, 'access_token');
       if (!token) return null;
       const payload = this.tokens.verifyAccessToken(token);
-      return { kind: 'user', tenantId: payload.tenantId, userId: payload.sub };
+      return {
+        kind: 'user',
+        tenantId: payload.tenantId,
+        userId: payload.sub,
+        impersonated: payload.impersonatedBy !== undefined,
+      };
     } catch {
       return null;
     }

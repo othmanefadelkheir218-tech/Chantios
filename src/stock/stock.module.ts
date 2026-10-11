@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { TokenModule } from '../auth/token.module';
+import { MarginsModule } from '../margins/margins.module';
 import { MaterialsModule } from '../materials/materials.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RolesModule } from '../roles/roles.module';
@@ -14,6 +15,7 @@ import { FindMovementsHandler } from './handlers/find-movements.handler';
 import { FindReservationsHandler } from './handlers/find-reservations.handler';
 import { RecordAdjustmentHandler } from './handlers/record-adjustment.handler';
 import { RecordConsumptionHandler } from './handlers/record-consumption.handler';
+import { RecordImportedMovementsHandler } from './handlers/record-imported-movements.handler';
 import { RecordPurchaseHandler } from './handlers/record-purchase.handler';
 import { ReleaseReservationsHandler } from './handlers/release-reservations.handler';
 import { WalkRecipeHandler } from './handlers/walk-recipe.handler';
@@ -38,6 +40,9 @@ import { StockService } from './stock.service';
     // `create-reservations.handler` walks the recipe through
     // `ServicesService` (never its repository).
     ServicesModule,
+    // A project-linked adjustment changes that project's material cost:
+    // `record-adjustment` checks the project and re-runs the 80 % / 95 % check.
+    MarginsModule,
   ],
   controllers: [StockController],
   providers: [
@@ -54,6 +59,7 @@ import { StockService } from './stock.service';
     ReleaseReservationsHandler,
     CheckCoverageHandler,
     WalkRecipeHandler,
+    RecordImportedMovementsHandler,
   ],
   // `projects` imports this to call `releaseByProject` on cancellation
   // (through `StockService`, never this module's repositories) — the one

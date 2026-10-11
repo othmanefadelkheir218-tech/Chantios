@@ -7,11 +7,14 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { TenantContextService } from '../common/cls/tenant-context.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { ChangePlanDto } from './dto/change-plan.dto';
+import { FindSnapshotsQueryDto } from './dto/find-snapshots-query.dto';
 import { BILLING_RENEWAL_QUEUE, RenewalJobData } from './dto/renewal-job.dto';
 import { FindUsageHandler } from './handlers/find-usage.handler';
 import { MySubscriptionHandler } from './handlers/my-subscription.handler';
 import { RequestDowngradeHandler } from './handlers/request-downgrade.handler';
 import { RunRenewalHandler } from './handlers/run-renewal.handler';
+import { BlockExpiredGraceHandler } from './handlers/block-expired-grace.handler';
+import { TrialReminderHandler } from './handlers/trial-reminder.handler';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
 @Injectable()
@@ -25,6 +28,8 @@ export class BillingService {
     private readonly findUsageHandler: FindUsageHandler,
     private readonly requestDowngradeHandler: RequestDowngradeHandler,
     private readonly runRenewalHandler: RunRenewalHandler,
+    private readonly trialReminderHandler: TrialReminderHandler,
+    private readonly blockExpiredGraceHandler: BlockExpiredGraceHandler,
     private readonly subscriptions: SubscriptionsService,
     private readonly cls: ClsService,
     private readonly tenantContext: TenantContextService,
@@ -47,9 +52,21 @@ export class BillingService {
     return this.requestDowngradeHandler.execute(tenantId, dto);
   }
 
-  /** `GET /api/admin/billing/snapshots` — every tenant. */
-  allSnapshots(query: PaginationQueryDto) {
-    return this.subscriptions.allUsage(query);
+  /** `GET /api/admin/billing/snapshots` — one tenant with `tenant_id`, else every tenant. */
+  allSnapshots(query: FindSnapshotsQueryDto) {
+    return query.tenant_id
+      ? this.subscriptions.usage(query.tenant_id, query)
+      : this.subscriptions.allUsage(query);
+  }
+
+  /** Day 11 of a trial (`src/crons/trial-end.cron.ts`, inside the tenant's CLS). */
+  remindTrialEnding(tenantId: number, now: Date) {
+    return this.trialReminderHandler.execute(tenantId, now);
+  }
+
+  /** Day 21: block a company whose grace period ran out (`src/crons/trial-end.cron.ts`). */
+  blockIfGraceOver(tenantId: number, now: Date) {
+    return this.blockExpiredGraceHandler.execute(tenantId, now);
   }
 
   /** The daily cron (`src/crons/billing-renewal.cron.ts`) enqueues one job per overdue tenant. */

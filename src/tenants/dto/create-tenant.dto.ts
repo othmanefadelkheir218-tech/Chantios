@@ -91,9 +91,9 @@ export class CreateTenantDto {
   @Min(0)
   default_payment_days?: number;
 
-  @ApiPropertyOptional({ enum: ['fr', 'en', 'ar'], default: 'fr' })
+  @ApiPropertyOptional({ enum: ['fr', 'en', 'nl'], default: 'fr' })
   @IsOptional()
-  @IsIn(['fr', 'en', 'ar'])
+  @IsIn(['fr', 'en', 'nl'])
   locale?: string;
 
   @ApiPropertyOptional({ description: 'ISO code', default: 'EUR' })

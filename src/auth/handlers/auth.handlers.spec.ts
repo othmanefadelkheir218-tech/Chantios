@@ -62,6 +62,7 @@ const notifications = { dispatch: jest.fn() };
 describe('Auth handlers', () => {
   const users = {
     findByEmail: jest.fn(),
+    findByLoginCode: jest.fn(),
     findByIdRaw: jest.fn(),
     create: jest.fn(),
     setPasswordHash: jest.fn(),
@@ -284,7 +285,7 @@ describe('Auth handlers', () => {
       users.findByEmail.mockResolvedValue(user({ roleId: 1 }));
       await expect(
         mobileLogin.execute(
-          { email: 'worker@test.local', pin: '1234' },
+          { login: 'worker@test.local', pin: '1234' },
           fakeReq,
           fakeRes,
         ),
@@ -295,7 +296,7 @@ describe('Auth handlers', () => {
       users.findByEmail.mockResolvedValue(user({ failedPinCount: 5 }));
       await expect(
         mobileLogin.execute(
-          { email: 'worker@test.local', pin: '1234' },
+          { login: 'worker@test.local', pin: '1234' },
           fakeReq,
           fakeRes,
         ),
@@ -311,7 +312,7 @@ describe('Auth handlers', () => {
 
       await expect(
         mobileLogin.execute(
-          { email: 'worker@test.local', pin: '0000' },
+          { login: 'worker@test.local', pin: '0000' },
           fakeReq,
           fakeRes,
         ),
@@ -326,13 +327,45 @@ describe('Auth handlers', () => {
       tenants.findOne.mockResolvedValue({ status: 'active' });
 
       await mobileLogin.execute(
-        { email: 'worker@test.local', pin: '1234' },
+        { login: 'worker@test.local', pin: '1234' },
         fakeReq,
         fakeRes,
       );
 
       expect(users.resetFailedPin).toHaveBeenCalledWith(2);
       expect(sessions.issue).toHaveBeenCalledTimes(1);
+    });
+
+    it('a login without @ is a login code (spaces ignored), not an email', async () => {
+      users.findByLoginCode.mockResolvedValue(
+        user({
+          email: null,
+          loginCode: '48213907',
+          mobilePinHash: 'valid:1234',
+        }),
+      );
+      tenants.findOne.mockResolvedValue({ status: 'active' });
+
+      await mobileLogin.execute(
+        { login: '4821 3907', pin: '1234' },
+        fakeReq,
+        fakeRes,
+      );
+
+      expect(users.findByLoginCode).toHaveBeenCalledWith('48213907');
+      expect(users.findByEmail).not.toHaveBeenCalled();
+      expect(sessions.issue).toHaveBeenCalledTimes(1);
+    });
+
+    it('an unknown login code is refused', async () => {
+      users.findByLoginCode.mockResolvedValue(null);
+      await expect(
+        mobileLogin.execute(
+          { login: '11111111', pin: '1234' },
+          fakeReq,
+          fakeRes,
+        ),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 

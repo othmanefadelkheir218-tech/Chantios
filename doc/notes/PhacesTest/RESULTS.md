@@ -8,22 +8,22 @@
 |---|---|---|---|---|---|
 | 01 | [Setup & automatic](01-setup-automatic.md) | 15 | 0 | 0 | done 2026-10-08 (AUTO-02 passed on re-run in phase 03) |
 | 02 | [Platform](02-platform.md) | 47 | 0 | 0 | done 2026-10-08 (PLN-06 fixed + re-run; PA-05 run in phase 03) |
-| 03 | [Auth](03-auth.md) | 53 | 1 | 0 | done 2026-10-08. SUS-01 and 2FA-02 fixed + re-run PASS; REG-04 fixed in code, waiting for a live French email |
-| 04 | [Permissions](04-permissions.md) | 49 | 2 | 5 | done 2026-10-08 (OWN-02..05 skipped: re-run after phase 11) |
-| 05 | [Media](05-media.md) | 31 | 0 | 5 | done 2026-10-08. 5 ImageKit checks (MED-02 folder, 12, 16, 19, 22) not confirmed; intermittent upload `500` open; worker single-file read fixed |
-| 06 | [Clients & projects](06-clients-projects.md) | 27 | 1 | 1 | done 2026-10-08. PRJ-01 FAIL (date-only dates → 500); PRJ-11 waits for ImageKit check |
+| 03 | [Auth](03-auth.md) | 53 | 1 | 0 | done 2026-10-08. SUS-01 and 2FA-02 fixed + re-run PASS; REG-04 fixed and seen live 2026-10-09 (French and Dutch) |
+| 04 | [Permissions](04-permissions.md) | 53 | 0 | 1 | done 2026-10-08. OVR-02 and PLR-02 fixed 2026-10-09; OWN-02..05 run 2026-10-09: 4 PASS |
+| 05 | [Media](05-media.md) | 36 | 0 | 0 | done 2026-10-08. ImageKit checks MED-02, 12, 16, 19, 22 PASS (owner, 2026-10-09); intermittent upload `500` open; worker single-file read fixed |
+| 06 | [Clients & projects](06-clients-projects.md) | 28 | 1 | 0 | done 2026-10-08. PRJ-01 FAIL (date-only dates → 500), fixed 2026-10-09; PRJ-11 PASS 2026-10-09 (ImageKit `project/6/` empty) |
 | 07 | [Catalogue & stock](07-catalogue-stock.md) | 26 | 0 | 0 | done 2026-10-08 |
 | 08 | [Quotes & invoices](08-quotes-invoices.md) | 33 | 0 | 0 | done 2026-10-08 |
 | 09 | [Purchases](09-purchases.md) | 33 | 0 | 0 | done 2026-10-08 (PUR-15 confirmed by owner) |
 | 10 | [Planning & time](10-planning-time.md) | 35 | 0 | 0 | done 2026-10-08 |
-| 11 | [Site reports](11-site-reports.md) | 25 | 0 | 1 waiting | ran 2026-10-08; REP-15 (ImageKit) waits for the owner |
-| 12 | [Margin](12-margin.md) | 32 | 0 | 1 waiting | ran 2026-10-09; ALT-08 (email check) waits for the owner |
-| 13 | [Chat](13-chat.md) | 21 | 0 | 1 waiting + 4 skip | ran 2026-10-09; CHAT-15 (ImageKit) waits for the owner; SUPC-01..04 run after phase 17 |
-| 14 | [Client portal](14-client-portal.md) | | | | todo |
-| 15 | [Notifications](15-notifications.md) | | | | todo |
-| 16 | [Documents](16-documents.md) | | | | todo |
-| 17 | [Support & feedback](17-support-feedback.md) | | | | todo |
-| 18 | [Subscriptions & Stripe](18-subscriptions-stripe.md) | | | | todo |
+| 11 | [Site reports](11-site-reports.md) | 26 | 0 | 0 | ran 2026-10-08; REP-15 PASS 2026-10-09 (ImageKit) |
+| 12 | [Margin](12-margin.md) | 33 | 0 | 0 | ran 2026-10-09; ALT-08 PASS 2026-10-09 (3 emails in each inbox) |
+| 13 | [Chat](13-chat.md) | 26 | 0 | 0 | ran 2026-10-09; CHAT-15 PASS 2026-10-09 (ImageKit); SUPC-01..04 passed in phase 17 |
+| 14 | [Client portal](14-client-portal.md) | 29 | 0 | 0 | ran 2026-10-09; POR-15 failed, fixed and re-run PASS; POR-25 and POR-11 PASS 2026-10-09 |
+| 15 | [Notifications](15-notifications.md) | 31 | 0 | 0 | ran 2026-10-09; NOT-28 PASS 2026-10-09 (API run once with a fake Resend key). Email checks done through the Resend API (delivered), not the inbox |
+| 16 | [Documents](16-documents.md) | 17 | 0 | 0 | done 2026-10-09; DOC-05, DOC-13, DOC-14 confirmed by the owner |
+| 17 | [Support & feedback](17-support-feedback.md) | 25 | 0 | 0 | done 2026-10-09; AN-04 run with the owner stopping Redis; also ran phase 13 SUPC-01..04 (4 PASS) |
+| 18 | [Subscriptions & Stripe](18-subscriptions-stripe.md) | 55 | 0 | 0 | done 2026-10-09. First run 51/4. PSB-04 fixed + re-run PASS; STR-05 / STR-08 and DWN-02: the test plan was wrong (corrected) (manager gets no billing alert) |
 
 ## Failures
 
@@ -36,9 +36,14 @@ One row per failed scenario. Nothing is fixed during the run.
 | REG-04 | Register A with `locale: "fr"` | verification email in French | subject `Verify your email — ChantierOS`, body English (seen in Resend). Reset + invitation emails ARE French | `tenant-email-verification.template.ts` takes no `locale`; `alerts.md` § templates says every template takes `locale: 'fr' \| 'en' \| 'ar'`. B's English email passes only because English is the only text |
 | SUS-01 | Suspend B, call routes with B owner's old access cookie | `403 This company is suspended or banned` | `403` on `/users`, `/clients`; **`200`** on `/auth/me`, `/auth/sessions`, `/roles`. Refresh `401`, login `401`, 0 live sessions — OK | those routes do not run `SubscriptionGuard`. `subscription-plans.md:91` says suspended = "no access at all". Window is the access cookie's 15 min; data shown is own profile + global roles — low impact |
 | 2FA-02 | `TEST Staff` with a TOTP secret: login → challenge, 4 wrong codes, then the right one on the **same** challenge | challenge dead after 3 wrong tries | 4 × `401 Invalid code`, then `201` + session cookies | `verify-2fa.handler.ts` has no attempt counter. `auth-tokens.md:104` says `admin_2fa` max 3; the 2026-10-05 decision (line 110) dropped the `one_time_codes` row, and the limit went with it |
-| OVR-02 | `GET /api/roles/permissions` as A owner, compared with the plan tables | 112 rows equal to the tables | 108 equal. 4 differ: worker `tasks` and `reports` have `can_create` and `can_edit` = `true` (scope own); the plan says `false`. The behaviour is still right: worker `POST /tasks` → `403 Your role can only view the tasks assigned to you`, `POST /reports` → `403 ...can only log hours` (refused in the handler) | The default matrix in code gives worker create/edit on these two modules and the handler refuses — plan tables (and the note, "own tasks") say view only |
-| PLR-02 | Staff admin: `POST /admin/plans`, `PATCH /admin/tenants/:id/status` | `403 Not allowed for your admin role` | `403` on `/admin/admin-users` and `/admin/audit-logs` only. `POST /admin/plans` (valid body, duplicate key) → `400 Duplicate feature_key`; `PATCH /admin/tenants/2/status {status:active}` → `400 Tenant is already active` — both reached the handler, so staff is **not** refused | Only `admin-users` and `audit` controllers carry `@AdminRoles('super_admin')`. `roles-permissions.md` says platform staff = "Full platform", so the plan (not the code) may be wrong — owner to decide |
-| PRJ-01 | `POST /api/projects` with `start_date 2026-11-02` | `201` | `500`; full ISO `2026-11-02T00:00:00.000Z` → `201`. `PATCH` with a date-only date → `500` too | date-only string reaches Prisma as a string; no `IsDateOnly`/`Date` conversion on project dates (see step 09's fix) |
+| OVR-02 | `GET /api/roles/permissions` as A owner, compared with the plan tables | 112 rows equal to the tables | 108 equal. 4 differ: worker `tasks` and `reports` have `can_create` and `can_edit` = `true` (scope own); the plan says `false`. The behaviour is still right: worker `POST /tasks` → `403 Your role can only view the tasks assigned to you`, `POST /reports` → `403 ...can only log hours` (refused in the handler) | **FIXED 2026-10-09** (owner chose: worker is view only): new level `own_view` in `permission.helper.ts`; worker `tasks` and `reports` are now `can_view` only, scope `own`. Live: `GET /api/roles/permissions` worker rows match the plan; worker `POST /tasks` → `403 No canCreate access to tasks` (from the guard now), `GET /tasks` and `GET /reports` → `200`. Old cause: the default matrix in code gave worker create/edit on these two modules and the handler refused — plan tables (and the note, "own tasks") say view only |
+| PLR-02 | Staff admin: `POST /admin/plans`, `PATCH /admin/tenants/:id/status` | `403 Not allowed for your admin role` | `403` on `/admin/admin-users` and `/admin/audit-logs` only. `POST /admin/plans` (valid body, duplicate key) → `400 Duplicate feature_key`; `PATCH /admin/tenants/2/status {status:active}` → `400 Tenant is already active` — both reached the handler, so staff is **not** refused | **FIXED 2026-10-09:** new right `admin_users.can_manage_tenants` (default `false`) + `AdminTenantAccessGuard` on `PATCH /admin/tenants/:id/status`. Live: staff `403`; after the super_admin grants it `200`; right removed `403`. Old text: `roles-permissions.md` says platform staff = "Full platform", so the plan (not the code) may be wrong — owner to decide |
+| PRJ-01 | `POST /api/projects` with `start_date 2026-11-02` | `201` | `500`; full ISO `2026-11-02T00:00:00.000Z` → `201`. `PATCH` with a date-only date → `500` too | date-only string reaches Prisma as a string; no `IsDateOnly`/`Date` conversion on project dates (see step 09's fix). **FIXED 2026-10-09** (owner asked): the create and update handlers now pass `new Date(...)`; +2 unit tests. **Live re-run 2026-10-09: PASS** — `POST` date-only → `201`, `PATCH` date-only → `200`, invalid date → `400`, end before start → `400` |
+
+| DWN-02 | `select count(*) from media where tenant_id = B and is_locked` | `0` | `1` (frozen quote PDF, phase 16) | test premise wrong; cycle run on `TEST Epsilon` |
+| PSB-04 | Staff admin `PATCH /admin/subscriptions/1/plan` | `403` | `200`, pending plan set, audit row | only 2 controllers carry `@AdminRoles('super_admin')` (same as PLR-02) — owner to decide **FIXED 2026-10-09** (owner decision): billing write routes are `super_admin` only unless `admin_users.can_manage_billing` is true; live re-run: staff `403` on 6 routes, right on → `200`, off → `403`. **FIXED 2026-10-09** (owner decision): billing write routes are `super_admin` only unless `admin_users.can_manage_billing` is true; live re-run: staff `403` on 6 routes, right on `200`, off `403`. |
+| STR-05 / STR-08 | `payment_intent.payment_failed` / `invoice.upcoming`, count recipients | owner + manager | owner only | manager role cannot view `settings`; the recipient filter drops it — owner to decide **RESOLVED 2026-10-09**: owner only is right (`alerts.md` § 3); the test plan was corrected, no code change. |
+| POR-15 | Portal accept of a sent quote, then read `audit_logs` | audit row `portal_accept` with client id + token id + IP | `201`, quote/project/reservations/history all as stated. Audit row: `new_value {"client_id": 1, "portal_token_id": "[redacted]"}`, `ip_address ::1`. Same for `portal_refuse` | the audit helper (`src/audit/helpers/audit.helper.ts`) redacts every key containing `token`, which also hid the portal link's **id** (not the secret). **FIXED 2026-10-09** (owner asked, exception to the no-code-change rule): the handlers now write `portalLinkId`; live re-run `{"client_id": 1, "portal_link_id": 9}`; unit test updated, 46/46 pass |
 
 ## Problems found (not tied to one scenario)
 
@@ -48,7 +53,7 @@ One row per failed scenario. Nothing is fixed during the run.
 | 2 | 2026-10-08, before the run | The Telegram bot's file watcher stalled; restarting `telegram-bot.js` fixed it | tooling only, not the app |
 | 3 | 2026-10-08, before the run | An old `nest start --watch` from the day before was still running next to the real server | a second instance can take queue jobs (emails) — check SET-07 before every session |
 | 4 | 2026-10-08, phase 02 | `vat_number` on a tenant takes any text (`"bad!!"` → `201`) | no note sets a format (`TEXT`), so not a failure. Created a stray tenant `TEST X` (id 7), soft-deleted at once |
-| 5 | 2026-10-08, phase 02 | `PATCH /admin/tenants/:id` with `{}` writes an `update` audit entry with old = new; a repeated plan/admin-user deactivate writes a second entry | audit noise only |
+| 5 | 2026-10-08, phase 02 | `PATCH /admin/tenants/:id` with `{}` writes an `update` audit entry with old = new; a repeated plan/admin-user deactivate writes a second entry | audit noise only — **fixed 2026-10-09** (no audit entry when nothing changed; see OPEN-PROBLEMS #21) |
 | 6 | 2026-10-08, phase 02 | Every plan version creates a **new** Stripe Product (2 `TEST Throwaway` products); a deactivated plan archives its Price but the Product stays `active` | the dashboard product list shows old plans as "Active" — confusing, not wrong |
 | 7 | 2026-10-08, phase 02 | The test plan has no successful `PATCH /plans/:id/default` call, so AUD-03's `set_default` entry cannot appear. Fixed in the run by setting `TEST Small` default again (no change, `200`, entry written) | test-plan gap |
 | 8 | 2026-10-08, phase 03 | Every platform alert also goes to `admin@chantieros.local` (the super-admin's `.env` email) — Resend marks each one **bounced** | config: give the super-admin a real address, or bounces may hurt the sending domain |
@@ -116,7 +121,7 @@ All 52 tables were emptied again (migrations kept), then rebuilt by hand so phas
 No scenario text changed. Code changes, all unit-tested (723 tests pass, tsc clean):
 - **SUS-01** — new `TenantStatusGuard` (`src/auth/guards/`), used by `@TenantAuth()` and `@SessionAuth()`; `SubscriptionGuard` no longer holds the status rule. Live: suspended B → `403 This company is suspended or banned` on `/auth/me`, `/auth/sessions`, `/roles`, `/users`, `/clients`; refresh `401`; reactivated → login works. Side effect: `POST /auth/logout` and `/auth/change-password` are also refused for a suspended company (its sessions are revoked anyway).
 - **2FA-02** — `admin-login` now opens a real `admin_2fa` row in `one_time_codes` (it used a fake `codeId 0`); `verify-2fa` takes one try before checking the code (3 tries, atomic). Live: 3 wrong → 4th `401 challenge expired`, the right code on that dead challenge `401`; a newer login kills the older token; a used challenge cannot be replayed; 2 wrong + right → `201`.
-- **REG-04** — `tenantEmailVerificationTemplate(code, locale)` (fr / en / ar, same pattern as the reset and invitation templates), used by register and by the admin-created-tenant verification. Unit-checked only; **a live French email is still to be seen** (needs a new registration, so not done on the kept data).
+- **REG-04** — `tenantEmailVerificationTemplate(code, locale)` (fr / en / ar, same pattern as the reset and invitation templates), used by register and by the admin-created-tenant verification. Unit-checked only; **Live check 2026-10-09:** registered `TEST Mail FR` (`locale fr`, tenant 9) and `TEST Mail NL` (`locale nl`, tenant 10). Resend: subject `Vérifiez votre email — ChantiOs` (fr) and `Bevestig uw e-mailadres — ChantiOs` (nl), both delivered, body in the right language, new layout, plain-text part present. PASS.
 - **Not touched:** OVR-02 and PLR-02 — waiting for the owner's decision. Not committed (run in progress).
 
 ### Phase 08 — 2026-10-08
@@ -146,7 +151,7 @@ No scenario text changed. Code changes, all unit-tested (723 tests pass, tsc cle
 ### Phase 12 — 2026-10-09
 
 - **Ran:** live margin, breakdown, 80/95 alerts, closure snapshot on `completed` and `cancelled`, list, roles, isolation.
-- **Result:** 32 PASS, 0 FAIL, ALT-08 waiting for the owner's email check.
+- **Result:** 33 PASS, 0 FAIL, ALT-08 PASS (owner's email check, 2026-10-09).
 - **Notes:** a date-only project date gives `500` again (PRJ-01). ISO-MA-01: B's list shows its own project (`total 1`). The stray `dist/main` server was stopped by hand and the dev server restarted with `yarn start:dev`.
 - **Data left:** see the end of 12-margin.md.
 
@@ -155,3 +160,45 @@ No scenario text changed. Code changes, all unit-tested (723 tests pass, tsc cle
 - **Ran:** conversations, membership on HTTP and sockets, real-time messages, attachments, read tracking, archive, isolation.
 - **Result:** 21 PASS, 0 FAIL, CHAT-15 waiting for the owner's ImageKit check, SUPC-01..04 skipped (need a ticket from phase 17).
 - **Data left:** see the end of 13-chat.md.
+
+### Phase 14 — 2026-10-09
+
+- **Ran:** portal link (generate, replace, revoke, expire, status), the three checks and the one generic `403`, the allow-list scan, accept / refuse through the shared handlers (compared with a staff accept), progress + photos, documents + tracking, client messages (socket, notification, staff reply, read rows), isolation (B), rate limit.
+- **Result:** 29 PASS, 0 FAIL, POR-11 and POR-25 PASS (owner's email check, 2026-10-09). POR-15 failed first and was fixed at the owner's request (see Failures).
+- **Notes:** the `403` answers have no `Cache-Control: no-store` (only the `200` answers do). Setup hit PRJ-01 again (date-only project dates → `500`). The test file said POR-22 trips the rate limit; it is POR-29 (corrected). The API on port 5300 is a `dist/main` process (built after the last source change), not `yarn start:dev` — two `start:dev` watchers do not hold the port.
+- **Data left:** see the end of 14-client-portal.md.
+
+### Phase 15 — 2026-10-09
+
+- **Ran:** stock and margin alerts, the time crons (end of day in 2 time zones, missing timesheet, stalled project), billing alerts, task alerts, client emails (A French, B English), platform alerts, reading and marking, sockets, retention, isolation.
+- **Result:** 31 PASS, 0 FAIL, 0 SKIP (NOT-28 PASS 2026-10-09).
+- **Notes:** the emails work (Resend `delivered`); only `admin@chantieros.local` bounces (problem 8). The task-starting cron takes only `planned` tasks. Stale jest e2e processes were stopped before the run; the old `dist/main` on port 5300 was stopped so the owner can run `yarn start:dev`.
+- **Data left:** see the end of 15-notifications.md.
+
+### Phase 16 — 2026-10-09
+
+- **Ran:** draft render (no media row), live edit, freeze on send (1 locked row, quote and invoice), byte-identical downloads, delete refused, the VAT block and totals, the invoice payment block, the letterhead (no logo, logo, logo changed after freezing), portal document download, isolation (B), the `TODO: step 15` grep.
+- **Result:** 17 PASS, 0 FAIL. DOC-05 [CHECK IMAGEKIT], DOC-13 and DOC-14 [CHECK EMAIL] confirmed by the owner.
+- **Notes:** the Resend API does not list attachments, so only the owner can confirm them. The 3 client emails were still `queued` at Resend a few minutes after sending. A's logo is now a new test PNG (media 62).
+- **Data left:** see the end of 16-documents.md.
+
+### Phase 17 — 2026-10-09
+
+- **Ran:** tickets (open, assign, reply, status, close, isolation), the admin support door (phase 13 SUPC-01..04), feedback, analytics, impersonation (enter, exit, no-admin company, staff).
+- **Result:** 25 PASS, 0 FAIL, 0 SKIP (AN-04 run after the owner stopped Redis). The owner confirmed the SUP-03 email arrived.
+- **Notes:** staff admin may impersonate (IMP-06: 201). Two business rules decided and fixed after the run: `/feedback/mine` shows only the caller's own feedback, and a feedback status change is audited (live re-checked, 3 unit tests). The dev watcher restarted the API once mid-run.
+- **Data left:** see the end of 17-support-feedback.md. New company `TEST Gamma` (id 8, no users).
+
+### Phase 18 — 2026-10-09
+
+- **Ran:** billing views, over-limit (never blocked), forbidden plan changes, upgrade, the storage downgrade gate, platform subscriptions, Stripe webhooks (signed + CLI), the renewal.
+- **Result:** 51 PASS, 4 FAIL (DWN-02, PSB-04, STR-05, STR-08), 0 SKIP. Owner checks done (ImageKit, Stripe, emails, worker3 token).
+- **Notes:** the first `stripe listen` matched no events (space-separated `--events`); event 1 was re-processed at each API restart (duplicate alerts); one `period_end` shifted by 1 hour (DST). Details in 18-subscriptions-stripe.md.
+- **Data left:** see the end of 18-subscriptions-stripe.md.
+
+### Phase 15 — 2026-10-09
+
+- **Ran:** stock and margin alerts, the time crons (end of day in 2 time zones, missing timesheet, stalled project), billing alerts, task alerts, client emails (A French, B English), platform alerts, reading and marking, sockets, retention, isolation.
+- **Result:** 30 PASS, 0 FAIL, 1 SKIP (NOT-28).
+- **Notes:** the emails work (Resend `delivered`); only `admin@chantieros.local` bounces (problem 8). The task-starting cron takes only `planned` tasks. Stale jest e2e processes were stopped before the run; the old `dist/main` on port 5300 was stopped so the owner can run `yarn start:dev`.
+- **Data left:** see the end of 15-notifications.md.

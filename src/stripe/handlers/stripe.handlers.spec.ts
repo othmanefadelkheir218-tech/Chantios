@@ -234,7 +234,11 @@ describe('RecordWebhookEventHandler — the idempotency gate', () => {
 });
 
 describe('ProcessWebhookHandler — dispatch by type', () => {
-  const stripeEvents = { markProcessed: jest.fn(), markError: jest.fn() };
+  const stripeEvents = {
+    findById: jest.fn(),
+    markProcessed: jest.fn(),
+    markError: jest.fn(),
+  };
   const handlePaymentSucceeded = { execute: jest.fn() };
   const handlePaymentFailed = { execute: jest.fn() };
   const handleSubscriptionDeleted = { execute: jest.fn() };
@@ -245,6 +249,7 @@ describe('ProcessWebhookHandler — dispatch by type', () => {
 
   beforeEach(async () => {
     jest.resetAllMocks();
+    stripeEvents.findById.mockResolvedValue({ id: 1, processedAt: null });
     const module = await Test.createTestingModule({
       providers: [
         ProcessWebhookHandler,
@@ -303,6 +308,25 @@ describe('ProcessWebhookHandler — dispatch by type', () => {
     expect(handleInvoiceUpcoming.execute).toHaveBeenCalledWith(event);
   });
 
+  it('an event already processed is skipped — nothing dispatched, nothing re-marked', async () => {
+    stripeEvents.findById.mockResolvedValue({
+      id: 1,
+      processedAt: new Date('2026-10-09T13:37:16Z'),
+    });
+    const event = stripeEvent('payment_intent.succeeded', paymentIntent());
+    await expect(processWebhook.execute(1, event)).resolves.toBeUndefined();
+    expect(handlePaymentSucceeded.execute).not.toHaveBeenCalled();
+    expect(stripeEvents.markProcessed).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalled();
+  });
+
+  it('an event stored but not yet processed is dispatched and marked once', async () => {
+    const event = stripeEvent('payment_intent.succeeded', paymentIntent());
+    await processWebhook.execute(1, event);
+    expect(handlePaymentSucceeded.execute).toHaveBeenCalledTimes(1);
+    expect(stripeEvents.markProcessed).toHaveBeenCalledTimes(1);
+  });
+
   it('an unknown event type is a no-op — stored only, still marked processed', async () => {
     const event = stripeEvent('charge.refunded', {});
     await expect(processWebhook.execute(5, event)).resolves.toBeUndefined();
@@ -339,6 +363,8 @@ describe('Stripe event handlers — customer resolution and status transitions',
     findByStripeCustomerId: jest.fn(),
     setStatus: jest.fn(),
     setPeriod: jest.fn(),
+    movePendingPlanDate: jest.fn(),
+    startGrace: jest.fn(),
   };
   const tenants = { findOne: jest.fn() };
   const notifications = { dispatch: jest.fn() };
@@ -455,6 +481,30 @@ describe('Stripe event handlers — customer resolution and status transitions',
       expect(periodEnd.getTime()).toBe(addOneMonth(periodStart).getTime());
     });
 
+    it('a waiting plan change follows the period when a payment moves it', async () => {
+      subscriptions.findByStripeCustomerId.mockResolvedValue(
+        subscriptionRow({
+          pendingPlanId: 3,
+          pendingPlanEffectiveAt: new Date('2026-02-01T00:00:00Z'),
+        }),
+      );
+      tenants.findOne.mockResolvedValue(tenant());
+      await handlePaymentSucceeded.execute(
+        stripeEvent('payment_intent.succeeded', paymentIntent()),
+      );
+      const newEnd = subscriptions.setPeriod.mock.calls[0][2] as Date;
+      expect(subscriptions.movePendingPlanDate).toHaveBeenCalledWith(7, newEnd);
+    });
+
+    it('no waiting plan change: the date is not touched', async () => {
+      subscriptions.findByStripeCustomerId.mockResolvedValue(subscriptionRow());
+      tenants.findOne.mockResolvedValue(tenant());
+      await handlePaymentSucceeded.execute(
+        stripeEvent('payment_intent.succeeded', paymentIntent()),
+      );
+      expect(subscriptions.movePendingPlanDate).not.toHaveBeenCalled();
+    });
+
     it('notifies the platform of the payment received, amount in euros', async () => {
       subscriptions.findByStripeCustomerId.mockResolvedValue(
         subscriptionRow({ tenantId: 7 }),
@@ -527,10 +577,10 @@ describe('Stripe event handlers — customer resolution and status transitions',
           stripeEvent('payment_intent.payment_failed', paymentIntent()),
         ),
       ).resolves.toBeUndefined();
-      expect(subscriptions.setStatus).not.toHaveBeenCalled();
+      expect(subscriptions.startGrace).not.toHaveBeenCalled();
     });
 
-    it('sets the subscription past_due — never cancelled on a failed payment', async () => {
+    it('starts the 7 days to pay (past_due + grace) — never cancelled at once', async () => {
       subscriptions.findByStripeCustomerId.mockResolvedValue(
         subscriptionRow({ tenantId: 7 }),
       );
@@ -540,8 +590,11 @@ describe('Stripe event handlers — customer resolution and status transitions',
         stripeEvent('payment_intent.payment_failed', paymentIntent()),
       );
 
-      expect(subscriptions.setStatus).toHaveBeenCalledWith(7, 'past_due');
-      expect(subscriptions.setStatus).not.toHaveBeenCalledWith(7, 'cancelled');
+      expect(subscriptions.startGrace).toHaveBeenCalledWith(
+        7,
+        expect.any(Date),
+      );
+      expect(subscriptions.setStatus).not.toHaveBeenCalled();
     });
 
     it('notifies BOTH the platform alert and the tenant alert, amount in euros', async () => {
@@ -549,6 +602,9 @@ describe('Stripe event handlers — customer resolution and status transitions',
         subscriptionRow({ tenantId: 7 }),
       );
       tenants.findOne.mockResolvedValue(tenant({ name: 'Acme Co' }));
+      subscriptions.startGrace.mockResolvedValue(
+        new Date('2026-10-17T10:00:00Z'),
+      );
 
       await handlePaymentFailed.execute(
         stripeEvent(
@@ -565,7 +621,7 @@ describe('Stripe event handlers — customer resolution and status transitions',
         {
           tenantId: 7,
           dedupeDays: 1,
-          payload: { amount: '49.99' },
+          payload: { amount: '49.99', grace_ends_at: '2026-10-17' },
         },
       );
       expect(notifications.dispatch).toHaveBeenCalledTimes(2);

@@ -15,8 +15,26 @@ export class UserEntity {
   @ApiProperty({ example: 'Jean Dupont' })
   name: string;
 
-  @ApiProperty({ example: 'jean@renovation-dupont.be' })
-  email: string;
+  @ApiProperty({
+    example: 'jean@renovation-dupont.be',
+    nullable: true,
+    description:
+      'null = a worker added without email (logs in with login_code + PIN)',
+  })
+  email: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    example: '48213907',
+    description: '8 digits, phone login of a worker with no email',
+  })
+  login_code: string | null;
+
+  @ApiProperty({
+    description:
+      'true = created with a temporary password; must choose their own',
+  })
+  must_change_password: boolean;
 
   @ApiProperty({ nullable: true })
   phone: string | null;

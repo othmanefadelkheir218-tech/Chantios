@@ -9,6 +9,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { CreateTaskHandler } from './handlers/create-task.handler';
 import { DeleteTaskHandler } from './handlers/delete-task.handler';
 import { FindTasksHandler } from './handlers/find-tasks.handler';
+import { MyProjectsHandler } from './handlers/my-projects.handler';
 import { MyTasksHandler } from './handlers/my-tasks.handler';
 import { SetAssigneesHandler } from './handlers/set-assignees.handler';
 import { SetTaskStatusHandler } from './handlers/set-task-status.handler';
@@ -23,6 +24,7 @@ export class TasksService {
     private readonly createTask: CreateTaskHandler,
     private readonly findTasks: FindTasksHandler,
     private readonly myTasks: MyTasksHandler,
+    private readonly myProjects: MyProjectsHandler,
     private readonly updateTask: UpdateTaskHandler,
     private readonly setTaskStatus: SetTaskStatusHandler,
     private readonly setTaskAssignees: SetAssigneesHandler,
@@ -47,6 +49,10 @@ export class TasksService {
 
   findMine(query: FindTasksQueryDto, actor: AuthenticatedUser) {
     return this.myTasks.execute(query, actor);
+  }
+
+  findMyProjects(actor: AuthenticatedUser) {
+    return this.myProjects.execute(actor);
   }
 
   update(
@@ -95,5 +101,10 @@ export class TasksService {
   /** The raw task row (with assignees), scoped to the current tenant, or `null`. */
   findByIdRaw(id: number) {
     return this.tasks.findById(id);
+  }
+
+  /** Dashboard (step 18). `assigneeId` is set for a user with scope `own`. */
+  countDueTodayAndOverdue(today: Date, assigneeId?: number) {
+    return this.tasks.countDueTodayAndOverdue(today, assigneeId);
   }
 }

@@ -40,6 +40,11 @@ One-way: the tenant posts, the platform reads and changes the status. It is **no
 
 `status`: `new` → `reviewing` → `planned` / `declined` / `shipped`.
 
+| Rule | |
+|---|---|
+| Private to the author | `GET /api/feedback/mine` returns only what the caller submitted. A colleague, even the owner, never sees it |
+| Every status change is audited | `audit_logs` row `update_status` with the company, the platform admin, the old and the new status |
+
 ## 3. Analytics events
 
 | Rule | |
@@ -102,7 +107,7 @@ Two controllers for support, as with the portal: `support.controller.ts` for ten
 | `GET` | `/api/support/tickets` | `AuthGuard` | own tenant only |
 | `GET` | `/api/support/tickets/:id` | `AuthGuard` | with its conversation id |
 | `POST` | `/api/feedback` | `AuthGuard` | any role may submit |
-| `GET` | `/api/feedback/mine` | `AuthGuard` | own tenant's submissions |
+| `GET` | `/api/feedback/mine` | `AuthGuard` | the caller's own submissions only |
 | `POST` | `/api/analytics/track` | `AuthGuard` | fire and forget, returns `202` |
 
 ### Platform side — `AdminAuthGuard`

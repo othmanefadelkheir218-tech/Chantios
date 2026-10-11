@@ -1,14 +1,21 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
 import { toCamelKeys } from '../../common/helpers/case.helper';
 import { UpdateUserDto } from '../dto/update-user.dto';
-import { toUserEntity } from '../helpers/user.helper';
+import { toUserEntity, WORKER_ROLE_ID } from '../helpers/user.helper';
 import { UserRepository } from '../repositories/user.repository';
 
-/** `PATCH /api/users/:id` — admin only: role, hourly_rate, is_active, name, phone. */
+/**
+ * `PATCH /api/users/:id` — admin only: role, hourly_rate, is_active, name, phone.
+ * A user with no email stays a `worker` (auth-tokens.md § 2b).
+ */
 @Injectable()
 export class UpdateUserHandler {
   constructor(
@@ -25,6 +32,18 @@ export class UpdateUserHandler {
     if (!current) {
       this.logger.warn(`Cannot update user: ${id} not found`);
       throw new NotFoundException('User not found');
+    }
+    if (
+      !current.email &&
+      dto.role_id !== undefined &&
+      dto.role_id !== WORKER_ROLE_ID
+    ) {
+      this.logger.warn(
+        `Cannot update user ${id}: no email, must stay a worker`,
+      );
+      throw new BadRequestException(
+        'A member without email can only be a worker — add an email first',
+      );
     }
 
     const updated = await this.users.update(

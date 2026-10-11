@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
@@ -32,7 +33,7 @@ async function bootstrap() {
   }
 
   // 2. Nest application. Boot logs are hidden: only errors and warnings.
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error', 'warn'],
     rawBody: true, // Stripe webhooks need the raw body to check the signature
   });
@@ -52,6 +53,9 @@ async function bootstrap() {
       },
     }),
   );
+  // A bulk import sends up to 500 rows as JSON (doc/notes/bulk-import.md):
+  // more than the 100 kb default. `rawBody` (Stripe) still works.
+  app.useBodyParser('json', { limit: '2mb' });
   app.use(cookieParser());
   app.enableCors({ origin: ALLOWED_ORIGINS, credentials: true });
   app.useGlobalPipes(

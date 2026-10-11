@@ -4,7 +4,10 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { NotificationsService } from '../notifications/notifications.service';
 import { taskAlertContext } from '../tasks/helpers/task-alert.helper';
 import { TasksService } from '../tasks/tasks.service';
-import { addDays, localMoment } from './helpers/tenant-local-time.helper';
+import {
+  addDays,
+  localMoment,
+} from '../common/helpers/tenant-local-time.helper';
 import { TenantRunner } from './tenant-runner.service';
 
 /**

@@ -254,4 +254,37 @@ export class InvoiceRepository {
     }
     return tenantId;
   }
+
+  /**
+   * Dashboard (step 18): unpaid = `sent` / `partially_paid` with a balance
+   * left; overdue = the view's own `is_late` (the one late rule). Count +
+   * balance due for each, current tenant only.
+   */
+  async summarizeUnpaid(): Promise<{
+    unpaidCount: number;
+    unpaidBalance: Prisma.Decimal;
+    overdueCount: number;
+    overdueBalance: Prisma.Decimal;
+  }> {
+    const tenantId = this.currentTenantId();
+    const rows = await this.prisma.$queryRaw<
+      {
+        unpaidCount: number;
+        unpaidBalance: Prisma.Decimal;
+        overdueCount: number;
+        overdueBalance: Prisma.Decimal;
+      }[]
+    >`
+      SELECT COUNT(*)::int AS "unpaidCount",
+             COALESCE(SUM(b.balance_due), 0) AS "unpaidBalance",
+             (COUNT(*) FILTER (WHERE b.is_late))::int AS "overdueCount",
+             COALESCE(SUM(b.balance_due) FILTER (WHERE b.is_late), 0) AS "overdueBalance"
+      FROM invoice_balance b
+      JOIN invoices i ON i.id = b.invoice_id AND i.tenant_id = b.tenant_id
+      WHERE b.tenant_id = ${tenantId}
+        AND i.status IN ('sent', 'partially_paid')
+        AND b.balance_due > 0
+    `;
+    return rows[0];
+  }
 }

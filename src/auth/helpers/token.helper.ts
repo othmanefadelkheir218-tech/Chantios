@@ -12,7 +12,7 @@ export interface AccessTokenPayload {
   sub: number;
   tenantId: number;
   roleId: number;
-  email: string;
+  email: string | null;
   kind: 'user';
   /**
    * Set only for an impersonation session (step 16): the platform
@@ -20,6 +20,8 @@ export interface AccessTokenPayload {
    * existing caller of `signAccessToken`/`verifyAccessToken` is unaffected.
    */
   impersonatedBy?: number;
+  /** Expiry in seconds since epoch. Added by `jwt.sign`, present on every verified token. */
+  exp?: number;
 }
 
 export interface RefreshTokenPayload {

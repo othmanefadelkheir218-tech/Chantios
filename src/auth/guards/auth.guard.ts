@@ -33,6 +33,12 @@ export class AuthGuard implements CanActivate {
         tenantId: payload.tenantId,
         roleId: payload.roleId,
         email: payload.email,
+        ...(payload.impersonatedBy !== undefined && {
+          impersonatedBy: payload.impersonatedBy,
+        }),
+        ...(payload.exp !== undefined && {
+          accessExpiresAt: new Date(payload.exp * 1000),
+        }),
       };
       (req as unknown as { user: AuthenticatedUser }).user = user;
       return true;

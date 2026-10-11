@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { TenantStatus } from '@prisma/client';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
 export class FindTenantsQueryDto extends PaginationQueryDto {
@@ -16,4 +17,16 @@ export class FindTenantsQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsEnum(TenantStatus)
   status?: TenantStatus;
+
+  @ApiPropertyOptional({
+    description:
+      'true = only soft-deleted tenants (to restore them). Left out or false = only live tenants.',
+    type: Boolean,
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  deleted?: boolean;
 }

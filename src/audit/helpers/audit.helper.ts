@@ -15,6 +15,12 @@ export interface AuditEntry {
 }
 
 /**
+ * CLS key a handler sets when the action changed nothing (a repeated
+ * deactivate): `AuditInterceptor` then writes no `audit_logs` row.
+ */
+export const AUDIT_SKIP_KEY = 'audit.skip';
+
+/**
  * `tenant_id` / `entity_id` are integer columns: anything that is not a
  * positive integer (already a number, or a numeric string straight off a
  * route param) is stored as NULL.

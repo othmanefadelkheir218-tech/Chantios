@@ -72,4 +72,36 @@ export class ProjectRepository {
   delete(id: number): Promise<Project> {
     return this.tenantPrisma.db.project.delete({ where: { id } });
   }
+
+  /** Dashboard (step 18): open projects (not completed, not cancelled) per status. */
+  async countOpenByStatus(): Promise<
+    Record<'prospect' | 'in_progress', number>
+  > {
+    const rows = await this.tenantPrisma.db.project.groupBy({
+      by: ['status'],
+      where: { status: { in: ['prospect', 'in_progress'] } },
+      _count: { _all: true },
+    });
+    const counts = { prospect: 0, in_progress: 0 };
+    for (const row of rows) {
+      counts[row.status as keyof typeof counts] = row._count._all;
+    }
+    return counts;
+  }
+
+  /** Name + address of these projects (the worker's own project list). Tenant-scoped like every read here. */
+  findSummariesByIds(ids: number[]) {
+    return this.tenantPrisma.db.project.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        name: true,
+        addressLine1: true,
+        addressLine2: true,
+        postalCode: true,
+        city: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
 }

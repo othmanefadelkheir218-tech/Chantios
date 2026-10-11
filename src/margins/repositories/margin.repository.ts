@@ -82,7 +82,8 @@ export class MarginRepository {
   /**
    * The cost of one project grouped by `cost_type_id` — the same three doors
    * as the view, as one line per cost type:
-   *   - material → the seeded `material` type, from the stock ledger;
+   *   - material → the seeded `material` type, from the stock ledger
+   *     (consumptions + adjustments linked to the project);
    *   - labour   → the seeded `labor` type, from the frozen time-entry rates;
    *   - bills    → each bill's own `cost_type_id`, EXCEPT `material` (already
    *     counted when it left the stock).
@@ -97,7 +98,7 @@ export class MarginRepository {
         SELECT (SELECT id FROM cost_types WHERE name = 'material' AND tenant_id IS NULL) AS cost_type_id,
                SUM(-sm.quantity * sm.unit_price) AS amount
         FROM stock_movements sm
-        WHERE sm.tenant_id = ${tenantId} AND sm.project_id = ${projectId} AND sm.type = 'consumption'
+        WHERE sm.tenant_id = ${tenantId} AND sm.project_id = ${projectId} AND sm.type IN ('consumption', 'adjustment')
         UNION ALL
         SELECT (SELECT id FROM cost_types WHERE name = 'labor' AND tenant_id IS NULL),
                SUM(te.hours * te.hourly_rate)

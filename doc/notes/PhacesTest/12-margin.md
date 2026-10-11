@@ -3,7 +3,7 @@
 > Read [00-START-HERE.md](00-START-HERE.md) first. Rules: [margin-profitability.md](../margin-profitability.md), [technical/phase-08-margin-snapshot.md](../technical/phase-08-margin-snapshot.md).
 > Old reference: [../test/14-margin.md](../test/14-margin.md).
 
-> **Status: 1 waiting — ALT-08** ([CHECK EMAIL]). The owner must open `othmanefadelkheir218@gmail.com` and `zakariyazouazou@gmail.com` and confirm exactly 3 margin emails each for `TEST Project Alerts` (warning, critical, warning, sent 2026-10-09 around 00:52), no duplicate. Until then the phase is 32 PASS, 0 FAIL, 1 waiting.
+> **Status: done. ALT-08 PASS on 2026-10-09:** both inboxes (`othmanefadelkheir218@gmail.com`, `zakariyazouazou@gmail.com`) hold exactly 3 emails for `TEST Project Alerts` (warning 23:51, warning 23:52, critical 23:52), in French, no duplicate. The phase is 33 PASS, 0 FAIL, 0 waiting.
 
 ## Goal
 
@@ -63,7 +63,7 @@ Extra data: material `TEST Brick` (`10.00`, buy 100), the worker assigned to a t
 | ALT-05 | `10` | 95 %+ | nothing new | PASS |
 | ALT-06 | accept a `5000` quote | 63 % of 15000 | **0** rows — both deleted | PASS |
 | ALT-07 | `2500` | 80 % of 15000 | warning fires **again**, 1 row | PASS |
-| ALT-08 | **[CHECK EMAIL]** owner `othmanefadelkheir218@gmail.com` and manager `zakariyazouazou@gmail.com` | exactly: warning (ALT-02), critical (ALT-04), warning (ALT-07) — no duplicates | waiting |
+| ALT-08 | **[CHECK EMAIL]** owner `othmanefadelkheir218@gmail.com` and manager `zakariyazouazou@gmail.com` | exactly: warning (ALT-02), critical (ALT-04), warning (ALT-07) — no duplicates | PASS (owner saw exactly 3 in each inbox, French, 2026-10-09) |
 
 ## 4. Snapshot on `completed`
 
@@ -97,7 +97,7 @@ Extra data: material `TEST Brick` (`10.00`, buy 100), the worker assigned to a t
 
 ## Result — 2026-10-09
 
-**32 PASS, 0 FAIL, 1 waiting** (ALT-08, the owner's email check — asked on Telegram).
+**33 PASS, 0 FAIL, 0 waiting** (ALT-08 PASS 2026-10-09).
 
 Data: `TEST Project Margin` = 11, `TEST Project Alerts` = 12, `TEST Project Stop` = 13, `TEST Brick` = 5 (price left at `50.00`), task 7, contract 3 (`TEST Plumbing`, `2500`).
 

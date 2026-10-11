@@ -18,6 +18,7 @@ import { SessionsService } from '../../sessions/sessions.service';
 import { SetTenantStatusHandler } from './set-tenant-status.handler';
 import { SoftDeleteTenantHandler } from './soft-delete-tenant.handler';
 import { SoftDeleteTenantsHandler } from './soft-delete-tenants.handler';
+import { UpdateTenantHandler } from './update-tenant.handler';
 import { VerifyTenantEmailHandler } from './verify-tenant-email.handler';
 
 /** Arguments of every call to a mock, typed. */
@@ -382,6 +383,50 @@ describe('Tenants handlers', () => {
       await expect(
         verifyEmail.execute(999, { code: '482917' }, actor),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+});
+
+describe('UpdateTenantHandler — audit only a real change', () => {
+  const repo = {
+    findById: jest.fn(),
+    findByEmail: jest.fn(),
+    update: jest.fn(),
+  };
+  const audit = { write: jest.fn() };
+  const logger = { info: jest.fn(), warn: jest.fn() };
+  const handler = () =>
+    new UpdateTenantHandler(
+      logger as never,
+      repo as unknown as TenantRepository,
+      audit as unknown as AuditService,
+    );
+
+  beforeEach(() => jest.resetAllMocks());
+
+  it('an empty body changes nothing and writes no audit entry', async () => {
+    repo.findById.mockResolvedValue(tenant({ updatedAt: new Date(1) }));
+    repo.update.mockResolvedValue(tenant({ updatedAt: new Date(2) }));
+    await handler().execute(1, {}, actor);
+    expect(audit.write).not.toHaveBeenCalled();
+  });
+
+  it('the same value sent again writes no audit entry', async () => {
+    repo.findById.mockResolvedValue(tenant());
+    repo.update.mockResolvedValue(tenant());
+    await handler().execute(1, { name: 'Dupont' }, actor);
+    expect(audit.write).not.toHaveBeenCalled();
+  });
+
+  it('a real change writes one audit entry with the old and new value', async () => {
+    repo.findById.mockResolvedValue(tenant());
+    repo.update.mockResolvedValue(tenant({ name: 'Martin' }));
+    await handler().execute(1, { name: 'Martin' }, actor);
+    expect(audit.write).toHaveBeenCalledTimes(1);
+    expect(callsOf(audit.write)[0][0]).toMatchObject({
+      action: 'update',
+      oldValue: { name: 'Dupont' },
+      newValue: { name: 'Martin' },
     });
   });
 });

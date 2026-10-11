@@ -27,13 +27,15 @@ export function toRecipeRowEntity(row: ServiceMaterial) {
   };
 }
 
-/** Builds the Prisma filter for the services list: category + search. */
+/** Builds the Prisma filter for the services list: category + search + active. */
 export function buildServiceFilter(
   categoryId?: number,
   search?: string,
+  isActive?: boolean,
 ): Prisma.ServiceWhereInput {
   return {
     ...(categoryId !== undefined && { categoryId }),
+    ...(isActive !== undefined && { isActive }),
     ...(search && {
       description: { contains: search, mode: 'insensitive' },
     }),

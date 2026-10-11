@@ -49,13 +49,13 @@ A tampered body or a signature built with the wrong secret → `400`, nothing st
 → `stripe_events` row created and marked `processed_at` (not twice — replay the exact same `id` → `200`, still exactly one row, nothing re-processed). Subscription → `active`, `period_start`/`period_end` roll forward one month. One `payment_received` platform alert per platform admin (`tenant_id` NULL, `admin_user_id` set).
 
 ### SUB-07 — `payment_intent.payment_failed`
-Subscription → `past_due` (never `cancelled`). Platform admins get `payment_failed`; the tenant's own admin/manager get a NEW tenant alert type (`subscription_payment_failed`) through the normal one-door dispatch (row + socket + email).
+Subscription → `past_due` (never `cancelled`). Platform admins get `payment_failed`; the tenant's main admin (owner only — decided 2026-10-09) gets a NEW tenant alert type (`subscription_payment_failed`) through the normal one-door dispatch (row + socket + email).
 
 ### SUB-08 — `customer.subscription.deleted`
 Subscription → `cancelled`. The next request from that tenant is blocked (`403 No active subscription` — `SubscriptionGuard`).
 
 ### SUB-09 — `invoice.upcoming`
-Tenant's own admin/manager get a warning alert (`subscription_renewal_upcoming`), no platform-admin notification.
+Tenant's main admin (owner only — decided 2026-10-09) gets a warning alert (`subscription_renewal_upcoming`), no platform-admin notification.
 
 ### SUB-10 — Idempotency under a real crash-and-retry shape
 The event is stored (`stripe_events` row, durable) BEFORE the response is sent and before anything is queued — the only thing that is best-effort is the BullMQ enqueue step itself, so a Redis hiccup after a successful DB write never loses the event silently (it is simply not dispatched yet; it has a row with `processed_at` and `error` both NULL, findable for a manual replay).

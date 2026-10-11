@@ -48,6 +48,8 @@ CREATE TYPE ticket_category          AS ENUM ('bug','question','billing','other'
 CREATE TYPE ticket_priority          AS ENUM ('low','normal','high');
 CREATE TYPE feedback_type            AS ENUM ('feature_request','improvement','complaint');
 CREATE TYPE feedback_status          AS ENUM ('new','reviewing','planned','declined','shipped');
+CREATE TYPE import_type              AS ENUM ('materials','stock');
+CREATE TYPE import_status            AS ENUM ('pending','processing','done','failed');
 
 CREATE TYPE permission_module AS ENUM (
   'clients','projects','tasks','time_entries','catalogue','stock','quotes','invoices',
@@ -79,6 +81,8 @@ CREATE TABLE tenants (
   postal_code              TEXT,
   city                     TEXT,
   country                  CHAR(2),
+  iban                     TEXT,                    -- printed on invoices
+  bic                      TEXT,
   logo_media_id            INTEGER,                 -- → media.id, no FK (media is polymorphic)
   default_vat_rate         NUMERIC(5,2) NOT NULL DEFAULT 21.00,
   default_payment_days     SMALLINT NOT NULL DEFAULT 30,   -- how long a client has to pay
@@ -100,6 +104,8 @@ CREATE TABLE admin_users (
   totp_secret   TEXT,                            -- otplib, for admin_2fa
   role          TEXT NOT NULL DEFAULT 'staff',   -- 'super_admin' | 'staff'
   is_active     BOOLEAN NOT NULL DEFAULT true,
+  can_manage_billing BOOLEAN NOT NULL DEFAULT false, -- a staff admin may change plans/billing only if a super_admin allows it
+  can_manage_tenants BOOLEAN NOT NULL DEFAULT false, -- a staff admin may suspend/reactivate a company only if a super_admin allows it
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -154,12 +160,15 @@ CREATE TABLE tenant_subscriptions (
   period_end                TIMESTAMPTZ NOT NULL,
   pending_plan_id           INTEGER REFERENCES plans(id),
   pending_plan_effective_at TIMESTAMPTZ,
+  grace_ends_at             TIMESTAMPTZ,  -- set when a trial ends or a payment fails (+ 7 days); only while status = 'past_due'
   created_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at                TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
 
 One row per tenant — **there is no `subscriptions` table.**
+
+`grace_ends_at`: the day a company whose trial ended gets blocked if it has not paid. See `doc/notes/subscription-plans.md` § The end of the trial.
 
 **Created at registration, in the same transaction as the tenant**: the `is_default` plan, `status = 'trialing'`, `period_end = now() + 14 days`. Without this row a new company would be locked out of its own app.
 
@@ -268,7 +277,9 @@ CREATE TABLE users (
   tenant_id       INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   role_id         SMALLINT NOT NULL REFERENCES roles(id),
   name            TEXT NOT NULL,
-  email           TEXT NOT NULL UNIQUE,           -- UNIQUE across the WHOLE app, not per tenant
+  email           TEXT UNIQUE,                    -- UNIQUE across the WHOLE app, not per tenant. NULL = worker added without email
+  login_code      VARCHAR(8) UNIQUE,              -- 8 digits, phone login of a worker with no email
+  must_change_password BOOLEAN NOT NULL DEFAULT false, -- set when the admin chose a temporary password
   phone           TEXT,
   password_hash   TEXT,                           -- argon2id
   mobile_pin_hash TEXT,                           -- argon2id, 'worker' role only
@@ -277,12 +288,14 @@ CREATE TABLE users (
   is_active       BOOLEAN NOT NULL DEFAULT true,
   email_verified_at TIMESTAMPTZ,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_users_email_or_worker_code
+    CHECK (email IS NOT NULL OR (role_id = 5 AND login_code IS NOT NULL))
 );
 CREATE INDEX idx_users_tenant ON users (tenant_id);
 ```
 
-`users.email` is **globally unique** because login is email + password with no company field. One email belongs to one company.
+`users.email` is **globally unique** because login is email + password with no company field. One email belongs to one company. A `worker` added without email logs in on the phone with `login_code` + PIN (`auth-tokens.md` § 2b).
 
 ### `role_permissions` — overrides only
 
@@ -329,10 +342,12 @@ CREATE TABLE user_invitations (
   name        TEXT NOT NULL,
   role_id     SMALLINT NOT NULL REFERENCES roles(id),
   token_hash  TEXT NOT NULL UNIQUE,
-  invited_by  INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  invited_by  INTEGER REFERENCES users(id) ON DELETE RESTRICT,           -- a company user invites
+  invited_by_admin_user_id INTEGER REFERENCES admin_users(id) ON DELETE RESTRICT, -- the super-admin invites a new company's first admin
   expires_at  TIMESTAMPTZ NOT NULL,               -- created + 7 days
   accepted_at TIMESTAMPTZ,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (num_nonnulls(invited_by, invited_by_admin_user_id) = 1)
 );
 -- One OPEN invitation per email, app-wide (same reason as users.email)
 CREATE UNIQUE INDEX idx_invitations_open_email ON user_invitations (email) WHERE accepted_at IS NULL;
@@ -484,6 +499,8 @@ CREATE TABLE materials (
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_materials_tenant ON materials (tenant_id);
+-- one description per company, case-insensitive, archived rows included
+CREATE UNIQUE INDEX uq_materials_tenant_description ON materials (tenant_id, lower(btrim(description)));
 ```
 
 **`materials` has no quantity column.** The quantity in stock is only ever summed from the ledger.
@@ -515,6 +532,7 @@ CREATE TABLE stock_movements (
   unit_price          NUMERIC(12,2) NOT NULL,      -- FROZEN at the moment of the movement
   movement_date       DATE NOT NULL DEFAULT CURRENT_DATE,
   note                TEXT,
+  import_batch_id     INTEGER,          -- → import_batches.id, FK added in section 11. Set by a bulk import
   created_by          INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
 
@@ -536,6 +554,7 @@ CREATE INDEX idx_stock_mvt_project ON stock_movements (project_id) WHERE project
 | `project_id` nullable | A `purchase` row belongs to the shared pool, not to a project. Only `consumption` requires one |
 | `report_id` | The site report that declared this consumption — traceability back to who said it and when |
 | `purchase_invoice_id` | Links a `purchase` row to the supplier bill, when both exist. Either can exist alone |
+| `import_batch_id` | The bulk import that wrote this row. `NULL` for a row written by hand. Lets a manager see and reverse one import |
 
 The ledger is **append-only**. A mistake is corrected with a new `adjustment` row, never by editing or deleting.
 
@@ -567,6 +586,36 @@ CREATE TABLE stock_reservations (
 | Project cancelled | `status = 'released'`, `remaining_quantity = 0` |
 
 Only `active` rows count in `material_stock_live.reserved`.
+
+### `import_batches` — one row per bulk import
+
+Rules in [notes/bulk-import.md](notes/bulk-import.md).
+
+```sql
+CREATE TABLE import_batches (
+  id            SERIAL PRIMARY KEY,
+  tenant_id     INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  type          import_type NOT NULL,
+  status        import_status NOT NULL DEFAULT 'pending',
+  file_name     TEXT NOT NULL,
+  rows_hash     TEXT NOT NULL,                     -- sha256 of the rows, blocks a double import
+  row_count     INTEGER NOT NULL CHECK (row_count BETWEEN 1 AND 500),
+  rows          JSONB NOT NULL,                    -- the rows sent by the frontend; the job reads them from here
+  errors        JSONB,                             -- [{ row, field, message }] when failed
+  created_count INTEGER NOT NULL DEFAULT 0,
+  updated_count INTEGER NOT NULL DEFAULT 0,
+  created_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  started_at    TIMESTAMPTZ,
+  finished_at   TIMESTAMPTZ
+);
+CREATE INDEX idx_import_batches_tenant ON import_batches (tenant_id, created_at DESC);
+-- the same rows can't be imported twice; a failed batch may be sent again
+CREATE UNIQUE INDEX uq_import_batches_hash ON import_batches (tenant_id, type, rows_hash)
+  WHERE status <> 'failed';
+```
+
+A batch row is never deleted.
 
 ---
 
@@ -791,9 +840,11 @@ CREATE TABLE payments (
   id           SERIAL PRIMARY KEY,
   tenant_id    INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   invoice_id   INTEGER NOT NULL REFERENCES invoices(id) ON DELETE RESTRICT,
-  amount       NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+  amount       NUMERIC(12,2) NOT NULL CHECK (amount <> 0),   -- negative = correction
   method       payment_method NOT NULL,
   reference    TEXT,
+  note         TEXT,                                      -- required when amount < 0
+  CHECK (amount > 0 OR note IS NOT NULL),
   payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
   created_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -1180,9 +1231,12 @@ LEFT JOIN (
   FROM quotes WHERE status = 'accepted' GROUP BY project_id
 ) q ON q.project_id = p.id
 LEFT JOIN (
-  -- material cost: quantity is negative on consumption, so negate it. Uses the FROZEN unit_price
+  -- material cost: quantity is negative on consumption, so negate it. Uses the FROZEN unit_price.
+  -- An adjustment linked to the project counts too (+ gives material back, - adds cost).
   SELECT project_id, SUM(-quantity * unit_price) AS material_cost
-  FROM stock_movements WHERE type = 'consumption' GROUP BY project_id
+  FROM stock_movements
+  WHERE type IN ('consumption','adjustment') AND project_id IS NOT NULL
+  GROUP BY project_id
 ) mc ON mc.project_id = p.id
 LEFT JOIN (
   -- labor cost: uses the FROZEN hourly_rate on the row, never users.hourly_rate
@@ -1218,7 +1272,7 @@ Dedup is `project_margin_alerts`. If an extra accepted quote raises the budget a
 
 ## 11. Deferred foreign keys
 
-Five FKs point **forward** to a table created later in this file. Prisma orders its own DDL, so `prisma migrate` does not care — but if you run this SQL by hand, top to bottom, these five must come last or the script fails.
+Six FKs point **forward** to a table created later in this file. Prisma orders its own DDL, so `prisma migrate` does not care — but if you run this SQL by hand, top to bottom, these six must come last or the script fails.
 
 ```sql
 ALTER TABLE analytics_events ADD CONSTRAINT fk_analytics_user
@@ -1235,6 +1289,9 @@ ALTER TABLE stock_movements ADD CONSTRAINT fk_stock_mvt_report
 
 ALTER TABLE stock_movements ADD CONSTRAINT fk_stock_mvt_purchase_invoice
   FOREIGN KEY (purchase_invoice_id) REFERENCES purchase_invoices(id) ON DELETE SET NULL;
+
+ALTER TABLE stock_movements ADD CONSTRAINT fk_stock_mvt_import_batch
+  FOREIGN KEY (import_batch_id) REFERENCES import_batches(id) ON DELETE RESTRICT;
 ```
 
 ---
@@ -1333,11 +1390,16 @@ These are service-layer rules. The schema above supports either answer.
 5. **Worker hour scope.** Assignee on any task of that *project*, or only on that *task*? And which rule applies when `time_entries.task_id` is `NULL`? **Decided 2026-10-06** — project-level: a worker may log on a project where they are an assignee on at least one task; `task_id` stays optional and the check is the same with or without it. See `doc/notes/planning-time-entries.md`.
 6. **Platform admin cross-tenant read.** A support conversation is a business table, so the Prisma extension scopes it. The escape hatch for an `admin_user` needs a defined mechanism, and it must write to `audit_logs`. **Decided 2026-10-06** — one explicit repository method that takes a `tenantId` and runs on the unwrapped Prisma client, called only from a handler behind `AdminAuthGuard`, which always writes `audit_logs`; never a general "disable the extension" flag. See `doc/notes/chat-conversations.md`.
 7. **Delete / cascade on `media`.** It has no FK by design, so deleting a project leaves orphan rows. Decide whether a cleanup job sweeps them. **Decided 2026-10-06** — no sweep job; see `doc/notes/media-files.md`. Every entity type except `project` never hard-deletes at all, so none can orphan `media`. `project` gets the one exception — a real hard delete, `prospect`-status only — and its handler calls `MediaService.deleteAllForEntity()` synchronously first.
-8. **Tenant created by the super-admin.** `POST /api/admin/tenants` writes the `tenants` row only. The notes describe the trial `tenant_subscriptions` row and the first `admin` user only for self-registration (step 02). Decide whether the super-admin route also creates them, or whether a tenant made this way stays empty until something else does.
-9. **Payments cannot actually go negative.** Found during step 06's build (2026-10-06): the "Overpayment" decision above says a correction can be "a positive top-up or a negative correction" and can "naturally reopen `paid → partially_paid`," but `payments.amount` carries `CHECK (amount > 0)` (§ 6 above) — so `amount_paid` can only increase and `balance_due` can only fall, and a `paid` invoice can never reopen as built. Decide whether to relax the CHECK (a migration) or rewrite the overpayment rule to match what the constraint actually allows. See `doc/notes/technical/phase-05-quotes-invoices.md` § Overpayment and `doc/notes/test/10-quotes-invoices.md` § 4.
-10. **Stalled project — how many days?** Found in step 13 (2026-10-07). `planning-time-entries.md` says "several days" without a number. Built as 5 (`STALLED_PROJECT_DAYS`), one line to change. Owner to confirm.
-11. **No tenant bank details field.** Found in step 15 (2026-10-07): `Phaces/15-documents.md`'s invoice PDF page spec lists a "payment block (invoice only) — tenant bank details + `due_date`," but `tenants` has no IBAN/bank-name/bank-account column anywhere in this schema — confirmed by grep, not just an oversight in the notes. Built with the payment block showing `due_date` and payment terms (`invoices.note`) only, no bank details, since there is nothing to print. Decide whether to add `tenants.iban` (and maybe `bank_name`) in a migration, or whether bank details are meant to live in `invoices.note` as free text instead.
-12. **Usage-spike threshold — no number.** Found in step 16 (2026-10-07): `alerts.md` defines `usage_spike` as "storage or AI tokens exceed a threshold," but gives no number for storage (and AI tokens are v2 — not built). Same shape as the already-resolved "stalled project — how many days?" gap. Built with a storage-only check at 90% of the plan's `storage_gb` allowance (one named constant, easy to change), reusing `UsageCounterHelper`/`MediaService.getStorageUsage()` rather than a second storage query. Owner to confirm the number, or decide this alert should wait for the AI layer (v2) to mean anything.
+8. **Tenant created by the super-admin.** `POST /api/admin/tenants` writes the `tenants` row only. The notes describe the trial `tenant_subscriptions` row and the first `admin` user only for self-registration (step 02). Decide whether the super-admin route also creates them, or whether a tenant made this way stays empty until something else does. **Decided 2026-10-09** — same start as a self-signup: the trial subscription + an invitation for the first `admin` (`owner_name`, `owner_email`). `user_invitations` gets `invited_by_admin_user_id`. See `doc/notes/subscription-plans.md`.
+9. **Payments cannot actually go negative.** Found during step 06's build (2026-10-06): the "Overpayment" decision above says a correction can be "a positive top-up or a negative correction" and can "naturally reopen `paid → partially_paid`," but `payments.amount` carries `CHECK (amount > 0)` (§ 6 above) — so `amount_paid` can only increase and `balance_due` can only fall, and a `paid` invoice can never reopen as built. Decide whether to relax the CHECK (a migration) or rewrite the overpayment rule to match what the constraint actually allows. See `doc/notes/technical/phase-05-quotes-invoices.md` § Overpayment and `doc/notes/test/10-quotes-invoices.md` § 4. **Decided 2026-10-09** — relax the CHECK to `amount <> 0`; a negative row is a correction and needs `note`; total paid never below 0. See `doc/notes/client-invoices.md` § payments.
+10. **Stalled project — how many days?** Found in step 13 (2026-10-07). `planning-time-entries.md` says "several days" without a number. Built as 5 (`STALLED_PROJECT_DAYS`), one line to change. Owner to confirm. **Decided 2026-10-09** — 5 days, as built.
+11. **No tenant bank details field.** Found in step 15 (2026-10-07): `Phaces/15-documents.md`'s invoice PDF page spec lists a "payment block (invoice only) — tenant bank details + `due_date`," but `tenants` has no IBAN/bank-name/bank-account column anywhere in this schema — confirmed by grep, not just an oversight in the notes. Built with the payment block showing `due_date` and payment terms (`invoices.note`) only, no bank details, since there is nothing to print. Decide whether to add `tenants.iban` (and maybe `bank_name`) in a migration, or whether bank details are meant to live in `invoices.note` as free text instead. **Decided 2026-10-09** — add `tenants.iban` and `tenants.bic` (nullable), editable in the company profile, printed on the invoice.
+12. **Usage-spike threshold — no number.** Found in step 16 (2026-10-07): `alerts.md` defines `usage_spike` as "storage or AI tokens exceed a threshold," but gives no number for storage (and AI tokens are v2 — not built). Same shape as the already-resolved "stalled project — how many days?" gap. Built with a storage-only check at 90% of the plan's `storage_gb` allowance (one named constant, easy to change), reusing `UsageCounterHelper`/`MediaService.getStorageUsage()` rather than a second storage query. Owner to confirm the number, or decide this alert should wait for the AI layer (v2) to mean anything. **Decided 2026-10-09** — 90% of the plan's storage, as built. AI tokens wait for v2.
+13. **Tenant self-edit: email and currency.** Found while planning step 18 (2026-10-09). `PATCH /api/tenant` lets a company edit its own profile (`doc/notes/roles-permissions.md` § Company profile). Decide whether it may also change `tenants.email` (unique, verified by code — a change needs a new verification) and `tenants.currency` (every amount in the app is EUR today). **Decided 2026-10-09** — not editable by the tenant: the email is the one given at registration, the currency is EUR, both fixed by the backend. No schema change.
+
+14. **Bulk import of materials and stock.** Raised by the owner (2026-10-10): users create a lot of materials and stock rows at once. Decide the file format, the key that finds a material, what happens on duplicates and errors, the row limit, sync or background, and the price used for stock rows. **Decided 2026-10-10** — `.xlsx` only, the frontend sends JSON; export first, `id` is the key and `description` must match; max 500 rows; all or nothing with a clear error per row; a background job + `import_batches` + an in-app notification; materials import creates or updates `purchase_price` / `minimum_stock` only; stock import is `purchase` / `adjustment` only at the material's price; unique `(tenant_id, description)` on materials. See `doc/notes/bulk-import.md`.
+15. **End of the trial.** Raised 2026-10-10: nothing ended a trial, so a company stayed `trialing` for free forever. **Decided 2026-10-10** — reminder on day 11; on day 14 the first renewal sets `past_due` + `grace_ends_at = period_end + 7 days` and a banner; on day 21 `cancelled` (blocked, data kept, billing page still readable); a payment sets `active`. New column `tenant_subscriptions.grace_ends_at`. See `doc/notes/subscription-plans.md` § The end of the trial.
+16. **Grace period after a failed payment.** Raised 2026-10-10 with question 15: a Stripe payment failure sets `past_due` with no deadline, so a company that stops paying keeps full access. Decide whether it gets the same 7-day grace and block as the trial, another number, or stays open. **Decided 2026-10-10** — the same: `past_due` + `grace_ends_at = now + 7 days`, the alert asks to pay before that date, then `cancelled`. A second failure does not extend the date; a failure never reopens a blocked company. See `doc/notes/subscription-plans.md` § A failed payment.
 
 ## Related notes
 

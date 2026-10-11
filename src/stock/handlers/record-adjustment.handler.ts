@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
+import { MarginsService } from '../../margins/margins.service';
 import { MaterialsService } from '../../materials/materials.service';
 import { AdjustStockDto } from '../dto/adjust-stock.dto';
 import {
@@ -17,6 +18,8 @@ import { CheckCoverageHandler } from './check-coverage.handler';
  * to fix a mistake in the ledger — never an update/delete of a past row.
  * `unit_price` always freezes from `materials.purchase_price`; the DTO has
  * no override field for it (unlike a purchase).
+ * With a `project_id`, the row also changes that project's material cost
+ * (a positive one gives material back to the project's margin).
  */
 @Injectable()
 export class RecordAdjustmentHandler {
@@ -27,6 +30,7 @@ export class RecordAdjustmentHandler {
     private readonly materials: MaterialsService,
     private readonly checkCoverage: CheckCoverageHandler,
     private readonly audit: AuditService,
+    private readonly margins: MarginsService,
   ) {}
 
   async execute(dto: AdjustStockDto, actor: AuthenticatedUser) {
@@ -40,6 +44,9 @@ export class RecordAdjustmentHandler {
       );
       throw new NotFoundException('Material not found');
     }
+    // 404 when the project is not this tenant's.
+    if (dto.project_id !== undefined)
+      await this.margins.findOne(dto.project_id);
 
     const created = await this.movements.create({
       tenantId: actor.tenantId,
@@ -70,6 +77,7 @@ export class RecordAdjustmentHandler {
     // (like a purchase), a negative one can drop the material to its minimum.
     // Same soft check, both ways — it is where `low_stock` is raised.
     await this.checkCoverage.execute(dto.material_id, actor.tenantId);
+    await this.margins.checkProjectThresholds(created.projectId, actor);
     return entity;
   }
 }

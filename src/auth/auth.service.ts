@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import type { RequestActor } from '../common/decorators/actor.decorator';
+import { AdminCreateTenantDto } from './dto/admin-create-tenant.dto';
 import { AdminLoginDto } from './dto/admin-login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -9,8 +11,11 @@ import { RegisterTenantDto } from './dto/register-tenant.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Verify2faDto } from './dto/verify-2fa.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
+import { AdminCreateTenantHandler } from './handlers/admin-create-tenant.handler';
 import { AdminLoginHandler } from './handlers/admin-login.handler';
 import { AdminLogoutHandler } from './handlers/admin-logout.handler';
+import { AdminRefreshHandler } from './handlers/admin-refresh.handler';
+import { GetAdminMeHandler } from './handlers/get-admin-me.handler';
 import { ChangePasswordHandler } from './handlers/change-password.handler';
 import { ForgotPasswordHandler } from './handlers/forgot-password.handler';
 import { GetMeHandler } from './handlers/get-me.handler';
@@ -47,6 +52,9 @@ export class AuthService {
     private readonly adminLogin: AdminLoginHandler,
     private readonly verify2fa: Verify2faHandler,
     private readonly adminLogout: AdminLogoutHandler,
+    private readonly adminRefresh: AdminRefreshHandler,
+    private readonly getAdminMe: GetAdminMeHandler,
+    private readonly adminCreateTenantHandler: AdminCreateTenantHandler,
   ) {}
 
   register(dto: RegisterTenantDto) {
@@ -111,5 +119,17 @@ export class AuthService {
 
   adminSignOut(req: Request, res: Response) {
     return this.adminLogout.execute(req, res);
+  }
+
+  adminRefreshSession(req: Request, res: Response) {
+    return this.adminRefresh.execute(req, res);
+  }
+
+  adminMe(adminUserId: number) {
+    return this.getAdminMe.execute(adminUserId);
+  }
+
+  adminCreateTenant(dto: AdminCreateTenantDto, actor: RequestActor) {
+    return this.adminCreateTenantHandler.execute(dto, actor);
   }
 }

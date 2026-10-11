@@ -10,7 +10,7 @@ Two separate auth systems, the 7 roles, the permission guard, and the Prisma ext
 
 **None blocking.** Two things to settle while building, both small:
 
-1. **Email language.** `tenants.locale` is `fr`/`en`/`ar`, and the invitation email is the first email the app sends. Decide where templates live and which locale is used. `clients` has **no** `locale` column — a client email therefore uses the tenant's locale. Write the decision into [alerts.md](../alerts.md).
+1. **Email language.** `tenants.locale` is `fr`/`en`/`nl`, and the invitation email is the first email the app sends. Decide where templates live and which locale is used. `clients` has **no** `locale` column — a client email therefore uses the tenant's locale. Write the decision into [alerts.md](../alerts.md).
 2. **Two env vars are missing.** Add `APP_URL` (invitation and reset links) and `PORTAL_BASE_URL` (step 12) to `.env` and `.env.example`.
 
 ## Tables
@@ -109,7 +109,7 @@ From [technical/build-order.md](../technical/build-order.md) § 1b. A Prisma cli
 | `GET` | `/api/auth/sessions` | `AuthGuard` | live `refresh_tokens` rows |
 | `DELETE` | `/api/auth/sessions/:id` | `AuthGuard` | kill one device |
 | `DELETE` | `/api/auth/sessions` | `AuthGuard` | kill all |
-| `POST` | `/api/mobile/login` | `@Public()` | **email + PIN**, locks after 5 tries |
+| `POST` | `/api/mobile/login` | `@Public()` | **`login` (email or 8-digit login code) + PIN**, locks after 5 tries |
 | `POST` | `/api/admin/auth/login` | `@Public()` | admin password → 2FA challenge |
 | `POST` | `/api/admin/auth/verify-2fa` | `@Public()` | TOTP, 5 min, 3 tries |
 | `POST` | `/api/admin/auth/logout` | `AdminAuthGuard` | |
@@ -121,6 +121,7 @@ From [technical/build-order.md](../technical/build-order.md) § 1b. A Prisma cli
 | `POST` | `/api/users/me/avatar` | `AuthGuard` | needs step 03 — wire it then |
 | `POST` | `/api/users/:id/pin` | `AuthGuard` + `admin` | set a worker's PIN |
 | `POST` | `/api/invitations` | `AuthGuard` + `admin` | invite an employee |
+| `POST` | `/api/invitations/direct` | `AuthGuard` + `admin` | add a member with no email sent: temporary password (any role) or PIN only (worker, no email → login code) — `auth-tokens.md` § 2b |
 | `GET` | `/api/invitations` | `AuthGuard` + `admin` | open invitations |
 | `POST` | `/api/invitations/:id/resend` | `AuthGuard` + `admin` | replaces the old row |
 | `DELETE` | `/api/invitations/:id` | `AuthGuard` + `admin` | revoke |

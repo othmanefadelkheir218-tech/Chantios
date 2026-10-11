@@ -7,7 +7,7 @@ import { UsersService } from '../users/users.service';
 import {
   isReminderHour,
   localMoment,
-} from './helpers/tenant-local-time.helper';
+} from '../common/helpers/tenant-local-time.helper';
 import { TenantRunner } from './tenant-runner.service';
 
 /**

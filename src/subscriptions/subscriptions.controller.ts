@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { AdminBillingAccessGuard } from '../admin-users/guards/admin-billing-access.guard';
 import { AuditLog } from '../audit/decorators/audit-log.decorator';
 import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -44,6 +45,7 @@ export class SubscriptionsController {
   }
 
   @Patch(':tenantId/plan')
+  @UseGuards(AdminBillingAccessGuard)
   @AuditLog('set_pending_plan', 'subscription')
   @ApiChangePlan()
   changePlan(

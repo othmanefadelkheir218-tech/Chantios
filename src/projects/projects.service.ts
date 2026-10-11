@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ProjectRepository } from './repositories/project.repository';
 import {
   ActingParty,
   AuthenticatedUser,
@@ -27,6 +28,7 @@ export class ProjectsService {
     private readonly changeStatus: ChangeStatusHandler,
     private readonly deleteProject: DeleteProjectHandler,
     private readonly startProgressFromQuote: StartProgressFromQuoteHandler,
+    private readonly projects: ProjectRepository,
   ) {}
 
   create(dto: CreateProjectDto, actor: AuthenticatedUser) {
@@ -75,5 +77,20 @@ export class ProjectsService {
     tx: TenantTransactionClient,
   ) {
     return this.startProgressFromQuote.execute(projectId, actor, tx);
+  }
+
+  /**
+   * Name + address only, for callers without the `projects` module (the
+   * worker's `GET /mobile/my-projects`). The caller decides which ids it may see.
+   */
+  findSummaries(ids: number[]) {
+    return ids.length === 0
+      ? Promise.resolve([])
+      : this.projects.findSummariesByIds(ids);
+  }
+
+  /** Dashboard (step 18). A plain count, no rule beyond "open". */
+  countOpenByStatus() {
+    return this.projects.countOpenByStatus();
   }
 }

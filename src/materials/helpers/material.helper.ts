@@ -37,6 +37,25 @@ export function toMaterialWithStockEntity(
   };
 }
 
+/**
+ * How two descriptions are compared — the same expression as the unique
+ * index `uq_materials_tenant_description`: trimmed, lower case.
+ */
+export function normalizeDescription(description: string): string {
+  return description.trim().toLowerCase();
+}
+
+/** One row of `GET /api/materials/export` — the columns of the import file. */
+export function toMaterialExportEntity(material: Material) {
+  return {
+    id: material.id,
+    description: material.description,
+    unit: material.unit,
+    purchasePrice: material.purchasePrice,
+    minimumStock: material.minimumStock,
+  };
+}
+
 /** Builds the Prisma filter for the materials list: active + search. */
 export function buildMaterialFilter(
   search?: string,

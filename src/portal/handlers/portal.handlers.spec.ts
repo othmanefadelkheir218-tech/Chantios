@@ -330,10 +330,12 @@ describe('PortalTokenGuard — the three checks, then the tenant into CLS', () =
 
   const ctx = (token: unknown, ip = '9.9.9.9') => {
     const req: Record<string, unknown> = { params: { token }, ip };
+    const res = { setHeader: jest.fn() };
     return {
       req,
+      res,
       context: {
-        switchToHttp: () => ({ getRequest: () => req }),
+        switchToHttp: () => ({ getRequest: () => req, getResponse: () => res }),
       } as unknown as ExecutionContext,
     };
   };
@@ -363,6 +365,31 @@ describe('PortalTokenGuard — the three checks, then the tenant into CLS', () =
       tokenId: 5,
       ip: '9.9.9.9',
     });
+  });
+
+  it.each([
+    ['a valid token', tokenRow()],
+    ['an unknown token', null],
+    ['a revoked token', tokenRow({ isActive: false })],
+    ['an expired token', tokenRow({ expiresAt: PAST })],
+  ])(
+    '%s -> no-store and no-referrer are set, even on a 403',
+    async (_n, row) => {
+      tokens.findByHash.mockResolvedValue(row);
+      const { context, res } = ctx('x');
+      await guard.canActivate(context).catch(() => undefined);
+      expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
+      expect(res.setHeader).toHaveBeenCalledWith(
+        'Referrer-Policy',
+        'no-referrer',
+      );
+    },
+  );
+
+  it('an empty token gets the headers too', async () => {
+    const { context, res } = ctx('');
+    await guard.canActivate(context).catch(() => undefined);
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
   });
 
   it('the raw token itself is never used as a lookup key', async () => {
@@ -421,6 +448,7 @@ describe('Portal handlers', () => {
     ensureProjectConversation: jest.fn(),
     listClientMessages: jest.fn(),
     sendClientMessage: jest.fn(),
+    assertClientCanSend: jest.fn(),
   };
   const quotes = {
     findByProjectAndStatuses: jest.fn(),
@@ -434,7 +462,12 @@ describe('Portal handlers', () => {
   };
   const reports = { progress: jest.fn(), photos: jest.fn() };
   const tenants = { findOne: jest.fn() };
-  const media = { findByEntityIds: jest.fn(), findOne: jest.fn() };
+  const media = {
+    findByEntityIds: jest.fn(),
+    findOne: jest.fn(),
+    upload: jest.fn(),
+    assertUploadable: jest.fn(),
+  };
   const audit = { write: jest.fn() };
   const logger = {
     info: jest.fn(),
@@ -716,7 +749,7 @@ describe('Portal handlers', () => {
         expect.objectContaining({
           action: 'portal_accept',
           entityId: 30,
-          newValue: { clientId: 4, portalTokenId: 5 },
+          newValue: { clientId: 4, portalLinkId: 5 },
         }),
       );
     });
@@ -894,8 +927,83 @@ describe('Portal handlers', () => {
         attachments: [],
       });
       const out = await send.execute(portal, { content: 'Hi' });
-      expect(chat.sendClientMessage).toHaveBeenCalledWith(12, 4, 'Hi');
+      expect(chat.sendClientMessage).toHaveBeenCalledWith(12, 4, 'Hi', []);
+      expect(media.upload).not.toHaveBeenCalled();
       expect(out.from).toBe('you');
+    });
+
+    const pdf = (name: string) =>
+      ({
+        originalname: name,
+        mimetype: 'application/pdf',
+        size: 1000,
+      }) as Express.Multer.File;
+
+    it('files: checked, uploaded as pending message files with no uploader, then linked', async () => {
+      media.upload
+        .mockResolvedValueOnce({ id: 70 })
+        .mockResolvedValueOnce({ id: 71 });
+      chat.sendClientMessage.mockResolvedValue({
+        id: 3,
+        senderType: 'client',
+        senderId: 4,
+        content: 'Plan',
+        createdAt: FIXED,
+        attachments: [
+          {
+            id: 70,
+            fileName: 'a.pdf',
+            fileUrl: 'https://ik/a.pdf',
+            fileType: 'application/pdf',
+          },
+        ],
+      });
+      const out = await send.execute(portal, { content: 'Plan' }, [
+        pdf('a.pdf'),
+        pdf('b.pdf'),
+      ]);
+      expect(chat.assertClientCanSend).toHaveBeenCalledWith(12, 4, 'Plan');
+      expect(media.assertUploadable).toHaveBeenCalledTimes(2);
+      expect(media.upload).toHaveBeenCalledWith(
+        expect.objectContaining({ originalname: 'a.pdf' }),
+        { entity_type: 'message', entity_id: 0 },
+        { tenantId: portal.tenantId, userId: null },
+      );
+      expect(chat.sendClientMessage).toHaveBeenCalledWith(
+        12,
+        4,
+        'Plan',
+        [70, 71],
+      );
+      expect(out.attachments[0]).toEqual({
+        id: 70,
+        file_name: 'a.pdf',
+        file_url: 'https://ik/a.pdf',
+        file_type: 'application/pdf',
+      });
+    });
+
+    it('files: one bad file → nothing is uploaded and no message is written', async () => {
+      media.assertUploadable
+        .mockImplementationOnce(() => undefined)
+        .mockImplementationOnce(() => {
+          throw new BadRequestException('not allowed');
+        });
+      await expect(
+        send.execute(portal, { content: 'Plan' }, [pdf('a.pdf'), pdf('b.exe')]),
+      ).rejects.toThrow(BadRequestException);
+      expect(media.upload).not.toHaveBeenCalled();
+      expect(chat.sendClientMessage).not.toHaveBeenCalled();
+    });
+
+    it('files: an archived thread is refused before any upload', async () => {
+      chat.assertClientCanSend.mockRejectedValue(
+        new BadRequestException('This conversation is archived'),
+      );
+      await expect(
+        send.execute(portal, { content: 'Plan' }, [pdf('a.pdf')]),
+      ).rejects.toThrow(BadRequestException);
+      expect(media.upload).not.toHaveBeenCalled();
     });
   });
 

@@ -99,6 +99,16 @@ export class TaskRepository {
     });
   }
 
+  /** Every project where this user is an assignee on at least one task (same rule as `isAssignedToProject`). */
+  async findProjectIdsOfAssignee(userId: number): Promise<number[]> {
+    const rows = await this.tenantPrisma.db.task.findMany({
+      where: { assignees: { some: { userId } } },
+      select: { projectId: true },
+      distinct: ['projectId'],
+    });
+    return rows.map((row) => row.projectId);
+  }
+
   /** Is this user an assignee on at least one task of the project? (the worker hour-scope rule) */
   async isAssignedToProject(
     userId: number,
@@ -109,5 +119,28 @@ export class TaskRepository {
       select: { id: true },
     });
     return row !== null;
+  }
+
+  /**
+   * Dashboard (step 18): open tasks (not `completed`) ending today, and open
+   * tasks whose `end_date` is already past. `assigneeId` = scope `own`.
+   */
+  async countDueTodayAndOverdue(
+    today: Date,
+    assigneeId?: number,
+  ): Promise<{ dueToday: number; overdue: number }> {
+    const open: Prisma.TaskWhereInput = {
+      status: { not: 'completed' },
+      ...(assigneeId !== undefined && {
+        assignees: { some: { userId: assigneeId } },
+      }),
+    };
+    const [dueToday, overdue] = await Promise.all([
+      this.tenantPrisma.db.task.count({ where: { ...open, endDate: today } }),
+      this.tenantPrisma.db.task.count({
+        where: { ...open, endDate: { lt: today } },
+      }),
+    ]);
+    return { dueToday, overdue };
   }
 }

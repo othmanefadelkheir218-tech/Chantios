@@ -54,6 +54,7 @@ src/documents/                        (the module from step 06 — extend it)
 ├── pdf/
 │   ├── layouts/letterhead.layout.ts       header, tenant block, client block, footer
 │   │           document.layout.ts         the shared body: lines table + totals + VAT block
+│   │           pdf-labels.ts              every fixed word, per language (fr / nl / en)
 │   ├── renderers/quote.renderer.ts
 │   │             invoice.renderer.ts
 │   └── pdf.service.ts                     pdfmake wrapper
@@ -63,6 +64,8 @@ src/documents/                        (the module from step 06 — extend it)
 ```
 
 One shared layout. A quote and an invoice differ only in the title, the number prefix and the payment block — do not write two layouts.
+
+No label is written in a layout or a renderer: every word comes from `pdfLabels(tenant.locale)`. The rule (company language, French fallback) is in [client-invoices.md](../client-invoices.md) § PDF language.
 
 ## Routes
 
@@ -86,7 +89,7 @@ No route generates and stores a PDF directly. Freezing happens inside step 06's 
 | Line items: description, unit, quantity, unit price, VAT %, line total | `quote_lines` / `invoice_lines` |
 | Totals: excl. VAT, the per-rate VAT block, incl. VAT | `document-totals.helper` |
 | Payment terms / notes | `quotes.note` / `invoices.note` |
-| Payment block (invoice only) | tenant bank details + `due_date` |
+| Payment block (invoice only) | `tenants.iban` + `tenants.bic` (when set) + `due_date` |
 
 A missing logo must not break the render — fall back to the company name as text.
 
