@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "ChantierOS",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "chantieros",
+      "Username": "chantieros",
+      "SSLMode": "prefer"
+    }
+  }
+}
