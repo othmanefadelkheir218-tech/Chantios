@@ -102,6 +102,31 @@ Decided 2026-10-10 (owner: "7 days and then a block, and ask him to pay").
 
 Fast-forwarding these dates to test them: the super-admin dev tools, [Phaces/20-trial-end-dev-tools.md](Phaces/20-trial-end-dev-tools.md) — never available in production.
 
+## Decided — paying by card (Stripe Checkout)
+
+Decided 2026-10-15 (owner: option A).
+
+- The tenant admin pays on a **Stripe Checkout** page (a Stripe page, not ours) and comes back to the app.
+- Paying creates a **Stripe customer** (the company's account in Stripe) and a **Stripe subscription** (an automatic monthly charge of the plan's price).
+- **Stripe charges the card every month.** Our app never charges a card itself.
+- Our renewal job still counts usage and sends the overage to Stripe as an invoice item. Stripe adds it to an invoice.
+- The 7-day grace and block rules above stay the same. Stripe never blocks a company by itself; our rules do.
+
+Also decided 2026-10-15 (owner):
+
+- **Paying during the trial** saves the card; the first charge is on the trial's last day. The free days are kept.
+- **Overage** is added to the Stripe invoice of the same month: the renewal runs when Stripe creates that invoice.
+- **Stripe owns the period dates** of a paying company; our DB copies them.
+- **A plan change** of a paying company changes the Stripe price at once, with no proration, and Stripe uses it from the next invoice.
+- **Card change and Stripe invoices**: the Stripe Customer Portal (update card + invoices only).
+- **Cancel**: the tenant admin can cancel. The app works until the end of the paid month, **no refund**. Then `cancelled` (blocked, data kept, can pay again).
+- **VAT**: not now, decided later.
+
+- **Undo a cancel**: before the month ends, the tenant admin can click "Keep my subscription"; the next month is charged normally.
+- **A blocked company pays again**: a new month starts on the payment day (blocked 1 March, pays 20 March → 20 March → 20 April).
+
+Build: [Phaces/21-stripe-checkout.md](Phaces/21-stripe-checkout.md) § 2.
+
 ## Decided
 
 - **Plan deactivation/repricing**: existing customers **keep their current plan and terms** — nothing changes automatically for them. The super-admin has manual control to move a specific customer to a different plan (an upgrade/downgrade action), but it's admin-initiated, never automatic.

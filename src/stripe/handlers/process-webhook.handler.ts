@@ -2,10 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import Stripe from 'stripe';
 import { StripeEventRepository } from '../repositories/stripe-event.repository';
+import { HandleCheckoutCompletedHandler } from './handle-checkout-completed.handler';
+import { HandleInvoiceCreatedHandler } from './handle-invoice-created.handler';
 import { HandleInvoiceUpcomingHandler } from './handle-invoice-upcoming.handler';
 import { HandlePaymentFailedHandler } from './handle-payment-failed.handler';
 import { HandlePaymentSucceededHandler } from './handle-payment-succeeded.handler';
 import { HandleSubscriptionDeletedHandler } from './handle-subscription-deleted.handler';
+import { HandleSubscriptionUpdatedHandler } from './handle-subscription-updated.handler';
 
 /**
  * Dispatches an ALREADY-STORED Stripe event by type (the storing + the
@@ -30,6 +33,9 @@ export class ProcessWebhookHandler {
     private readonly handlePaymentFailed: HandlePaymentFailedHandler,
     private readonly handleSubscriptionDeleted: HandleSubscriptionDeletedHandler,
     private readonly handleInvoiceUpcoming: HandleInvoiceUpcomingHandler,
+    private readonly handleCheckoutCompleted: HandleCheckoutCompletedHandler,
+    private readonly handleSubscriptionUpdated: HandleSubscriptionUpdatedHandler,
+    private readonly handleInvoiceCreated: HandleInvoiceCreatedHandler,
   ) {}
 
   async execute(eventRowId: number, event: Stripe.Event): Promise<void> {
@@ -64,6 +70,13 @@ export class ProcessWebhookHandler {
         return this.handleSubscriptionDeleted.execute(event);
       case 'invoice.upcoming':
         return this.handleInvoiceUpcoming.execute(event);
+      // Step 21 — paying by card (Stripe Checkout).
+      case 'checkout.session.completed':
+        return this.handleCheckoutCompleted.execute(event);
+      case 'customer.subscription.updated':
+        return this.handleSubscriptionUpdated.execute(event);
+      case 'invoice.created':
+        return this.handleInvoiceCreated.execute(event);
       default:
         this.logger.info(
           `Stripe event ${event.type} (${event.id}) has no handler — stored only`,

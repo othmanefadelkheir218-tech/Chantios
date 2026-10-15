@@ -3,8 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { PlansService } from '../../plans/plans.service';
+import { StripeService } from '../../stripe/stripe.service';
 import { SetPendingPlanDto } from '../dto/set-pending-plan.dto';
 import { SubscriptionRepository } from '../repositories/subscription.repository';
 
@@ -15,6 +17,9 @@ export class SetPendingPlanHandler {
     private readonly logger: PinoLogger,
     private readonly subscriptions: SubscriptionRepository,
     private readonly plans: PlansService,
+    // `StripeService` at run time (`strict: false`): `StripeModule` already
+    // imports this module, a module import back would be a load cycle.
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   /**
@@ -40,8 +45,23 @@ export class SetPendingPlanHandler {
       throw new BadRequestException('The tenant is already on this plan');
     }
 
-    // TODO: step 03 — a storage downgrade is refused while the tenant holds
-    // more files than the new `storage_gb` (doc/notes/subscription-plans.md).
+    // A company that pays by card (step 21, Q4): Stripe charges the new price
+    // from the next invoice — the date this plan applies. Stripe first: if it
+    // fails, nothing is planned. Webhooks then copy the new price.
+    if (
+      subscription.stripeSubscriptionId &&
+      subscription.status !== 'cancelled'
+    ) {
+      if (!plan.stripePriceId) {
+        throw new BadRequestException('This plan cannot be paid by card');
+      }
+      const stripe = this.moduleRef.get(StripeService, { strict: false });
+      await stripe.updateSubscriptionPrice(
+        subscription.stripeSubscriptionId,
+        plan.stripePriceId,
+      );
+    }
+
     const updated = await this.subscriptions.setPendingPlan(
       tenantId,
       plan.id,

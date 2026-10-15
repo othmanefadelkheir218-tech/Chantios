@@ -23,10 +23,13 @@ import { TenantsService } from '../../tenants/tenants.service';
 import { StripeEventRepository } from '../repositories/stripe-event.repository';
 import { ArchivePlanPriceHandler } from './archive-plan-price.handler';
 import { CreatePlanPriceHandler } from './create-plan-price.handler';
+import { HandleCheckoutCompletedHandler } from './handle-checkout-completed.handler';
+import { HandleInvoiceCreatedHandler } from './handle-invoice-created.handler';
 import { HandleInvoiceUpcomingHandler } from './handle-invoice-upcoming.handler';
 import { HandlePaymentFailedHandler } from './handle-payment-failed.handler';
 import { HandlePaymentSucceededHandler } from './handle-payment-succeeded.handler';
 import { HandleSubscriptionDeletedHandler } from './handle-subscription-deleted.handler';
+import { HandleSubscriptionUpdatedHandler } from './handle-subscription-updated.handler';
 import { ProcessWebhookHandler } from './process-webhook.handler';
 import { RecordWebhookEventHandler } from './record-webhook-event.handler';
 
@@ -243,6 +246,9 @@ describe('ProcessWebhookHandler — dispatch by type', () => {
   const handlePaymentFailed = { execute: jest.fn() };
   const handleSubscriptionDeleted = { execute: jest.fn() };
   const handleInvoiceUpcoming = { execute: jest.fn() };
+  const handleCheckoutCompleted = { execute: jest.fn() };
+  const handleSubscriptionUpdated = { execute: jest.fn() };
+  const handleInvoiceCreated = { execute: jest.fn() };
   const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 
   let processWebhook: ProcessWebhookHandler;
@@ -266,6 +272,18 @@ describe('ProcessWebhookHandler — dispatch by type', () => {
         {
           provide: HandleInvoiceUpcomingHandler,
           useValue: handleInvoiceUpcoming,
+        },
+        {
+          provide: HandleCheckoutCompletedHandler,
+          useValue: handleCheckoutCompleted,
+        },
+        {
+          provide: HandleSubscriptionUpdatedHandler,
+          useValue: handleSubscriptionUpdated,
+        },
+        {
+          provide: HandleInvoiceCreatedHandler,
+          useValue: handleInvoiceCreated,
         },
         {
           provide: getLoggerToken(ProcessWebhookHandler.name),
@@ -306,6 +324,17 @@ describe('ProcessWebhookHandler — dispatch by type', () => {
     const event = stripeEvent('invoice.upcoming', invoice());
     await processWebhook.execute(4, event);
     expect(handleInvoiceUpcoming.execute).toHaveBeenCalledWith(event);
+  });
+
+  it.each([
+    ['checkout.session.completed', () => handleCheckoutCompleted],
+    ['customer.subscription.updated', () => handleSubscriptionUpdated],
+    ['invoice.created', () => handleInvoiceCreated],
+  ])('routes %s to its step 21 handler', async (type, handler) => {
+    const event = stripeEvent(type, {});
+    await processWebhook.execute(5, event);
+    expect(handler().execute).toHaveBeenCalledWith(event);
+    expect(stripeEvents.markProcessed).toHaveBeenCalledWith(5);
   });
 
   it('an event already processed is skipped — nothing dispatched, nothing re-marked', async () => {
@@ -492,7 +521,7 @@ describe('Stripe event handlers — customer resolution and status transitions',
       await handlePaymentSucceeded.execute(
         stripeEvent('payment_intent.succeeded', paymentIntent()),
       );
-      const newEnd = subscriptions.setPeriod.mock.calls[0][2] as Date;
+      const newEnd = callArg<Date>(subscriptions.setPeriod, 0, 2);
       expect(subscriptions.movePendingPlanDate).toHaveBeenCalledWith(7, newEnd);
     });
 

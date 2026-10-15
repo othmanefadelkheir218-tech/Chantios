@@ -10,6 +10,14 @@ import { ArchivePlanPriceHandler } from './handlers/archive-plan-price.handler';
 import { CreatePlanPriceHandler } from './handlers/create-plan-price.handler';
 import { PushOverageInvoiceItemHandler } from './handlers/push-overage-invoice-item.handler';
 import { RecordWebhookEventHandler } from './handlers/record-webhook-event.handler';
+import { CheckoutSessionInput } from './dto/checkout-session.dto';
+import { CreateCheckoutSessionHandler } from './handlers/create-checkout-session.handler';
+import { CreateCustomerHandler } from './handlers/create-customer.handler';
+import { CreatePortalSessionHandler } from './handlers/create-portal-session.handler';
+import { EndSubscriptionNowHandler } from './handlers/end-subscription-now.handler';
+import { FindOpenInvoiceUrlHandler } from './handlers/find-open-invoice-url.handler';
+import { SetCancelAtPeriodEndHandler } from './handlers/set-cancel-at-period-end.handler';
+import { UpdateSubscriptionPriceHandler } from './handlers/update-subscription-price.handler';
 
 @Injectable()
 export class StripeService {
@@ -20,6 +28,13 @@ export class StripeService {
     private readonly archivePlanPriceHandler: ArchivePlanPriceHandler,
     private readonly pushOverageInvoiceItemHandler: PushOverageInvoiceItemHandler,
     private readonly recordWebhookEventHandler: RecordWebhookEventHandler,
+    private readonly createCustomerHandler: CreateCustomerHandler,
+    private readonly createCheckoutSessionHandler: CreateCheckoutSessionHandler,
+    private readonly createPortalSessionHandler: CreatePortalSessionHandler,
+    private readonly setCancelAtPeriodEndHandler: SetCancelAtPeriodEndHandler,
+    private readonly updateSubscriptionPriceHandler: UpdateSubscriptionPriceHandler,
+    private readonly endSubscriptionNowHandler: EndSubscriptionNowHandler,
+    private readonly findOpenInvoiceUrlHandler: FindOpenInvoiceUrlHandler,
     @InjectQueue(STRIPE_WEBHOOKS_QUEUE)
     private readonly queue: Queue<WebhookJobData>,
   ) {}
@@ -40,13 +55,67 @@ export class StripeService {
     amount: Prisma.Decimal,
     description: string,
     idempotencyKey: string,
+    invoiceId: string | null = null,
   ): Promise<void> {
     return this.pushOverageInvoiceItemHandler.execute(
       stripeCustomerId,
       amount,
       description,
       idempotencyKey,
+      invoiceId,
     );
+  }
+
+  // ---- Step 21 — paying by card (Stripe Checkout). Each throws 502 if Stripe fails. ----
+
+  /** The company's account in Stripe. Returns its id. */
+  createCustomer(
+    tenantId: number,
+    name: string,
+    email: string,
+  ): Promise<string> {
+    return this.createCustomerHandler.execute(tenantId, name, email);
+  }
+
+  /** The Stripe card page. Returns its URL. */
+  createCheckoutSession(input: CheckoutSessionInput): Promise<string> {
+    return this.createCheckoutSessionHandler.execute(input);
+  }
+
+  /** The Stripe Customer Portal (card + invoices). Returns its URL. */
+  createPortalSession(
+    customerId: string,
+    locale: 'fr' | 'en' | 'nl',
+    returnUrl: string,
+  ): Promise<string> {
+    return this.createPortalSessionHandler.execute(
+      customerId,
+      locale,
+      returnUrl,
+    );
+  }
+
+  /** Cancel (`true`) or keep (`false`) at the end of the paid month. */
+  setCancelAtPeriodEnd(subscriptionId: string, cancel: boolean) {
+    return this.setCancelAtPeriodEndHandler.execute(subscriptionId, cancel);
+  }
+
+  /** A plan change: the new price from the next invoice, no proration. */
+  updateSubscriptionPrice(
+    subscriptionId: string,
+    priceId: string,
+  ): Promise<void> {
+    return this.updateSubscriptionPriceHandler.execute(subscriptionId, priceId);
+  }
+
+  /** Ends an old card subscription now — before a blocked company pays again. */
+  endSubscriptionNow(subscriptionId: string): Promise<void> {
+    return this.endSubscriptionNowHandler.execute(subscriptionId);
+  }
+
+  /** The Stripe page of the unpaid invoice, or `null`. */
+  findOpenInvoiceUrl(subscriptionId: string): Promise<string | null> {
+    return this.findOpenInvoiceUrlHandler.execute(subscriptionId);
   }
 
   /** Checks the Stripe signature. Throws 400 if the request is not from Stripe. */

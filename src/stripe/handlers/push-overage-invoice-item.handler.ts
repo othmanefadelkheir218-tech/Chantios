@@ -30,6 +30,7 @@ export class PushOverageInvoiceItemHandler {
     amount: Prisma.Decimal,
     description: string,
     idempotencyKey: string,
+    invoiceId: string | null = null,
   ): Promise<void> {
     if (amount.lte(0)) return;
     if (!stripeCustomerId) {
@@ -46,6 +47,8 @@ export class PushOverageInvoiceItemHandler {
           currency: 'eur',
           amount: Math.round(amount.toNumber() * 100),
           description,
+          // A card company (step 21): straight onto this month's draft invoice.
+          ...(invoiceId && { invoice: invoiceId }),
         },
         { idempotencyKey },
       );

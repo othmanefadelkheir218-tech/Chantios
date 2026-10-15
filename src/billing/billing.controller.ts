@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Post,
   Query,
   UseInterceptors,
@@ -16,6 +18,7 @@ import { TenantAuth } from '../auth/decorators/tenant-auth.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
 import { BillingService } from './billing.service';
+import { CardPaymentDto } from './dto/card-payment.dto';
 import { ChangePlanDto } from './dto/change-plan.dto';
 
 /** Tenant-facing subscription, usage and invoice routes. */
@@ -62,5 +65,48 @@ export class BillingController {
     @Body() dto: ChangePlanDto,
   ) {
     return this.billingService.changePlan(actor.tenantId, dto);
+  }
+
+  // ---- Step 21 — paying by card. Tenant admin only; a blocked company must reach them. ----
+
+  /** "Pay" → `{ url }` of the Stripe page to open. */
+  @Post('checkout')
+  @HttpCode(HttpStatus.OK)
+  @TenantAuth()
+  @AllowLapsedSubscription()
+  @Roles('admin')
+  checkout(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Body() dto: CardPaymentDto,
+  ) {
+    return this.billingService.startCheckout(actor.tenantId, dto);
+  }
+
+  /** "Manage payment" → `{ url }` of the Stripe Customer Portal. */
+  @Post('portal')
+  @HttpCode(HttpStatus.OK)
+  @TenantAuth()
+  @AllowLapsedSubscription()
+  @Roles('admin')
+  portal(@CurrentUser() actor: AuthenticatedUser, @Body() dto: CardPaymentDto) {
+    return this.billingService.openPortal(actor.tenantId, dto);
+  }
+
+  /** Ends at the end of the paid month, no refund. Returns the subscription. */
+  @Post('cancel')
+  @HttpCode(HttpStatus.OK)
+  @TenantAuth()
+  @Roles('admin')
+  cancel(@CurrentUser() actor: AuthenticatedUser) {
+    return this.billingService.cancelAtPeriodEnd(actor.tenantId);
+  }
+
+  /** "Keep my subscription" before the end date. Returns the subscription. */
+  @Post('resume')
+  @HttpCode(HttpStatus.OK)
+  @TenantAuth()
+  @Roles('admin')
+  resume(@CurrentUser() actor: AuthenticatedUser) {
+    return this.billingService.resume(actor.tenantId);
   }
 }

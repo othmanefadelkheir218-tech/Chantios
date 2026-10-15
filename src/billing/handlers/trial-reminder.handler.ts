@@ -20,6 +20,8 @@ export class TrialReminderHandler {
 
   async execute(tenantId: number, now: Date): Promise<boolean> {
     const subscription = await this.subscriptions.findByTenant(tenantId);
+    // Already paid by card during the trial (step 21): nothing to remind.
+    if (subscription.stripeSubscriptionId) return false;
     if (!isTrialEndingSoon(subscription.status, subscription.periodEnd, now)) {
       return false;
     }

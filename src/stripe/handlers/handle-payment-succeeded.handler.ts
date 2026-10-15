@@ -7,9 +7,10 @@ import { SubscriptionsService } from '../../subscriptions/subscriptions.service'
 import { TenantsService } from '../../tenants/tenants.service';
 
 /**
- * `payment_intent.succeeded`: subscription -> `active`, the billing cycle
- * rolls forward one month (doc/notes/subscription-plans.md — every plan is
- * billed monthly), platform admin notified.
+ * `payment_intent.succeeded`: subscription -> `active`, platform admin
+ * notified. A company that pays by card: Stripe owns the period dates
+ * (step 21, Q3) — `customer.subscription.updated` copies them. Otherwise
+ * (dev tools' fake payment) the cycle rolls forward one month here.
  */
 @Injectable()
 export class HandlePaymentSucceededHandler {
@@ -41,20 +42,21 @@ export class HandlePaymentSucceededHandler {
       return;
     }
 
-    const periodStart = new Date();
-    const periodEnd = addOneMonth(periodStart);
     await this.subscriptions.setStatus(subscription.tenantId, 'active');
-    await this.subscriptions.setPeriod(
-      subscription.tenantId,
-      periodStart,
-      periodEnd,
-    );
-    // A waiting plan change is due at the END of the period: follow the move.
-    if (subscription.pendingPlanId) {
-      await this.subscriptions.movePendingPlanDate(
+    if (!subscription.stripeSubscriptionId) {
+      const periodEnd = addOneMonth(new Date());
+      await this.subscriptions.setPeriod(
         subscription.tenantId,
+        new Date(),
         periodEnd,
       );
+      // A waiting plan change is due at the END of the period: follow the move.
+      if (subscription.pendingPlanId) {
+        await this.subscriptions.movePendingPlanDate(
+          subscription.tenantId,
+          periodEnd,
+        );
+      }
     }
 
     const tenant = await this.tenants.findOne(subscription.tenantId);
@@ -67,7 +69,7 @@ export class HandlePaymentSucceededHandler {
     });
 
     this.logger.info(
-      `Tenant ${subscription.tenantId} subscription active, period rolled to ${periodEnd.toISOString()}`,
+      `Tenant ${subscription.tenantId} subscription active after a payment`,
     );
   }
 }

@@ -162,6 +162,8 @@
 
 - [x] **Grace period after a failed payment** — raised 2026-10-10. **Decided 2026-10-10:** the same as the trial — `past_due` + `grace_ends_at = now + 7 days`, the alert asks to pay before that date, then blocked (`cancelled`). A second failure does not extend the date; a failure never reopens a blocked company. See [subscription-plans.md](subscription-plans.md) § A failed payment.
 
+- [x] **Paying by card (Stripe Checkout)** — raised 2026-10-15: the tenant admin has no way to pay. **Decided 2026-10-15:** option A — Stripe Checkout + a Stripe subscription, Stripe charges every month, our job sends the overage. **Decided 2026-10-15:** Q1–Q5 as recommended; Q6 the tenant admin can cancel, works until the period end, no refund; Q7 VAT later. Q6b undo a cancel: yes; Q8 a blocked company that pays starts a new month on the payment day. **Nothing left open.** See [Phaces/21-stripe-checkout.md](Phaces/21-stripe-checkout.md) § 2.
+
 - [ ] **Frontend** — planned, not started. The API additions it needs are step 18 ([Phaces/18-frontend-support.md](Phaces/18-frontend-support.md)). Frontend plan: `ChanitOs_client/my-app/.instruction/`.
 
 ## Related notes

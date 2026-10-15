@@ -161,6 +161,7 @@ CREATE TABLE tenant_subscriptions (
   pending_plan_id           INTEGER REFERENCES plans(id),
   pending_plan_effective_at TIMESTAMPTZ,
   grace_ends_at             TIMESTAMPTZ,  -- set when a trial ends or a payment fails (+ 7 days); only while status = 'past_due'
+  cancel_at_period_end      BOOLEAN NOT NULL DEFAULT false,  -- the tenant admin cancelled the card subscription: it ends at period_end, no refund (step 21)
   created_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at                TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -1400,6 +1401,7 @@ These are service-layer rules. The schema above supports either answer.
 14. **Bulk import of materials and stock.** Raised by the owner (2026-10-10): users create a lot of materials and stock rows at once. Decide the file format, the key that finds a material, what happens on duplicates and errors, the row limit, sync or background, and the price used for stock rows. **Decided 2026-10-10** — `.xlsx` only, the frontend sends JSON; export first, `id` is the key and `description` must match; max 500 rows; all or nothing with a clear error per row; a background job + `import_batches` + an in-app notification; materials import creates or updates `purchase_price` / `minimum_stock` only; stock import is `purchase` / `adjustment` only at the material's price; unique `(tenant_id, description)` on materials. See `doc/notes/bulk-import.md`.
 15. **End of the trial.** Raised 2026-10-10: nothing ended a trial, so a company stayed `trialing` for free forever. **Decided 2026-10-10** — reminder on day 11; on day 14 the first renewal sets `past_due` + `grace_ends_at = period_end + 7 days` and a banner; on day 21 `cancelled` (blocked, data kept, billing page still readable); a payment sets `active`. New column `tenant_subscriptions.grace_ends_at`. See `doc/notes/subscription-plans.md` § The end of the trial.
 16. **Grace period after a failed payment.** Raised 2026-10-10 with question 15: a Stripe payment failure sets `past_due` with no deadline, so a company that stops paying keeps full access. Decide whether it gets the same 7-day grace and block as the trial, another number, or stays open. **Decided 2026-10-10** — the same: `past_due` + `grace_ends_at = now + 7 days`, the alert asks to pay before that date, then `cancelled`. A second failure does not extend the date; a failure never reopens a blocked company. See `doc/notes/subscription-plans.md` § A failed payment.
+17. **Paying by card (Stripe Checkout).** Raised 2026-10-15: nothing lets the tenant admin pay, so a company can only leave `past_due` / `cancelled` through the dev tools. **Decided 2026-10-15** — option A: Stripe Checkout + a Stripe subscription, Stripe charges every month, our job sends the overage. **Decided 2026-10-15:** Q1–Q5 as recommended; Q6 the tenant admin can cancel, works until the period end, no refund; Q7 VAT later. Q6b undo a cancel: yes; Q8 a blocked company that pays starts a new month on the payment day. No schema change. See `doc/notes/Phaces/21-stripe-checkout.md` § 2.
 
 ## Related notes
 

@@ -6,13 +6,21 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { TenantContextService } from '../common/cls/tenant-context.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { CardPaymentDto } from './dto/card-payment.dto';
 import { ChangePlanDto } from './dto/change-plan.dto';
 import { FindSnapshotsQueryDto } from './dto/find-snapshots-query.dto';
-import { BILLING_RENEWAL_QUEUE, RenewalJobData } from './dto/renewal-job.dto';
+import {
+  BILLING_RENEWAL_QUEUE,
+  RenewalJobData,
+  StripeRenewalInput,
+} from './dto/renewal-job.dto';
 import { FindUsageHandler } from './handlers/find-usage.handler';
 import { MySubscriptionHandler } from './handlers/my-subscription.handler';
+import { OpenPortalHandler } from './handlers/open-portal.handler';
 import { RequestDowngradeHandler } from './handlers/request-downgrade.handler';
 import { RunRenewalHandler } from './handlers/run-renewal.handler';
+import { CancelCardSubscriptionHandler } from './handlers/cancel-card-subscription.handler';
+import { StartCheckoutHandler } from './handlers/start-checkout.handler';
 import { BlockExpiredGraceHandler } from './handlers/block-expired-grace.handler';
 import { TrialReminderHandler } from './handlers/trial-reminder.handler';
 
@@ -30,6 +38,9 @@ export class BillingService {
     private readonly runRenewalHandler: RunRenewalHandler,
     private readonly trialReminderHandler: TrialReminderHandler,
     private readonly blockExpiredGraceHandler: BlockExpiredGraceHandler,
+    private readonly startCheckoutHandler: StartCheckoutHandler,
+    private readonly openPortalHandler: OpenPortalHandler,
+    private readonly cancelCardSubscriptionHandler: CancelCardSubscriptionHandler,
     private readonly subscriptions: SubscriptionsService,
     private readonly cls: ClsService,
     private readonly tenantContext: TenantContextService,
@@ -50,6 +61,41 @@ export class BillingService {
 
   changePlan(tenantId: number, dto: ChangePlanDto) {
     return this.requestDowngradeHandler.execute(tenantId, dto);
+  }
+
+  // ---- Step 21 — paying by card (Stripe Checkout) ----
+
+  /** "Pay": the Stripe page to open (Checkout, or the unpaid invoice). */
+  startCheckout(tenantId: number, dto: CardPaymentDto) {
+    return this.startCheckoutHandler.execute(tenantId, dto);
+  }
+
+  /** "Manage payment": the Stripe Customer Portal. */
+  openPortal(tenantId: number, dto: CardPaymentDto) {
+    return this.openPortalHandler.execute(tenantId, dto);
+  }
+
+  /** Cancel at the end of the paid month, no refund — then the new state. */
+  async cancelAtPeriodEnd(tenantId: number) {
+    await this.cancelCardSubscriptionHandler.execute(tenantId, true);
+    return this.mySubscriptionHandler.execute(tenantId);
+  }
+
+  /** Undo a cancel before the month ends — then the new state. */
+  async resume(tenantId: number) {
+    await this.cancelCardSubscriptionHandler.execute(tenantId, false);
+    return this.mySubscriptionHandler.execute(tenantId);
+  }
+
+  /**
+   * A card company's renewal, from Stripe's `invoice.created` (Q2). A webhook
+   * has no tenant in context: open it, the same way `runRenewalNow` does.
+   */
+  renewForStripeInvoice(tenantId: number, input: StripeRenewalInput) {
+    return this.cls.run(async () => {
+      this.tenantContext.setTenantId(tenantId);
+      return this.runRenewalHandler.executeForStripeInvoice(tenantId, input);
+    });
   }
 
   /** `GET /api/admin/billing/snapshots` — one tenant with `tenant_id`, else every tenant. */

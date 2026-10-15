@@ -6,6 +6,7 @@ import { PlansModule } from '../plans/plans.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { StartGraceHandler } from './handlers/start-grace.handler';
 import { ShiftDatesHandler } from './handlers/shift-dates.handler';
+import { SyncStripeSubscriptionHandler } from './handlers/sync-stripe-subscription.handler';
 import { ApplyPendingPlanHandler } from './handlers/apply-pending-plan.handler';
 import { CreateSubscriptionHandler } from './handlers/create-subscription.handler';
 import { FindAllUsageHandler } from './handlers/find-all-usage.handler';
@@ -46,6 +47,7 @@ import { SubscriptionsService } from './subscriptions.service';
     ApplyPendingPlanHandler,
     StartGraceHandler,
     ShiftDatesHandler,
+    SyncStripeSubscriptionHandler,
   ],
   exports: [SubscriptionsService],
 })

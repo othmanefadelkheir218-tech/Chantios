@@ -467,6 +467,8 @@ model TenantSubscription {
   pendingPlanEffectiveAt DateTime?          @map("pending_plan_effective_at") @db.Timestamptz(6)
   /// End of the trial's grace period (period_end + 7 days). Only while status = past_due.
   graceEndsAt            DateTime?          @map("grace_ends_at") @db.Timestamptz(6)
+  /// The tenant admin cancelled the card subscription: it stops at period_end, no refund (step 21).
+  cancelAtPeriodEnd      Boolean            @default(false) @map("cancel_at_period_end")
   createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 

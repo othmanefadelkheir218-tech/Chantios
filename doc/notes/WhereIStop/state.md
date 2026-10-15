@@ -5,7 +5,25 @@
 
 ---
 
-## LATEST — admin home page stats (2026-10-11)
+## LATEST — step 21 built: Stripe Checkout (2026-10-15)
+
+Backend + frontend built. **Nothing committed or pushed.** Build file: [../Phaces/21-stripe-checkout.md](../Phaces/21-stripe-checkout.md). Rule: `subscription-plans.md` § Paying by card.
+
+| | |
+|---|---|
+| **Owner decisions** | Option A (Stripe charges monthly). Q1–Q8 + Q6b all answered — nothing open |
+| **Migration** | `20261015120000_subscription_cancel_at_period_end` applied to the local DB, Prisma client regenerated |
+| **Backend** | `POST /api/billing/checkout` (Checkout / unpaid invoice / blocked → new month), `/portal`, `/cancel`, `/resume` (tenant admin). Webhooks + `checkout.session.completed`, `customer.subscription.updated`, `invoice.created` (card renewal, overage on that invoice). Nightly renewal + trial reminder skip card companies. Plan change of a card company changes the Stripe price (no proration). `payment_intent.succeeded` no longer moves the dates of a card company. Old card subscription ending never blocks a company that has a newer one |
+| **Frontend** (`Chantios_client`) | Billing card: Pay / Pay now / Manage payment / Cancel / Keep. Return from Stripe waits for the webhook (2 s × 15). Blocked page: Pay now for the tenant admin. Texts in `fr.json` |
+| **Tests** | `tsc` clean, `jest` 84 suites / **1021** pass, lint clean on new code. Static DI check (all 63 modules) OK. Frontend: `tsc`, lint, `next build` OK (built on a copy — the owner's `yarn start` uses `.next`) |
+| **Live checked** | API up after a fix (module load cycle → `ModuleRef`; new test `src/app.module.wiring.spec.ts`). TEST Beta Bouw: checkout → Stripe URL (after turning off Stripe "Managed Payments" on the session — it wanted tax codes), portal → URL, cancel without card → 409. Its Stripe customer comes from the dump: no test clock (new companies get one) |
+| **Not done** | Owner pays with test cards (`stripe listen`, Part B). Stripe Dashboard: retries → "leave past due" |
+| **Also this session** | Local DB restored from `backup/chantieros_dump.sql`. Client: `TEST-SUBSCRIPTION.md` (Part A today, Part B card tests) |
+| **Next action** | Owner: restart the API → `stripe listen --forward-to localhost:5300/api/webhooks/stripe` → `TEST-SUBSCRIPTION.md` Part B |
+
+---
+
+## admin home page stats (2026-10-11)
 
 Nothing committed or pushed. Rule: [../admin-stats.md](../admin-stats.md).
 

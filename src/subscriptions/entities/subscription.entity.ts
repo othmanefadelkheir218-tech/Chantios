@@ -40,6 +40,18 @@ export class SubscriptionEntity {
   @ApiProperty({ nullable: true })
   pending_plan_effective_at: Date | null;
 
+  @ApiProperty({
+    nullable: true,
+    description: 'Only while past_due: the block date',
+  })
+  grace_ends_at: Date | null;
+
+  @ApiProperty({
+    description:
+      'Card subscription cancelled: it ends at period_end, no refund',
+  })
+  cancel_at_period_end: boolean;
+
   @ApiProperty()
   created_at: Date;
 

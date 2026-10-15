@@ -198,6 +198,41 @@ export class SubscriptionRepository {
     });
   }
 
+  /** Stripe webhooks for one card subscription (step 21). */
+  findByStripeSubscriptionId(
+    stripeSubscriptionId: string,
+  ): Promise<TenantSubscription | null> {
+    return this.prisma.tenantSubscription.findFirst({
+      where: { stripeSubscriptionId },
+    });
+  }
+
+  /** Copies a Stripe subscription onto the row: ids, price, period, cancel flag (step 21). */
+  setStripeSubscription(
+    tenantId: number,
+    data: Pick<
+      Prisma.TenantSubscriptionUpdateInput,
+      | 'stripeSubscriptionId'
+      | 'stripePriceId'
+      | 'periodStart'
+      | 'periodEnd'
+      | 'cancelAtPeriodEnd'
+    >,
+  ): Promise<TenantSubscription> {
+    return this.prisma.tenantSubscription.update({
+      where: { tenantId },
+      data,
+    });
+  }
+
+  /** The card subscription is gone in Stripe: forget it, keep the customer. */
+  clearStripeSubscription(tenantId: number): Promise<TenantSubscription> {
+    return this.prisma.tenantSubscription.update({
+      where: { tenantId },
+      data: { stripeSubscriptionId: null, cancelAtPeriodEnd: false },
+    });
+  }
+
   // ---- Platform stats (GET /api/admin/stats) ----
 
   /** Subscriptions of live companies, per status. */

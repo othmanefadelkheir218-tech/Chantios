@@ -20,8 +20,11 @@ import { ApplyPendingPlanIfDueHandler } from './handlers/apply-pending-plan-if-d
 import { CountUsageHandler } from './handlers/count-usage.handler';
 import { FindUsageHandler } from './handlers/find-usage.handler';
 import { MySubscriptionHandler } from './handlers/my-subscription.handler';
+import { OpenPortalHandler } from './handlers/open-portal.handler';
 import { RequestDowngradeHandler } from './handlers/request-downgrade.handler';
 import { RunRenewalHandler } from './handlers/run-renewal.handler';
+import { CancelCardSubscriptionHandler } from './handlers/cancel-card-subscription.handler';
+import { StartCheckoutHandler } from './handlers/start-checkout.handler';
 import { BlockExpiredGraceHandler } from './handlers/block-expired-grace.handler';
 import { TrialReminderHandler } from './handlers/trial-reminder.handler';
 import { UsageCounterHelper } from './helpers/usage-counter.helper';
@@ -67,6 +70,9 @@ import { RenewalProcessor } from './processors/renewal.processor';
     RunRenewalHandler,
     TrialReminderHandler,
     BlockExpiredGraceHandler,
+    StartCheckoutHandler,
+    OpenPortalHandler,
+    CancelCardSubscriptionHandler,
     RenewalProcessor,
   ],
   // `UsageCounterHelper` is also used directly by `CronsModule` (step 16's

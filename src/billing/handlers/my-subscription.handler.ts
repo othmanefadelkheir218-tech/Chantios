@@ -25,6 +25,9 @@ export class MySubscriptionHandler {
       pending_plan_id: subscription.pendingPlanId,
       pending_plan_effective_at: subscription.pendingPlanEffectiveAt,
       grace_ends_at: subscription.graceEndsAt,
+      // Step 21: "Pay" or "Manage payment", and "Ends on <date>" after a cancel.
+      has_card_subscription: !!subscription.stripeSubscriptionId,
+      cancel_at_period_end: subscription.cancelAtPeriodEnd,
       plan: {
         id: plan.id,
         name: plan.name,

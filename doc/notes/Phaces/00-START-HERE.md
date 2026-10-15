@@ -114,6 +114,7 @@ From [technical/build-order.md](../technical/build-order.md). Phase numbers are 
 | 18 | [18-frontend-support.md](18-frontend-support.md) | — | no — API additions the frontend needs (planned) |
 | 19 | [19-bulk-import.md](19-bulk-import.md) | — | no — `.xlsx` import of materials and stock (planned) |
 | 20 | [20-trial-end-dev-tools.md](20-trial-end-dev-tools.md) | — | no — end of the trial (grace, block) + super-admin dev tools |
+| 21 | [21-stripe-checkout.md](21-stripe-checkout.md) | — | no — all decided 2026-10-15 — the tenant admin pays by card (Stripe Checkout), backend + frontend |
 
 ### Why three steps move
 

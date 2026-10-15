@@ -46,7 +46,14 @@ describe('StripeController (webhook)', () => {
       {} as ArchivePlanPriceHandler,
       {} as PushOverageInvoiceItemHandler,
       recordWebhookEvent,
-      queue,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      queue as never,
     ),
   );
 

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, TenantSubscription } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { addOneMonth } from '../../common/helpers/billing-period.helper';
 import { NotificationsService } from '../../notifications/notifications.service';
@@ -10,6 +10,7 @@ import {
 } from '../../subscriptions/helpers/subscription.helper';
 import { SubscriptionsService } from '../../subscriptions/subscriptions.service';
 import { StripeService } from '../../stripe/stripe.service';
+import { StripeRenewalInput } from '../dto/renewal-job.dto';
 import { ApplyPendingPlanIfDueHandler } from './apply-pending-plan-if-due.handler';
 import { CountUsageHandler } from './count-usage.handler';
 
@@ -47,7 +48,6 @@ export class RunRenewalHandler {
 
   async execute(tenantId: number) {
     this.logger.info(`Running renewal for tenant ${tenantId}`);
-
     const subscription = await this.subscriptions.findByTenant(tenantId);
     if (!isBilled(subscription.status)) {
       this.logger.info(
@@ -55,38 +55,21 @@ export class RunRenewalHandler {
       );
       return { skipped: true, usage: null, totalOverage: '0' };
     }
-    const plan = await this.plans.findOne(subscription.planId);
-    const usage = await this.countUsage.execute(tenantId);
-
-    let totalOverage = new Prisma.Decimal(0);
-    for (const feature of plan.features) {
-      if (feature.featureKey === 'retention_days') continue;
-      const actual = usage[feature.featureKey];
-      if (actual === undefined) continue;
-      totalOverage = totalOverage.plus(
-        computeOverageAmount(actual, feature.limitValue, feature.overageRate),
+    // A company that pays by card renews when Stripe makes its invoice
+    // (`executeForStripeInvoice`, step 21) — never from the nightly job.
+    if (subscription.stripeSubscriptionId) {
+      this.logger.info(
+        `Renewal skipped for tenant ${tenantId}: billed by Stripe subscription ${subscription.stripeSubscriptionId}`,
       );
+      return { skipped: true, usage: null, totalOverage: '0' };
     }
 
-    await this.subscriptions.snapshotUsage({
-      tenantId,
-      periodStart: subscription.periodStart,
-      periodEnd: subscription.periodEnd,
-      usage,
-    });
-
-    if (totalOverage.gt(0)) {
-      const closedPeriod = `${subscription.periodStart.toISOString().slice(0, 10)} – ${subscription.periodEnd.toISOString().slice(0, 10)}`;
-      // Stable across a BullMQ retry of this SAME renewal (same tenant, same
-      // closed period) so Stripe de-duplicates instead of double-billing.
-      const idempotencyKey = `overage:${tenantId}:${subscription.periodStart.toISOString()}`;
-      await this.stripe.pushOverageInvoiceItem(
-        subscription.stripeCustomerId,
-        totalOverage,
-        `Overage for ${closedPeriod}`,
-        idempotencyKey,
-      );
-    }
+    const { usage, totalOverage } = await this.billUsage(
+      subscription,
+      subscription.periodStart,
+      subscription.periodEnd,
+      null,
+    );
 
     const newPeriodStart = subscription.periodEnd;
     const newPeriodEnd = addOneMonth(newPeriodStart);
@@ -102,6 +85,85 @@ export class RunRenewalHandler {
     );
 
     return { skipped: false, usage, totalOverage: totalOverage.toString() };
+  }
+
+  /**
+   * Step 21 (Q2): the renewal of a company that pays by card, run when Stripe
+   * creates the monthly invoice (`invoice.created`). Same usage count, same
+   * snapshot, same overage — the overage goes onto that invoice. Stripe owns
+   * the dates (`customer.subscription.updated` copies them) and the status
+   * (the payment events), so neither is touched here.
+   */
+  async executeForStripeInvoice(tenantId: number, input: StripeRenewalInput) {
+    this.logger.info(
+      `Running card renewal for tenant ${tenantId}, Stripe invoice ${input.invoiceId ?? '(already final)'}`,
+    );
+    const subscription = await this.subscriptions.findByTenant(tenantId);
+    const { usage, totalOverage } = await this.billUsage(
+      subscription,
+      input.periodStart,
+      input.periodEnd,
+      input.invoiceId,
+    );
+    // The Stripe price already moved when the change was planned (Q4), so
+    // this invoice IS the first one of the new plan: apply it now. Not by
+    // date — `customer.subscription.updated` may already have moved
+    // `pending_plan_effective_at` to the next period end.
+    if (subscription.pendingPlanId) {
+      this.logger.info(
+        `Applying pending plan ${subscription.pendingPlanId} for tenant ${tenantId} (card renewal)`,
+      );
+      await this.subscriptions.applyPendingPlan(tenantId);
+    }
+    this.logger.info(
+      `Card renewal done for tenant ${tenantId}: overage ${totalOverage.toString()} EUR`,
+    );
+    return { skipped: false, usage, totalOverage: totalOverage.toString() };
+  }
+
+  /**
+   * Steps 1–3 of a renewal, shared by both paths: count usage, write the
+   * snapshot (limits and rates copied now), push the total overage to Stripe.
+   */
+  private async billUsage(
+    subscription: TenantSubscription,
+    periodStart: Date,
+    periodEnd: Date,
+    invoiceId: string | null,
+  ) {
+    const { tenantId } = subscription;
+    const plan = await this.plans.findOne(subscription.planId);
+    const usage = await this.countUsage.execute(tenantId);
+
+    let totalOverage = new Prisma.Decimal(0);
+    for (const feature of plan.features) {
+      if (feature.featureKey === 'retention_days') continue;
+      const actual = usage[feature.featureKey];
+      if (actual === undefined) continue;
+      totalOverage = totalOverage.plus(
+        computeOverageAmount(actual, feature.limitValue, feature.overageRate),
+      );
+    }
+
+    await this.subscriptions.snapshotUsage({
+      tenantId,
+      periodStart,
+      periodEnd,
+      usage,
+    });
+
+    if (totalOverage.gt(0)) {
+      const closedPeriod = `${periodStart.toISOString().slice(0, 10)} – ${periodEnd.toISOString().slice(0, 10)}`;
+      const idempotencyKey = `overage:${tenantId}:${periodStart.toISOString()}`;
+      await this.stripe.pushOverageInvoiceItem(
+        subscription.stripeCustomerId,
+        totalOverage,
+        `Overage for ${closedPeriod}`,
+        idempotencyKey,
+        invoiceId,
+      );
+    }
+    return { usage, totalOverage };
   }
 
   /** Day 14: `past_due` for 7 days, then the block (`BlockExpiredGraceHandler`). */

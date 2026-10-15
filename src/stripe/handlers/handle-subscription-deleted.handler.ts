@@ -33,7 +33,22 @@ export class HandleSubscriptionDeletedHandler {
       return;
     }
 
+    // An OLD card subscription ended (a blocked company paid again, step 21):
+    // the company already has a newer one — nothing to block.
+    if (
+      subscription.stripeSubscriptionId &&
+      subscription.stripeSubscriptionId !== sub.id
+    ) {
+      this.logger.info(
+        `${event.id}: old Stripe subscription ${sub.id} ended, tenant ${subscription.tenantId} has a newer one — ignored`,
+      );
+      return;
+    }
+
     await this.subscriptions.setStatus(subscription.tenantId, 'cancelled');
+    if (subscription.stripeSubscriptionId) {
+      await this.subscriptions.clearStripeSubscription(subscription.tenantId);
+    }
     this.logger.info(
       `Tenant ${subscription.tenantId} subscription cancelled via Stripe`,
     );

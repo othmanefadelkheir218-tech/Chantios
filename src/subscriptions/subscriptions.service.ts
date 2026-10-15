@@ -4,6 +4,7 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { FindSubscriptionsQueryDto } from './dto/find-subscriptions-query.dto';
 import { SetPendingPlanDto } from './dto/set-pending-plan.dto';
 import { SnapshotUsageInput } from './dto/snapshot-usage.dto';
+import { StripeSubscriptionState } from './dto/stripe-subscription-state.dto';
 import { ApplyPendingPlanHandler } from './handlers/apply-pending-plan.handler';
 import { CreateSubscriptionHandler } from './handlers/create-subscription.handler';
 import { FindAllUsageHandler } from './handlers/find-all-usage.handler';
@@ -17,6 +18,7 @@ import { SetStatusHandler } from './handlers/set-status.handler';
 import { ShiftDatesHandler } from './handlers/shift-dates.handler';
 import { StartGraceHandler } from './handlers/start-grace.handler';
 import { SnapshotUsageHandler } from './handlers/snapshot-usage.handler';
+import { SyncStripeSubscriptionHandler } from './handlers/sync-stripe-subscription.handler';
 import { SubscriptionRepository } from './repositories/subscription.repository';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
@@ -36,6 +38,7 @@ export class SubscriptionsService {
     private readonly applyPendingPlanHandler: ApplyPendingPlanHandler,
     private readonly startGraceHandler: StartGraceHandler,
     private readonly shiftDatesHandler: ShiftDatesHandler,
+    private readonly syncStripeSubscriptionHandler: SyncStripeSubscriptionHandler,
     private readonly subscriptions: SubscriptionRepository,
   ) {}
 
@@ -115,9 +118,24 @@ export class SubscriptionsService {
     return this.shiftDatesHandler.execute(tenantId, days);
   }
 
-  /** The Stripe customer of a company (dev tools today; Stripe Checkout later). */
+  /** The Stripe customer of a company (Stripe Checkout, step 21; dev tools use a fake one). */
   setStripeCustomerId(tenantId: number, stripeCustomerId: string) {
     return this.subscriptions.setStripeCustomerId(tenantId, stripeCustomerId);
+  }
+
+  /** A card subscription: copy its ids, period and cancel flag from Stripe (step 21). */
+  syncStripeSubscription(tenantId: number, state: StripeSubscriptionState) {
+    return this.syncStripeSubscriptionHandler.execute(tenantId, state);
+  }
+
+  /** The card subscription ended in Stripe (step 21). */
+  clearStripeSubscription(tenantId: number) {
+    return this.subscriptions.clearStripeSubscription(tenantId);
+  }
+
+  /** Resolves a Stripe webhook's subscription id to a tenant (step 21). */
+  findByStripeSubscriptionId(stripeSubscriptionId: string) {
+    return this.subscriptions.findByStripeSubscriptionId(stripeSubscriptionId);
   }
 
   /**
