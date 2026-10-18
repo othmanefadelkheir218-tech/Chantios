@@ -14,6 +14,7 @@ import {
   RenewalJobData,
   StripeRenewalInput,
 } from './dto/renewal-job.dto';
+import { FindBillingHistoryHandler } from './handlers/find-billing-history.handler';
 import { FindUsageHandler } from './handlers/find-usage.handler';
 import { MySubscriptionHandler } from './handlers/my-subscription.handler';
 import { OpenPortalHandler } from './handlers/open-portal.handler';
@@ -34,6 +35,7 @@ export class BillingService {
     private readonly renewalQueue: Queue<RenewalJobData>,
     private readonly mySubscriptionHandler: MySubscriptionHandler,
     private readonly findUsageHandler: FindUsageHandler,
+    private readonly findBillingHistoryHandler: FindBillingHistoryHandler,
     private readonly requestDowngradeHandler: RequestDowngradeHandler,
     private readonly runRenewalHandler: RunRenewalHandler,
     private readonly trialReminderHandler: TrialReminderHandler,
@@ -52,6 +54,11 @@ export class BillingService {
 
   usage(tenantId: number) {
     return this.findUsageHandler.execute(tenantId);
+  }
+
+  /** One item per past period: usage + what Stripe charged (plan + overage = total). */
+  history(tenantId: number, query: PaginationQueryDto) {
+    return this.findBillingHistoryHandler.execute(tenantId, query);
   }
 
   /** Past `billing_usage_snapshots` for the caller's own tenant. */

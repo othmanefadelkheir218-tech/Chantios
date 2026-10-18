@@ -85,4 +85,14 @@ export class TimeEntriesService {
   sumHoursBetween(from: Date, to: Date, userId?: number) {
     return this.entries.sumHoursBetween(from, to, userId);
   }
+
+  /** Analytics (step 22). `userId` is set for a user with scope `own`. */
+  sumHoursByDay(from: Date, to: Date, userId?: number) {
+    return this.entries.sumHoursByDay(from, to, userId);
+  }
+
+  /** Analytics (step 22): the top projects by hours. `userId` = scope `own`. */
+  sumHoursByProject(from: Date, to: Date, limit: number, userId?: number) {
+    return this.entries.sumHoursByProject(from, to, limit, userId);
+  }
 }

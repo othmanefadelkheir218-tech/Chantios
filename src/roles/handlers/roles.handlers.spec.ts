@@ -91,8 +91,8 @@ describe('Roles handlers', () => {
         canDelete: true,
       });
 
-      // 2 roles x 16 modules
-      expect(matrix.length).toBe(32);
+      // 2 roles x 19 modules
+      expect(matrix.length).toBe(38);
     });
   });
 

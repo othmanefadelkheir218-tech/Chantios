@@ -1,12 +1,24 @@
+import { formatEmailPayload } from '../../email/helpers/email-format.helper';
 import {
+  EMAIL_LINK_COLOR,
   renderEmailLayout,
+  renderEmailSummary,
   toEmailLocale,
 } from '../../email/templates/email-layout';
 import { EmailLocale } from '../../email/templates/invite-employee.template';
 import { NotificationType } from '../notification.types';
 
 type Payload = Record<string, unknown>;
-type Copy = (p: Payload) => { subject: string; body: string };
+/**
+ * `detailsHtml` (email only): an extra block under the text, e.g. the
+ * payment summary. `button`: the orange button when there is no portal link.
+ */
+type Copy = (p: Payload) => {
+  subject: string;
+  body: string;
+  detailsHtml?: string;
+  button?: { label: string; url: string };
+};
 type LocaleCopy = Partial<Record<EmailLocale, Copy>> & { en: Copy };
 
 /** One payload value as text, HTML-escaped (names and message previews are user input). */
@@ -24,13 +36,76 @@ function s(value: unknown): string {
 function link(p: Payload): string {
   const url = s(p.portal_url);
   return url
-    ? `<br><a href="${url}" style="color:#0B0B0C;font-weight:bold;">${url}</a>`
+    ? `<br><a href="${url}" style="color:${EMAIL_LINK_COLOR};font-weight:bold;">${url}</a>`
     : '';
 }
 
 const c =
   (subject: (p: Payload) => string, body: (p: Payload) => string): Copy =>
   (p) => ({ subject: subject(p), body: body(p) });
+
+type ReceiptWords = {
+  subject: string;
+  intro: (p: Payload) => string;
+  plan: string;
+  extra: string;
+  tax: string;
+  total: string;
+  period: (from: string, to: string) => string;
+  invoice: string;
+  button: string;
+};
+
+/** A formatted amount that is not zero (`0,00 €` / `€0.00` = no row). */
+const hasAmount = (value: unknown) =>
+  typeof value === 'string' &&
+  value !== '' &&
+  !/^\D*0([.,]00)?\D*$/.test(value);
+
+/**
+ * `subscription_payment_received`: the text, then a receipt box — plan (with
+ * its period), extra usage (with the month it covers), VAT, total — and a
+ * button to the billing page. Values arrive formatted (`formatEmailPayload`).
+ */
+const receipt =
+  (w: ReceiptWords): Copy =>
+  (p) => {
+    const rows = [];
+    if (hasAmount(p.plan_amount)) {
+      rows.push({
+        label: `${w.plan}${p.plan_name ? ` · <strong>${s(p.plan_name)}</strong>` : ''}`,
+        value: s(p.plan_amount),
+        ...(p.period_start && p.period_end
+          ? { hint: w.period(s(p.period_start), s(p.period_end)) }
+          : {}),
+      });
+    }
+    if (hasAmount(p.extra_amount)) {
+      rows.push({
+        label: w.extra,
+        value: s(p.extra_amount),
+        ...(p.extra_period_start && p.extra_period_end
+          ? { hint: w.period(s(p.extra_period_start), s(p.extra_period_end)) }
+          : {}),
+      });
+    }
+    if (hasAmount(p.tax_amount)) {
+      rows.push({ label: w.tax, value: s(p.tax_amount) });
+    }
+    const invoiceLine = p.invoice_number
+      ? `<p style="margin:16px 0 0;font-size:13px;color:#64748B;">${w.invoice} ${s(p.invoice_number)}</p>`
+      : '';
+    return {
+      subject: w.subject,
+      body: w.intro(p),
+      detailsHtml:
+        renderEmailSummary(rows, { label: w.total, value: s(p.total) }) +
+        invoiceLine,
+      ...(p.billing_url
+        ? { button: { label: w.button, url: s(p.billing_url) } }
+        : {}),
+    };
+  };
 
 /**
  * Subject + body for every alert, per locale (`fr`, `en`, `nl`; a missing or
@@ -475,6 +550,44 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
         `Uw bestand "${s(p.file_name)}" is niet geïmporteerd: ${s(p.error_count)} fout(en). Er is niets opgeslagen. Open de import om elke regel te zien.`,
     ),
   },
+  subscription_payment_received: {
+    en: receipt({
+      subject: 'Payment received — thank you',
+      intro: (p) =>
+        `We received your payment of ${s(p.total)} on ${s(p.paid_at)}. Here is the detail.`,
+      plan: 'Plan',
+      extra: 'Extra usage',
+      tax: 'VAT',
+      total: 'Total paid',
+      period: (from, to) => `From ${from} to ${to}`,
+      invoice: 'Invoice',
+      button: 'View my subscription',
+    }),
+    fr: receipt({
+      subject: 'Paiement reçu — merci',
+      intro: (p) =>
+        `Nous avons bien reçu votre paiement de ${s(p.total)} le ${s(p.paid_at)}. Voici le détail.`,
+      plan: 'Formule',
+      extra: 'Supplément (dépassement)',
+      tax: 'TVA',
+      total: 'Total payé',
+      period: (from, to) => `Du ${from} au ${to}`,
+      invoice: 'Facture',
+      button: 'Voir mon abonnement',
+    }),
+    nl: receipt({
+      subject: 'Betaling ontvangen — bedankt',
+      intro: (p) =>
+        `We hebben uw betaling van ${s(p.total)} ontvangen op ${s(p.paid_at)}. Hier is het detail.`,
+      plan: 'Formule',
+      extra: 'Extra gebruik',
+      tax: 'Btw',
+      total: 'Totaal betaald',
+      period: (from, to) => `Van ${from} tot ${to}`,
+      invoice: 'Factuur',
+      button: 'Mijn abonnement bekijken',
+    }),
+  },
   tenant_signed_up: {
     en: c(
       (p) => `New company: ${s(p.company_name)}`,
@@ -591,14 +704,15 @@ export function renderNotification(
 ): RenderedNotification {
   const copies: Partial<Record<string, Copy>> = TEMPLATES[type];
   const copy = (locale ? copies[locale] : undefined) ?? TEMPLATES[type].en;
-  const data = payload ?? {};
-  const { subject, body } = copy(data);
+  const emailLocale = toEmailLocale(locale);
+  // Money and dates in the reader's language: `10,00 €`, `30/12/2026`.
+  const data = formatEmailPayload(payload ?? {}, emailLocale);
+  const { subject, body, detailsHtml, button } = copy(data);
 
   // In the email the portal link becomes the orange button; the in-app `body`
   // keeps the link inline.
   const portalLink = link(data);
   const portalUrl = s(data.portal_url);
-  const emailLocale = toEmailLocale(locale);
 
   return {
     subject,
@@ -606,10 +720,10 @@ export function renderNotification(
     html: renderEmailLayout({
       locale: emailLocale,
       title: subject,
-      bodyHtml: `<p style="margin:0;">${portalLink ? body.replace(portalLink, '') : body}</p>`,
-      ...(portalUrl && {
-        button: { label: OPEN_BUTTON[emailLocale], url: portalUrl },
-      }),
+      bodyHtml: `<p style="margin:0;">${portalLink ? body.replace(portalLink, '') : body}</p>${detailsHtml ?? ''}`,
+      ...(portalUrl
+        ? { button: { label: OPEN_BUTTON[emailLocale], url: portalUrl } }
+        : button && { button }),
     }),
   };
 }

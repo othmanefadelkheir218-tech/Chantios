@@ -117,6 +117,24 @@ export class MediaService {
   }
 
   /**
+   * Hard-deletes only these files of one entity (ImageKit + row) — an id
+   * that is not a file of that entity is ignored. One note image removed.
+   */
+  deleteForEntity(
+    entityType: MediaEntityType,
+    entityId: number,
+    mediaIds: number[],
+    actor: AuthenticatedUser,
+  ) {
+    return this.deleteMediaByEntity.execute(
+      entityType,
+      entityId,
+      actor,
+      mediaIds,
+    );
+  }
+
+  /**
    * Links already-uploaded files (`entity_id = 0`, uploaded by this user) to
    * the entity that now exists — a chat message's attachments. `tx` — the
    * caller writes the entity and links its files in one transaction.

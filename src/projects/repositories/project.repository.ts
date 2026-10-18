@@ -89,6 +89,25 @@ export class ProjectRepository {
     return counts;
   }
 
+  /**
+   * Open projects (`prospect`, `in_progress`) where this user is the project
+   * manager or an assignee on at least one task — the contacts page
+   * (doc/notes/contacts.md). Tenant-scoped like every read here.
+   */
+  findOpenForUser(userId: number) {
+    return this.tenantPrisma.db.project.findMany({
+      where: {
+        status: { in: ['prospect', 'in_progress'] },
+        OR: [
+          { managerId: userId },
+          { tasks: { some: { assignees: { some: { userId } } } } },
+        ],
+      },
+      select: { id: true, name: true, status: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   /** Name + address of these projects (the worker's own project list). Tenant-scoped like every read here. */
   findSummariesByIds(ids: number[]) {
     return this.tenantPrisma.db.project.findMany({

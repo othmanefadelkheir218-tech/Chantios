@@ -56,7 +56,7 @@ Every **business** table has `tenant_id NOT NULL`. The platform tables have none
 | `email` | Required — the portal link, quotes and invoices are emailed here |
 | `phone` | Required — format validated |
 | `phone_secondary` | Optional |
-| `vat_number` | Required for `professional`, otherwise nullable |
+| `vat_number` | Required for `professional`. `individual` and `property_manager` have none: the form hides the field and clears an old value |
 | `address_line1` | Street — appears on the invoice |
 | `address_line2` | Optional |
 | `postal_code` | — |

@@ -23,6 +23,7 @@ import { MobileLoginHandler } from './mobile-login.handler';
 import { RefreshHandler } from './refresh.handler';
 import { RegisterTenantHandler } from './register-tenant.handler';
 import { ResetPasswordHandler } from './reset-password.handler';
+import { CheckResetCodeHandler } from './check-reset-code.handler';
 
 const fakeReq = { headers: {}, ip: '127.0.0.1' } as unknown as Request;
 const cookieFn = jest.fn();
@@ -78,7 +79,7 @@ describe('Auth handlers', () => {
   };
   const subscriptions = { create: jest.fn() };
   const plans = { findDefault: jest.fn() };
-  const codes = { generate: jest.fn(), verify: jest.fn() };
+  const codes = { generate: jest.fn(), verify: jest.fn(), check: jest.fn() };
   const email = { send: jest.fn() };
   const prisma = {
     $transaction: jest.fn((cb: (tx: unknown) => unknown) =>
@@ -100,6 +101,7 @@ describe('Auth handlers', () => {
   let registerTenant: RegisterTenantHandler;
   let forgotPassword: ForgotPasswordHandler;
   let resetPassword: ResetPasswordHandler;
+  let checkResetCode: CheckResetCodeHandler;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -110,6 +112,7 @@ describe('Auth handlers', () => {
       RegisterTenantHandler,
       ForgotPasswordHandler,
       ResetPasswordHandler,
+      CheckResetCodeHandler,
     ];
     const module = await Test.createTestingModule({
       providers: [
@@ -138,6 +141,7 @@ describe('Auth handlers', () => {
     registerTenant = module.get(RegisterTenantHandler);
     forgotPassword = module.get(ForgotPasswordHandler);
     resetPassword = module.get(ResetPasswordHandler);
+    checkResetCode = module.get(CheckResetCodeHandler);
   });
 
   describe('LoginHandler', () => {
@@ -436,6 +440,38 @@ describe('Auth handlers', () => {
       expect(known).toEqual({ sent: true });
       expect(unknown).toEqual({ sent: true });
       expect(email.send).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('CheckResetCodeHandler', () => {
+    it('rejects a wrong code', async () => {
+      users.findByEmail.mockResolvedValue(user());
+      codes.check.mockResolvedValue(false);
+      await expect(
+        checkResetCode.execute({ email: 'worker@test.local', code: '000000' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects an unknown email', async () => {
+      users.findByEmail.mockResolvedValue(null);
+      await expect(
+        checkResetCode.execute({ email: 'nobody@test.local', code: '123456' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(codes.check).not.toHaveBeenCalled();
+    });
+
+    it('accepts a right code without using it', async () => {
+      users.findByEmail.mockResolvedValue(user());
+      codes.check.mockResolvedValue(true);
+      await expect(
+        checkResetCode.execute({ email: 'worker@test.local', code: '123456' }),
+      ).resolves.toEqual({ valid: true });
+      expect(codes.check).toHaveBeenCalledWith(
+        'password_reset',
+        { userId: 2 },
+        '123456',
+      );
+      expect(codes.verify).not.toHaveBeenCalled();
     });
   });
 

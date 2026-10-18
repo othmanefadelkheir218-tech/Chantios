@@ -1,55 +1,54 @@
 # ChantiOs — Design guide
 
 > One guide for every screen the client sees: **emails**, the **client portal**, and later the app.
-> Status: **plan only, nothing is built yet.** Colors and sizes can change before the build.
 
 ## 1. Brand
 
 - **Name / logo (for now):** the text **ChantiOs**, as a wordmark. No image file yet.
-  - `Chanti` in white (on black) or black (on white), `Os` in orange.
+  - `Chanti` in white (on navy) or navy (on white), `Os` in orange.
   - A real logo file can replace it later. Keep the wordmark in one place so it is easy to swap.
 - **Feeling:** strong, clean, professional. A site-work tool, not a toy.
-- **Two colors only:** **black** and **orange**. Play between them. Everything else is white or grey.
+- **Colors:** **navy** and **burnt orange**, with **gold** for "waiting / act soon". Everything else is white or soft grey. Same look as the web app (frontend `11-design-system.md`).
 
 ## 2. Colors
 
 | Token | Hex | Use |
 |---|---|---|
-| `black` | `#0B0B0C` | Header, footer, dark sections, main text |
-| `ink` | `#1C1C1F` | Cards on a dark background |
-| `orange` | `#FF6A00` | Buttons, links, highlights, numbers that matter |
-| `orange-dark` | `#E05A00` | Button on hover or press |
-| `orange-soft` | `#FFF1E6` | Light orange background (notes, highlights) |
-| `white` | `#FFFFFF` | Page background, text on black |
-| `grey-100` | `#F4F4F5` | Page background behind cards |
-| `grey-300` | `#D4D4D8` | Lines and borders |
-| `grey-600` | `#52525B` | Small and secondary text |
+| `navy` | `#131C2E` | Email header, dark blocks |
+| `text` | `#0F172A` | Titles, main text |
+| `body-text` | `#334155` | Email body text |
+| `orange` | `#C2570C` | Buttons, links, highlights |
+| `orange-dark` | `#A8490A` | Button on hover or press |
+| `orange-soft` | `#FFF4EC` | Light orange background (code box, highlights) |
+| `white` | `#FFFFFF` | Cards, text on navy or orange |
+| `page` | `#F1F5F9` (email) / `#F8FAFC` (app) | Page background behind cards |
+| `line` | `#E2E8F0` | Lines and borders |
+| `muted` | `#64748B` | Small and secondary text |
 
-Status colors (only for status, never as decoration): green `#16A34A` ok, red `#DC2626` error or refused, amber `#F59E0B` warning.
+Status colors (only for status, never as decoration): green `#16A34A` ok, red `#DC2626` error or refused, gold `#CA8A04` warning.
 
 **Contrast rules (must follow)**
-- Text on an **orange** button is **black**, not white. White on this orange is too hard to read.
-- Orange **text** goes on black or on `ink`, not on white. On white, use black text and keep orange for lines, icons and buttons.
+- Text on an **orange** button is **white** (4.5:1 on `#C2570C`).
 - Normal text needs contrast 4.5:1 or more.
 
-**How to play with the two colors**
-- Black header with an orange line (4 px) under it.
-- White body. Black text. One orange button per screen or email.
-- A black "big number" block (amount, total) with the number in orange.
+**How to use the colors**
+- Navy header with a thin orange line (3 px) under it.
+- White rounded card. Dark text. One orange button per screen or email.
+- A navy "big number" block (amount, total).
 
 ## 3. Type
 
 - **Web (portal):** `Inter`, fallback `system-ui, sans-serif`.
-- **Email:** `Arial, Helvetica, sans-serif` (email programs do not load web fonts reliably).
-- Sizes: title 24 px bold, text 16 px, small text 13 px. Line height 1.5.
+- **Email:** `Inter, 'Segoe UI', Arial, Helvetica, sans-serif` (most email programs fall back to Arial — fine).
+- Sizes: title 22–24 px bold, text 16 px, small text 13 px. Line height 1.5–1.6.
 - Money and numbers: bold, with a space for thousands, and 2 decimals.
 
 ## 4. Components
 
-- **Button:** orange background, black bold text, radius 8 px, height 48 px, padding 0 24 px. One main button per screen.
-- **Secondary button:** black border, black text, white background.
-- **Card:** white, radius 12 px, 1 px `grey-300` border, soft shadow.
-- **Badge (status):** small rounded pill. Sent = orange-soft + black text. Accepted = green. Refused = red. Expired = grey.
+- **Button:** orange background, white bold text, radius 12 px, padding 14 px 28 px. One main button per screen.
+- **Secondary button:** navy border, navy text, white background.
+- **Card:** white, radius 16 px, 1 px `line` border, soft shadow.
+- **Badge (status):** small rounded pill. Sent = orange-soft + dark text. Accepted = green. Refused = red. Expired = grey.
 - **Spacing:** steps of 4 px (4, 8, 16, 24, 32). Side gutter 16 px on phone.
 - **Phone first.** The client opens the portal and the emails on a phone.
 
@@ -64,11 +63,13 @@ Status colors (only for status, never as decoration): green `#16A34A` ok, red `#
 ## 6. Emails
 
 **Layout (width 600 px, one column)**
-1. Black header: wordmark **ChantiOs**, orange line under it.
-2. White body: title, 1–3 short sentences, **one** orange button.
-3. If there is a code (verification): a big box, orange-soft background, code in black bold, letter spacing.
-4. Grey small text: "If this was not you, ignore this email."
-5. Black footer: company name, `© ChantiOs`, small grey text.
+1. Soft grey page, white card with rounded corners (16 px).
+2. Navy header: wordmark **ChantiOs**, thin orange line under it.
+3. White body: title, 1–3 short sentences, **one** orange button (white text).
+4. If there is a code (verification): a big box, orange-soft background, code in dark bold, letter spacing.
+5. Grey small text after a thin line: "If this was not you, ignore this email."
+6. Footer under the card, small grey text: "sent automatically", `© ChantiOs`.
+Built once in `src/email/templates/email-layout.ts`; every email uses it.
 
 **Rules**
 - Build with tables and inline styles (email programs ignore most modern CSS).

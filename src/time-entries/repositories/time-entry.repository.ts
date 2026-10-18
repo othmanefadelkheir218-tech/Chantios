@@ -188,4 +188,47 @@ export class TimeEntryRepository {
     });
     return result._sum.hours ?? new Prisma.Decimal(0);
   }
+
+  /** Analytics (step 22): hours per `work_date` between two dates (inclusive). `userId` = scope `own`. */
+  async sumHoursByDay(
+    from: Date,
+    to: Date,
+    userId?: number,
+  ): Promise<{ day: Date; hours: Prisma.Decimal }[]> {
+    const rows = await this.tenantPrisma.db.timeEntry.groupBy({
+      by: ['workDate'],
+      where: {
+        workDate: { gte: from, lte: to },
+        ...(userId !== undefined && { userId }),
+      },
+      _sum: { hours: true },
+    });
+    return rows.map((row) => ({
+      day: row.workDate,
+      hours: row._sum.hours ?? new Prisma.Decimal(0),
+    }));
+  }
+
+  /** Analytics (step 22): the projects with the most hours between two dates. `userId` = scope `own`. */
+  async sumHoursByProject(
+    from: Date,
+    to: Date,
+    limit: number,
+    userId?: number,
+  ): Promise<{ projectId: number; hours: Prisma.Decimal }[]> {
+    const rows = await this.tenantPrisma.db.timeEntry.groupBy({
+      by: ['projectId'],
+      where: {
+        workDate: { gte: from, lte: to },
+        ...(userId !== undefined && { userId }),
+      },
+      _sum: { hours: true },
+      orderBy: [{ _sum: { hours: 'desc' } }, { projectId: 'asc' }],
+      take: limit,
+    });
+    return rows.map((row) => ({
+      projectId: row.projectId,
+      hours: row._sum.hours ?? new Prisma.Decimal(0),
+    }));
+  }
 }

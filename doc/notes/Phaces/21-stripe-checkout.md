@@ -69,6 +69,8 @@ TEST-SUBSCRIPTION.md                                     real card tests (§ 8)
 | `POST` | `/api/billing/cancel` | role `admin` | Q6: Stripe `cancel_at_period_end = true`. Nothing changes now; at the period end Stripe sends `customer.subscription.deleted` → `cancelled`. `409` if there is no card subscription |
 | `POST` | `/api/billing/resume` | role `admin` | Q6b: `cancel_at_period_end = false` before the period end |
 | `GET` | `/api/billing/subscription` | unchanged | + `has_card_subscription: boolean` (the frontend picks **Pay** or **Manage payment**), + `cancel_at_period_end: boolean` |
+| `GET` | `/api/billing/history` | module `settings` + `@AllowLapsedSubscription()` | One item per finished period: `lines` (usage rows) + `billing` `{ plan_amount, extra_amount, total, status: paid/due/none, invoice_ids }` read from Stripe (`null` if Stripe can't be read). Paginated by period. Rule: `subscription-plans.md` § The billing history |
+| `GET` | `/api/admin/billing/tenants/:tenantId/history` | admin | Same, for one company (admin) |
 | `POST` | `/api/webhooks/stripe` | unchanged | + `checkout.session.completed`, `customer.subscription.updated`, (Q2) `invoice.created` |
 
 A **blocked** company must reach both routes, so it can pay. `tenant_id` comes from the JWT, never from the body.
@@ -85,6 +87,7 @@ A **blocked** company must reach both routes, so it can pay. `tenant_id` comes f
 | `customer.subscription.updated` | Copy the period dates and price (Q3, Q4) |
 | `customer.subscription.deleted` | Already built → `cancelled` |
 | `invoice.created` | Only if Q2 = recommendation: run the renewal now, add the overage to this invoice |
+| `invoice.paid` | "Paiement reçu" email to the company (`HandleInvoicePaidHandler`, alert `subscription_payment_received`): plan + period, overage + month, VAT, total. 0 € → nothing. Rule: `subscription-plans.md` § The payment email. **Live endpoint must list this event** |
 
 **Stripe setting (test + live):** Dashboard → Billing → Subscriptions → "If all retries fail" = **leave the subscription past due** (do not cancel). Our 7-day rule does the block, not Stripe.
 

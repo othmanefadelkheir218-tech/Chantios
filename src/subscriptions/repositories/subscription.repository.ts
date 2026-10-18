@@ -81,6 +81,30 @@ export class SubscriptionRepository {
     ]);
   }
 
+  /**
+   * One page of a tenant's past periods, newest first, with every row of
+   * each period. Pages count periods, never rows, so a period is never cut
+   * in two (doc/notes/subscription-plans.md § The billing history).
+   */
+  async findUsagePeriods(
+    tenantId: number,
+    skip: number,
+    take: number,
+  ): Promise<[BillingUsageSnapshot[], number]> {
+    const periods = await this.prisma.billingUsageSnapshot.groupBy({
+      by: ['periodStart'],
+      where: { tenantId },
+      orderBy: { periodStart: 'desc' },
+    });
+    const page = periods.slice(skip, skip + take).map((p) => p.periodStart);
+    if (page.length === 0) return [[], periods.length];
+    const rows = await this.prisma.billingUsageSnapshot.findMany({
+      where: { tenantId, periodStart: { in: page } },
+      orderBy: [{ periodStart: 'desc' }, { featureKey: 'asc' }],
+    });
+    return [rows, periods.length];
+  }
+
   /** `GET /api/admin/billing/snapshots` (step 14) — every tenant, newest first. */
   async findAllUsage(
     skip: number,

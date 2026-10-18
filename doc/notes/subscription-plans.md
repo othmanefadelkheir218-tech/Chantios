@@ -127,6 +127,31 @@ Also decided 2026-10-15 (owner):
 
 Build: [Phaces/21-stripe-checkout.md](Phaces/21-stripe-checkout.md) § 2.
 
+## Decided — the billing history
+
+Decided 2026-10-16 (owner).
+
+- The history shows **one block per finished period**: the usage counted at renewal (used / included per dimension), then **Formule + Supplément = Total payé**.
+- **The money comes from Stripe**, read when the history opens. It is never recomputed by us, so it always matches the Stripe invoices.
+- Stripe charges one period on two invoices: the **plan price at the start** of the period, the **overage at the end** (the invoice made at renewal). The block adds both: e.g. 10 € plan + 4 € overage = **14 €**.
+- **Total à payer** instead of **Total payé** when one of those invoices is not paid yet.
+- A period with nothing charged by card (the trial, or a company that never paid by card) shows **0,00 €**. If overage was counted but not charged by card, a line says so.
+- If Stripe cannot be read, the usage still shows; the amounts say "unavailable".
+- No new column: the amounts are not stored in our database.
+- Pages count **periods**, not rows: a period is never cut in two.
+
+## Decided — the payment email
+
+Decided 2026-10-17 (owner).
+
+- When Stripe says an invoice is **paid** (`invoice.paid`), the company gets a **"Paiement reçu"** email (alert `subscription_payment_received`).
+- **Who:** the same people as the other subscription emails — the company's staff who can view `settings` (the admin). In the **company's language** (fr / nl / en; unknown → en).
+- **What it shows:** the plan name and its price with its period (*Du … au …*), the extra usage (overage) with the month it covers, the VAT when there is some, the **total paid**, the paid date, the invoice number, and a button to the Billing page.
+- Same split as the billing history: a subscription line = the plan; any other line = overage. Amounts come from the Stripe invoice, never recomputed.
+- An invoice of **0 €** (the trial) sends nothing.
+- All company emails show money and dates in the reader's language: `10,00 €`, `30/12/2026` (fr / nl), `€10.00` (en).
+- Later (not built): a "Pay now" button in the failed / renewal emails, a link to the Stripe invoice PDF — see `ToDo/emails-and-payments.md`.
+
 ## Decided
 
 - **Plan deactivation/repricing**: existing customers **keep their current plan and terms** — nothing changes automatically for them. The super-admin has manual control to move a specific customer to a different plan (an upgrade/downgrade action), but it's admin-initiated, never automatic.

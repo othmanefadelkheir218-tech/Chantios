@@ -37,6 +37,7 @@ import { MobileLoginHandler } from './handlers/mobile-login.handler';
 import { RefreshHandler } from './handlers/refresh.handler';
 import { RegisterTenantHandler } from './handlers/register-tenant.handler';
 import { ResetPasswordHandler } from './handlers/reset-password.handler';
+import { CheckResetCodeHandler } from './handlers/check-reset-code.handler';
 import { RevokeAllSessionsHandler } from './handlers/revoke-all-sessions.handler';
 import { RevokeSessionHandler } from './handlers/revoke-session.handler';
 import { Verify2faHandler } from './handlers/verify-2fa.handler';
@@ -88,6 +89,7 @@ import { TokenModule } from './token.module';
     LogoutHandler,
     ForgotPasswordHandler,
     ResetPasswordHandler,
+    CheckResetCodeHandler,
     ChangePasswordHandler,
     VerifyEmailHandler,
     GetMeHandler,

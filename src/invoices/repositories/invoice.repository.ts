@@ -13,6 +13,10 @@ export type InvoiceLineCreateInput = Omit<
   'invoiceId'
 >;
 
+/** The four groups of the analytics aging block (doc/notes/analytics.md). */
+export type AgingBucket =
+  'not_due' | 'late_1_30' | 'late_31_60' | 'late_60_plus';
+
 /** One row of the raw `invoice_balance` view, camelCased by the query's aliases. */
 export interface InvoiceBalanceRow {
   invoiceId: number;
@@ -286,5 +290,84 @@ export class InvoiceRepository {
         AND b.balance_due > 0
     `;
     return rows[0];
+  }
+
+  /**
+   * Analytics (step 22): total incl. VAT of the invoices ISSUED per day
+   * between two `issue_date`s (inclusive). `draft` and `cancelled` were
+   * never really billed, so they do not count.
+   */
+  async sumIssuedByDay(
+    from: Date,
+    to: Date,
+  ): Promise<{ day: Date; amount: Prisma.Decimal }[]> {
+    const rows = await this.tenantPrisma.db.invoice.groupBy({
+      by: ['issueDate'],
+      where: {
+        issueDate: { gte: from, lte: to },
+        status: { notIn: ['draft', 'cancelled'] },
+      },
+      _sum: { amountInclVat: true },
+    });
+    return rows.map((row) => ({
+      day: row.issueDate,
+      amount: row._sum.amountInclVat ?? new Prisma.Decimal(0),
+    }));
+  }
+
+  /**
+   * Analytics (step 22): the clients with the most invoiced (incl. VAT) on
+   * the invoices issued between two dates — same invoices as
+   * `sumIssuedByDay` — with what was paid on those invoices.
+   */
+  findTopClientsBetween(
+    from: Date,
+    to: Date,
+    limit: number,
+  ): Promise<
+    { clientId: number; invoiced: Prisma.Decimal; collected: Prisma.Decimal }[]
+  > {
+    const tenantId = this.currentTenantId();
+    return this.prisma.$queryRaw`
+      SELECT i.client_id AS "clientId",
+             SUM(i.amount_incl_vat) AS invoiced,
+             COALESCE(SUM(b.amount_paid), 0) AS collected
+      FROM invoices i
+      JOIN invoice_balance b ON b.invoice_id = i.id AND b.tenant_id = i.tenant_id
+      WHERE i.tenant_id = ${tenantId}
+        AND i.issue_date BETWEEN ${from}::date AND ${to}::date
+        AND i.status NOT IN ('draft', 'cancelled')
+      GROUP BY i.client_id
+      ORDER BY invoiced DESC, i.client_id ASC
+      LIMIT ${limit}
+    `;
+  }
+
+  /**
+   * Analytics (step 22): the unpaid invoices of `summarizeUnpaid` in four
+   * groups. Not late = the view's own `is_late` is false (the one late
+   * rule); a late one goes by days since `due_date`.
+   */
+  async summarizeAging(): Promise<
+    { bucket: AgingBucket; count: number; balanceDue: Prisma.Decimal }[]
+  > {
+    const tenantId = this.currentTenantId();
+    return this.prisma.$queryRaw`
+      SELECT x.bucket, COUNT(*)::int AS count,
+             COALESCE(SUM(x.balance_due), 0) AS "balanceDue"
+      FROM (
+        SELECT b.balance_due,
+               CASE WHEN NOT b.is_late THEN 'not_due'
+                    WHEN CURRENT_DATE - i.due_date <= 30 THEN 'late_1_30'
+                    WHEN CURRENT_DATE - i.due_date <= 60 THEN 'late_31_60'
+                    ELSE 'late_60_plus' END AS bucket
+        FROM invoice_balance b
+        JOIN invoices i ON i.id = b.invoice_id AND i.tenant_id = b.tenant_id
+        WHERE b.tenant_id = ${tenantId}
+          AND i.status IN ('sent', 'partially_paid')
+          AND b.balance_due > 0
+      ) x
+      GROUP BY x.bucket
+    `;
   }
 }

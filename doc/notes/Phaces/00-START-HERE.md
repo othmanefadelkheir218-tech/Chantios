@@ -115,6 +115,10 @@ From [technical/build-order.md](../technical/build-order.md). Phase numbers are 
 | 19 | [19-bulk-import.md](19-bulk-import.md) | — | no — `.xlsx` import of materials and stock (planned) |
 | 20 | [20-trial-end-dev-tools.md](20-trial-end-dev-tools.md) | — | no — end of the trial (grace, block) + super-admin dev tools |
 | 21 | [21-stripe-checkout.md](21-stripe-checkout.md) | — | no — all decided 2026-10-15 — the tenant admin pays by card (Stripe Checkout), backend + frontend |
+| 22 | [22-analytics.md](22-analytics.md) | — | no — all decided 2026-10-17 — the tenant analytics page (charts), backend + frontend |
+| 23 | [23-contacts.md](23-contacts.md) | — | no — all decided 2026-10-17 — the employee directory (cards, details, no salary), backend + frontend |
+| 24 | [24-notes.md](24-notes.md) | — | no — all decided 2026-10-17 — private notes like Google Keep (rich text, labels, images, 7-day trash) |
+| 25 | [25-client-email.md](25-client-email.md) | — | 3 — D1 mailbox billing, D2 attachment types, D3 spike (Gmail `Message-ID`) — email with clients: company address + personal Gmail, one chat per client with project-tagged topics (planned 2026-10-18) |
 
 ### Why three steps move
 

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { BillingModule } from '../billing/billing.module';
+import { NotesModule } from '../notes/notes.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PlansModule } from '../plans/plans.module';
 import { PurchaseInvoicesModule } from '../purchase-invoices/purchase-invoices.module';
@@ -12,6 +13,7 @@ import { UsersModule } from '../users/users.module';
 import { BillingRenewalCron } from './billing-renewal.cron';
 import { EndOfDayReminderCron } from './end-of-day-reminder.cron';
 import { MissingTimesheetCron } from './missing-timesheet.cron';
+import { NotesTrashCron } from './notes-trash.cron';
 import { PurchaseDueCron } from './purchase-due.cron';
 import { RetentionCron } from './retention.cron';
 import { StalledProjectCron } from './stalled-project.cron';
@@ -28,7 +30,8 @@ import { UsageSpikeCron } from './usage-spike.cron';
  * Already running in their own module (not moved, to keep one copy of each):
  * late invoices (`invoices/jobs`), missing report + progress stalled
  * (`reports/jobs`), portal link expiry (`portal/jobs`), token cleanup
- * (`auth/jobs`), media purge (`media/jobs`).
+ * (`auth/jobs`), media purge (`media/jobs`). Not an alert but the same
+ * per-company runner: the notes trash purge (`notes-trash.cron.ts`).
  */
 @Module({
   imports: [
@@ -42,6 +45,7 @@ import { UsageSpikeCron } from './usage-spike.cron';
     PlansModule,
     AnalyticsModule,
     BillingModule,
+    NotesModule,
   ],
   providers: [
     TenantRunner,
@@ -54,6 +58,7 @@ import { UsageSpikeCron } from './usage-spike.cron';
     BillingRenewalCron,
     TrialEndCron,
     UsageSpikeCron,
+    NotesTrashCron,
   ],
 })
 export class CronsModule {}

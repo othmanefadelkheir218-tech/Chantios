@@ -7,6 +7,7 @@ import {
   reminderHourOf,
 } from '../common/helpers/tenant-local-time.helper';
 import { MissingTimesheetCron } from './missing-timesheet.cron';
+import { NotesTrashCron } from './notes-trash.cron';
 import { PurchaseDueCron } from './purchase-due.cron';
 import { RetentionCron } from './retention.cron';
 import { StalledProjectCron } from './stalled-project.cron';
@@ -435,6 +436,25 @@ describe('RetentionCron — only read notifications and analytics events', () =>
     plans.findOne.mockResolvedValue({ features: [] });
     await cron().run(NOW);
     expect(notifications.purgeReadBefore).not.toHaveBeenCalled();
+  });
+});
+
+describe('NotesTrashCron — the 7-day notes trash, per company', () => {
+  const notes = { purgeExpiredTrash: jest.fn() };
+  const NOW = new Date('2026-10-17T03:45:00Z');
+
+  beforeEach(() => jest.resetAllMocks());
+
+  it('asks NotesService for each company and adds up the deletes', async () => {
+    notes.purgeExpiredTrash.mockResolvedValueOnce(2).mockResolvedValueOnce(1);
+    const cron = new NotesTrashCron(
+      logger as never,
+      runnerOf([tenant(), tenant({ id: 2 })]),
+      notes as never,
+    );
+    await expect(cron.run(NOW)).resolves.toBe(3);
+    expect(notes.purgeExpiredTrash).toHaveBeenCalledWith(1, NOW);
+    expect(notes.purgeExpiredTrash).toHaveBeenCalledWith(2, NOW);
   });
 });
 

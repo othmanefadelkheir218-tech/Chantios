@@ -83,6 +83,9 @@ Tenants use the 7 fixed roles. Fine-grained access overrides are handled via `ro
 | `chat` | full | full | full | full | own threads | full | full |
 | `team` | full | view | — | — | — | — | — |
 | `settings` | full | — | — | — | — | — | — |
+| `analytics` | view | — | — | — | — | — | view |
+| `contacts` | view | view | — | — | — | — | — |
+| `notes` | own | own | own | own | own | own | own |
 
 ---
 

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MarginAlertRepository } from './repositories/margin-alert.repository';
+import { MarginRepository } from './repositories/margin.repository';
 import {
   ActingParty,
   AuthenticatedUser,
@@ -26,6 +27,7 @@ export class MarginsService {
     private readonly voidSnapshot: VoidSnapshotHandler,
     private readonly checkThresholds: CheckThresholdsHandler,
     private readonly alerts: MarginAlertRepository,
+    private readonly margins: MarginRepository,
   ) {}
 
   findAll(query: FindMarginsQueryDto) {
@@ -77,5 +79,10 @@ export class MarginsService {
   /** Dashboard (step 18): the alert levels the threshold check already stored. */
   countOpenProjectsByLevel() {
     return this.alerts.countOpenProjectsByLevel();
+  }
+
+  /** Analytics (step 22): the live margin of each open project with a budget, best first. */
+  findOpenWithBudget() {
+    return this.margins.findOpenWithBudget();
   }
 }

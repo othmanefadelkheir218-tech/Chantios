@@ -1,13 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { MediaEntityType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional } from 'class-validator';
+import { IsIn, IsInt, IsOptional } from 'class-validator';
+import { PUBLIC_MEDIA_ENTITY_TYPES } from '../helpers/media.helper';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
 export class FindMediaQueryDto extends PaginationQueryDto {
-  @ApiPropertyOptional({ enum: MediaEntityType })
+  @ApiPropertyOptional({ enum: PUBLIC_MEDIA_ENTITY_TYPES })
   @IsOptional()
-  @IsEnum(MediaEntityType)
+  @IsIn(PUBLIC_MEDIA_ENTITY_TYPES)
   entity_type?: MediaEntityType;
 
   @ApiPropertyOptional()

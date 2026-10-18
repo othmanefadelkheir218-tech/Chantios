@@ -78,4 +78,20 @@ export class PurchaseInvoiceRepository {
       orderBy: { dueDate: 'asc' },
     });
   }
+
+  /** Analytics (step 22): bills incl. VAT per `issue_date` between two dates (inclusive). */
+  async sumIssuedByDay(
+    from: Date,
+    to: Date,
+  ): Promise<{ day: Date; amount: Prisma.Decimal }[]> {
+    const rows = await this.tenantPrisma.db.purchaseInvoice.groupBy({
+      by: ['issueDate'],
+      where: { issueDate: { gte: from, lte: to } },
+      _sum: { amountInclVat: true },
+    });
+    return rows.map((row) => ({
+      day: row.issueDate,
+      amount: row._sum.amountInclVat ?? new Prisma.Decimal(0),
+    }));
+  }
 }

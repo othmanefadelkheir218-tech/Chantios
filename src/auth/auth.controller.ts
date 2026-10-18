@@ -29,6 +29,7 @@ import {
   ApiRefresh,
   ApiRegister,
   ApiResetPassword,
+  ApiCheckResetCode,
   ApiRevokeAllSessions,
   ApiRevokeSession,
   ApiVerifyEmail,
@@ -38,6 +39,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterTenantDto } from './dto/register-tenant.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { CheckResetCodeDto } from './dto/check-reset-code.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 
 @ApiTags('Auth')
@@ -85,6 +87,14 @@ export class AuthController {
   @ApiForgotPassword()
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPasswordFor(dto);
+  }
+
+  @Post('check-reset-code')
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiCheckResetCode()
+  checkResetCode(@Body() dto: CheckResetCodeDto) {
+    return this.authService.checkResetCodeWith(dto);
   }
 
   @Post('reset-password')

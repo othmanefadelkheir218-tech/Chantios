@@ -4,6 +4,7 @@ import Stripe from 'stripe';
 import { StripeEventRepository } from '../repositories/stripe-event.repository';
 import { HandleCheckoutCompletedHandler } from './handle-checkout-completed.handler';
 import { HandleInvoiceCreatedHandler } from './handle-invoice-created.handler';
+import { HandleInvoicePaidHandler } from './handle-invoice-paid.handler';
 import { HandleInvoiceUpcomingHandler } from './handle-invoice-upcoming.handler';
 import { HandlePaymentFailedHandler } from './handle-payment-failed.handler';
 import { HandlePaymentSucceededHandler } from './handle-payment-succeeded.handler';
@@ -36,6 +37,7 @@ export class ProcessWebhookHandler {
     private readonly handleCheckoutCompleted: HandleCheckoutCompletedHandler,
     private readonly handleSubscriptionUpdated: HandleSubscriptionUpdatedHandler,
     private readonly handleInvoiceCreated: HandleInvoiceCreatedHandler,
+    private readonly handleInvoicePaid: HandleInvoicePaidHandler,
   ) {}
 
   async execute(eventRowId: number, event: Stripe.Event): Promise<void> {
@@ -77,6 +79,8 @@ export class ProcessWebhookHandler {
         return this.handleSubscriptionUpdated.execute(event);
       case 'invoice.created':
         return this.handleInvoiceCreated.execute(event);
+      case 'invoice.paid':
+        return this.handleInvoicePaid.execute(event);
       default:
         this.logger.info(
           `Stripe event ${event.type} (${event.id}) has no handler — stored only`,

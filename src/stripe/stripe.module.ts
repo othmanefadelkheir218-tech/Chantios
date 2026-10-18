@@ -11,8 +11,10 @@ import { CreatePlanPriceHandler } from './handlers/create-plan-price.handler';
 import { CreatePortalSessionHandler } from './handlers/create-portal-session.handler';
 import { EndSubscriptionNowHandler } from './handlers/end-subscription-now.handler';
 import { FindOpenInvoiceUrlHandler } from './handlers/find-open-invoice-url.handler';
+import { ListCustomerInvoicesHandler } from './handlers/list-customer-invoices.handler';
 import { HandleCheckoutCompletedHandler } from './handlers/handle-checkout-completed.handler';
 import { HandleInvoiceCreatedHandler } from './handlers/handle-invoice-created.handler';
+import { HandleInvoicePaidHandler } from './handlers/handle-invoice-paid.handler';
 import { HandleInvoiceUpcomingHandler } from './handlers/handle-invoice-upcoming.handler';
 import { HandlePaymentFailedHandler } from './handlers/handle-payment-failed.handler';
 import { HandlePaymentSucceededHandler } from './handlers/handle-payment-succeeded.handler';
@@ -84,9 +86,11 @@ import { StripeService } from './stripe.service';
     UpdateSubscriptionPriceHandler,
     EndSubscriptionNowHandler,
     FindOpenInvoiceUrlHandler,
+    ListCustomerInvoicesHandler,
     HandleCheckoutCompletedHandler,
     HandleSubscriptionUpdatedHandler,
     HandleInvoiceCreatedHandler,
+    HandleInvoicePaidHandler,
     StripeWebhookProcessor,
   ],
   exports: [StripeService],

@@ -170,4 +170,19 @@ export class QuoteRepository {
       totalInclVat: result._sum.amountInclVat ?? new Prisma.Decimal(0),
     };
   }
+
+  /**
+   * Analytics (step 22): the quotes sent, accepted or refused between two
+   * moments, with their status and the three dates. The caller puts each
+   * date in its month (tenant timezone).
+   */
+  findDecisionDatesBetween(from: Date, to: Date) {
+    const range = { gte: from, lt: to };
+    return this.tenantPrisma.db.quote.findMany({
+      where: {
+        OR: [{ sentAt: range }, { acceptedAt: range }, { refusedAt: range }],
+      },
+      select: { status: true, sentAt: true, acceptedAt: true, refusedAt: true },
+    });
+  }
 }

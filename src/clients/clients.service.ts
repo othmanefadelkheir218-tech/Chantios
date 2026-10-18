@@ -57,4 +57,11 @@ export class ClientsService {
   countActive(): Promise<number> {
     return this.clients.countActive();
   }
+
+  /** Analytics (step 22): names for the top clients block. */
+  findNamesByIds(ids: number[]) {
+    return ids.length === 0
+      ? Promise.resolve([])
+      : this.clients.findNamesByIds(ids);
+  }
 }

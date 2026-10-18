@@ -102,6 +102,16 @@ export class UsersService {
     }));
   }
 
+  /** The contacts page (step 23): safe fields only, inactive users included. */
+  findDirectory(search: string | undefined, skip: number, take: number) {
+    return this.users.findDirectory(search, skip, take);
+  }
+
+  /** One user of the current tenant for the contacts page, or `null`. */
+  findDirectoryEntry(id: number) {
+    return this.users.findDirectoryEntry(id);
+  }
+
   /** `tx` — step 02 registration runs this inside its own transaction. */
   create(
     data: Prisma.UserCreateInput,

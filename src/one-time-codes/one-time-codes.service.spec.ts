@@ -98,6 +98,34 @@ describe('OneTimeCodesService', () => {
     });
   });
 
+  describe('check', () => {
+    it('returns true on a matching code and does NOT consume it', async () => {
+      repo.findActive.mockResolvedValue({
+        id: 1,
+        codeHash: hashCode('123456'),
+        attemptCount: 0,
+      });
+
+      await expect(
+        service.check('password_reset', { userId: 1 }, '123456'),
+      ).resolves.toBe(true);
+      expect(repo.markConsumed).not.toHaveBeenCalled();
+    });
+
+    it('counts a wrong code as one try', async () => {
+      repo.findActive.mockResolvedValue({
+        id: 1,
+        codeHash: hashCode('123456'),
+        attemptCount: 0,
+      });
+
+      await expect(
+        service.check('password_reset', { userId: 1 }, '000000'),
+      ).resolves.toBe(false);
+      expect(repo.incrementAttempt).toHaveBeenCalledWith(1);
+    });
+  });
+
   describe('challenge (admin 2FA)', () => {
     const adminScope = { adminUserId: 1 };
 

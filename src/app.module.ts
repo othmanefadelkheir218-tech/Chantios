@@ -33,12 +33,17 @@ import { MaterialsModule } from './materials/materials.module';
 import { MarginsModule } from './margins/margins.module';
 import { MediaModule } from './media/media.module';
 import { CompanyProfileModule } from './company-profile/company-profile.module';
+import { CompanyAnalyticsModule } from './company-analytics/company-analytics.module';
+import { ContactsModule } from './contacts/contacts.module';
+import { NotesModule } from './notes/notes.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { OneTimeCodesModule } from './one-time-codes/one-time-codes.module';
 import { PlansModule } from './plans/plans.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProjectsModule } from './projects/projects.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { EmailConnectionsModule } from './email-connections/email-connections.module';
+import { InboundEmailModule } from './inbound-email/inbound-email.module';
 import { PortalModule } from './portal/portal.module';
 import { QuotesModule } from './quotes/quotes.module';
 import { RolesModule } from './roles/roles.module';
@@ -102,6 +107,9 @@ import { AdminStatsModule } from './admin-stats/admin-stats.module';
     MediaModule,
     CompanyProfileModule, // step 18 — GET/PATCH /api/tenant
     DashboardModule, // step 18 — GET /api/dashboard
+    CompanyAnalyticsModule, // step 22 — GET /api/analytics/overview
+    ContactsModule, // step 23 — GET /api/contacts (employee directory)
+    NotesModule, // step 24 — /api/notes, /api/note-labels (private notes)
     // Step 04 — clients & projects
     ClientsModule,
     ProjectsModule,
@@ -140,6 +148,10 @@ import { AdminStatsModule } from './admin-stats/admin-stats.module';
     SupportModule,
     // Step 20 — super-admin dev tools: every route is a 404 unless DEV_TOOLS=true outside production
     DevToolsModule,
+    // TEST — Resend inbound email webhook (logs only)
+    InboundEmailModule,
+    // TEST — "Connect Gmail" (gmail.send) + send one email
+    EmailConnectionsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

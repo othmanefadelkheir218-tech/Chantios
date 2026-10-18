@@ -3,6 +3,21 @@ import { Prisma, User } from '@prisma/client';
 import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
+/** What the contacts page may read of a user — never `hourly_rate` or a credential. */
+const DIRECTORY_SELECT = {
+  id: true,
+  name: true,
+  email: true,
+  phone: true,
+  isActive: true,
+  roleId: true,
+  role: { select: { name: true } },
+} satisfies Prisma.UserSelect;
+
+export type DirectoryRow = Prisma.UserGetPayload<{
+  select: typeof DIRECTORY_SELECT;
+}>;
+
 /** The only place where the users module talks to the database. */
 @Injectable()
 export class UserRepository {
@@ -69,6 +84,47 @@ export class UserRepository {
         role: { select: { name: true } },
       },
       orderBy: { id: 'asc' },
+    });
+  }
+
+  /**
+   * The contacts page (doc/notes/contacts.md): every user of the CURRENT
+   * tenant, inactive included, active first then by name. The select is the
+   * allow-list — `hourly_rate` and the credentials are never read.
+   */
+  async findDirectory(
+    search: string | undefined,
+    skip: number,
+    take: number,
+  ): Promise<[DirectoryRow[], number]> {
+    const where: Prisma.UserWhereInput = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search, mode: 'insensitive' } },
+            { role: { name: { contains: search, mode: 'insensitive' } } },
+            { role: { label: { contains: search, mode: 'insensitive' } } },
+          ],
+        }
+      : {};
+    return this.tenantPrisma.db.$transaction([
+      this.tenantPrisma.db.user.findMany({
+        where,
+        select: DIRECTORY_SELECT,
+        orderBy: [{ isActive: 'desc' }, { name: 'asc' }, { id: 'asc' }],
+        skip,
+        take,
+      }),
+      this.tenantPrisma.db.user.count({ where }),
+    ]);
+  }
+
+  /** One user of the CURRENT tenant for the contacts page, same allow-list. */
+  findDirectoryEntry(id: number): Promise<DirectoryRow | null> {
+    return this.tenantPrisma.db.user.findFirst({
+      where: { id },
+      select: DIRECTORY_SELECT,
     });
   }
 

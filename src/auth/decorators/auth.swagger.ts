@@ -57,6 +57,17 @@ export const ApiForgotPassword = () =>
     ApiOkResponse({ description: 'Always returns sent: true' }),
   );
 
+export const ApiCheckResetCode = () =>
+  applyDecorators(
+    ApiOperation({
+      summary: 'Check the emailed reset code (step 1 of the reset form)',
+      description:
+        'The code is NOT used: send it again with the new password. A wrong code counts as one try.',
+    }),
+    ApiOkResponse({ description: 'valid: true' }),
+    ApiBadRequestResponse({ description: 'Invalid or expired code' }),
+  );
+
 export const ApiResetPassword = () =>
   applyDecorators(
     ApiOperation({

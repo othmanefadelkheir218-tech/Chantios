@@ -10,6 +10,7 @@ import { FindPurchaseInvoiceHandler } from './handlers/find-purchase-invoice.han
 import { FindPurchaseInvoicesHandler } from './handlers/find-purchase-invoices.handler';
 import { MarkPaidHandler } from './handlers/mark-paid.handler';
 import { UpdatePurchaseInvoiceHandler } from './handlers/update-purchase-invoice.handler';
+import { PurchaseInvoiceRepository } from './repositories/purchase-invoice.repository';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
 @Injectable()
@@ -21,6 +22,7 @@ export class PurchaseInvoicesService {
     private readonly updateInvoice: UpdatePurchaseInvoiceHandler,
     private readonly markInvoicePaid: MarkPaidHandler,
     private readonly dueSoonInvoices: DueSoonHandler,
+    private readonly bills: PurchaseInvoiceRepository,
   ) {}
 
   create(dto: CreatePurchaseInvoiceDto, actor: AuthenticatedUser) {
@@ -45,5 +47,10 @@ export class PurchaseInvoicesService {
 
   dueSoon(days: number) {
     return this.dueSoonInvoices.execute(days);
+  }
+
+  /** Analytics (step 22): bills incl. VAT per issue day. */
+  sumIssuedByDay(from: Date, to: Date) {
+    return this.bills.sumIssuedByDay(from, to);
   }
 }

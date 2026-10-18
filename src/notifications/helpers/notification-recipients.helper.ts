@@ -42,6 +42,7 @@ const STAFF_MODULE: Partial<Record<NotificationType, PermissionModule>> = {
   missing_report: 'reports',
   progress_stalled: 'reports',
   subscription_payment_failed: 'settings',
+  subscription_payment_received: 'settings',
   subscription_renewal_upcoming: 'settings',
   trial_ending: 'settings',
   trial_ended: 'settings',

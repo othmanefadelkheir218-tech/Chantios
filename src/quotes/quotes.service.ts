@@ -102,4 +102,9 @@ export class QuotesService {
   summarizeSent() {
     return this.quotes.summarizeSent();
   }
+
+  /** Analytics (step 22): sent / accepted / refused dates between two moments. */
+  findDecisionDatesBetween(from: Date, to: Date) {
+    return this.quotes.findDecisionDatesBetween(from, to);
+  }
 }

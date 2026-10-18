@@ -12,16 +12,18 @@ describe('email layout', () => {
     note: 'Une note',
   });
 
-  it('has the ChantiOs black header, the orange line and the black footer', () => {
-    expect(html).toContain('background:#0B0B0C');
-    expect(html).toContain('Chanti<span style="color:#FF6A00;">Os</span>');
-    expect(html).toContain('height:4px');
-    expect(html).toContain('&copy; ChantiOs');
+  it('has the ChantiOs navy header, the orange line and the footer under the card', () => {
+    expect(html).toContain('background:#131C2E');
+    expect(html).toContain('Chanti<span style="color:#C2570C;">Os</span>');
+    expect(html).toContain('height:3px');
+    expect(html).toContain('&copy; Chanti');
   });
 
-  it('has an orange button with black text, plus a copy-the-link fallback', () => {
-    expect(html).toContain('background:#FF6A00');
-    expect(html).toMatch(/color:#0B0B0C;text-decoration:none;">Ouvrir<\/a>/);
+  it('has an orange button with white text, plus a copy-the-link fallback', () => {
+    expect(html).toContain('background:#C2570C');
+    expect(html).toMatch(
+      /color:#FFFFFF;text-decoration:none;border-radius:12px;">Ouvrir<\/a>/,
+    );
     expect(html).toContain('Copiez ce lien');
   });
 

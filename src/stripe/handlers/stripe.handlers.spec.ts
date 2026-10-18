@@ -25,6 +25,7 @@ import { ArchivePlanPriceHandler } from './archive-plan-price.handler';
 import { CreatePlanPriceHandler } from './create-plan-price.handler';
 import { HandleCheckoutCompletedHandler } from './handle-checkout-completed.handler';
 import { HandleInvoiceCreatedHandler } from './handle-invoice-created.handler';
+import { HandleInvoicePaidHandler } from './handle-invoice-paid.handler';
 import { HandleInvoiceUpcomingHandler } from './handle-invoice-upcoming.handler';
 import { HandlePaymentFailedHandler } from './handle-payment-failed.handler';
 import { HandlePaymentSucceededHandler } from './handle-payment-succeeded.handler';
@@ -249,6 +250,7 @@ describe('ProcessWebhookHandler — dispatch by type', () => {
   const handleCheckoutCompleted = { execute: jest.fn() };
   const handleSubscriptionUpdated = { execute: jest.fn() };
   const handleInvoiceCreated = { execute: jest.fn() };
+  const handleInvoicePaid = { execute: jest.fn() };
   const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 
   let processWebhook: ProcessWebhookHandler;
@@ -285,6 +287,7 @@ describe('ProcessWebhookHandler — dispatch by type', () => {
           provide: HandleInvoiceCreatedHandler,
           useValue: handleInvoiceCreated,
         },
+        { provide: HandleInvoicePaidHandler, useValue: handleInvoicePaid },
         {
           provide: getLoggerToken(ProcessWebhookHandler.name),
           useValue: logger,
@@ -293,6 +296,12 @@ describe('ProcessWebhookHandler — dispatch by type', () => {
     }).compile();
 
     processWebhook = module.get(ProcessWebhookHandler);
+  });
+
+  it('routes invoice.paid to HandleInvoicePaidHandler', async () => {
+    const event = stripeEvent('invoice.paid', invoice());
+    await processWebhook.execute(1, event);
+    expect(handleInvoicePaid.execute).toHaveBeenCalledWith(event);
   });
 
   it('routes payment_intent.succeeded to HandlePaymentSucceededHandler', async () => {

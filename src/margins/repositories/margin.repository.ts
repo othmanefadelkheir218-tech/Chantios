@@ -117,4 +117,25 @@ export class MarginRepository {
       ORDER BY ct.name
     `;
   }
+
+  /**
+   * Analytics (step 22): the live margin of every open project
+   * (`prospect`, `in_progress`) that has a budget — an accepted quote.
+   */
+  findOpenWithBudget(): Promise<MarginRow[]> {
+    const tenantId = this.currentTenantId();
+    return this.prisma.$queryRaw<MarginRow[]>`
+      SELECT m.project_id AS "projectId", p.name, p.status,
+             m.budget_excl_vat AS "budgetExclVat", m.material_cost AS "materialCost",
+             m.labor_cost AS "laborCost", m.bill_cost AS "billCost",
+             m.total_cost AS "totalCost", m.margin_excl_vat AS "marginExclVat",
+             m.margin_pct AS "marginPct"
+      FROM project_margin_live m
+      JOIN projects p ON p.id = m.project_id
+      WHERE m.tenant_id = ${tenantId}
+        AND p.status::text IN (${Prisma.join(ACTIVE_STATUSES)})
+        AND m.budget_excl_vat > 0
+      ORDER BY m.margin_pct DESC NULLS LAST, m.project_id ASC
+    `;
+  }
 }

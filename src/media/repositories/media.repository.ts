@@ -5,6 +5,7 @@ import {
   TenantTransactionClient,
 } from '../../common/prisma/tenant-prisma.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NOT_PRIVATE_MEDIA } from '../helpers/media.helper';
 
 /** The only place where the media module talks to the database. */
 @Injectable()
@@ -18,16 +19,18 @@ export class MediaRepository {
     return this.tenantPrisma.db.media.create({ data });
   }
 
-  /** Excludes trash — every normal read does. */
+  /** Excludes trash — every normal read does. Never a private (note) file. */
   findById(id: number): Promise<Media | null> {
     return this.tenantPrisma.db.media.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, deletedAt: null, ...NOT_PRIVATE_MEDIA },
     });
   }
 
-  /** Bypasses the trash filter — restore/hard-delete need to see an already-trashed row. */
+  /** Bypasses the trash filter — restore/hard-delete need to see an already-trashed row. Never a private file. */
   findByIdIncludingTrashed(id: number): Promise<Media | null> {
-    return this.tenantPrisma.db.media.findFirst({ where: { id } });
+    return this.tenantPrisma.db.media.findFirst({
+      where: { id, ...NOT_PRIVATE_MEDIA },
+    });
   }
 
   /** Excludes trash. */
@@ -96,11 +99,14 @@ export class MediaRepository {
   /**
    * Bulk lookup by id, trash included — bulk soft delete / hard delete /
    * restore all need to see `is_locked` (and the current `deleted_at`)
-   * before deciding what to do with each row.
+   * before deciding what to do with each row. Never a private (note) file:
+   * these ids come from the generic routes or a chat message.
    */
   findManyByIds(ids: number[]): Promise<Media[]> {
     if (ids.length === 0) return Promise.resolve([]);
-    return this.tenantPrisma.db.media.findMany({ where: { id: { in: ids } } });
+    return this.tenantPrisma.db.media.findMany({
+      where: { id: { in: ids }, ...NOT_PRIVATE_MEDIA },
+    });
   }
 
   async findMany(

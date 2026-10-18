@@ -5,7 +5,113 @@
 
 ---
 
-## LATEST — step 21 built: Stripe Checkout (2026-10-15)
+## LATEST — step 25: email with clients — PLANNED, not built (2026-10-18)
+
+Planning only. Rules: `NOTE/EMAIL-CONNECTIONS-PLAN.md` (+ `NOTE/GOOGLE-GMAIL-SETUP.md`, `NOTE/AI-email-idea.md` — AI on hold). Build: [../Phaces/25-client-email.md](../Phaces/25-client-email.md). Tests: [../PhacesTest/19-client-email.md](../PhacesTest/19-client-email.md).
+
+| | |
+|---|---|
+| **Proven by hand** | Resend receive on `mail.zouadev.com` (webhook + signature + full email), reply token in Reply-To, Gmail forward keeps `Message-ID`, send as the user's Gmail (`gmail.send`) in the same thread, `References` links the client's next reply |
+| **Test code in place** | `src/inbound-email/` (logs only) and `src/email-connections/` (`test-send`, `.gmail-test-connection.json`) — replaced by step 25 tasks B1/B3 |
+| **Open (owner)** | D1 Gmail mailbox billing (proposal: plan feature `email_mailboxes`, usage-based), D2 attachments chat does not allow, D3 spike: Gmail keeps our `Message-ID`? |
+| **Next action** | Owner answers D1–D2, then build step 25 from task A1 |
+
+---
+
+## step 24: notes (like Google Keep) — backend + frontend built (2026-10-17)
+
+Nothing committed or pushed. Rule: [../notes.md](../notes.md). Build: [../Phaces/24-notes.md](../Phaces/24-notes.md). Later ideas: `ToDo/notes-todo-holiday.md` (Todo page with reminders, Holiday page).
+
+| | |
+|---|---|
+| **Owner decisions** | `notes` = `own` for all 7 roles (worker too), admin removes it per role only; private (admin cannot read); independent (no project/client); images; 7-day trash; every plan |
+| **Also built (from "private")** | Notes routes `403` while a platform admin impersonates. Note images hidden from every `/api/media` route. `audit_logs` without title/content |
+| **Migration** | `20261017140000_notes` (`notes`, `note_labels`, `note_label_links`, enum values `permission_module.notes`, `media_entity_type.note`) applied to the local DB, Prisma client regenerated |
+| **Backend** | New module `src/notes/`: `/api/notes` (list by view notes/archive/trash + label + search, CRUD, trash/restore/permanent, empty trash, images) and `/api/note-labels`. Search text built by the server from the Tiptap JSON. Media: `PRIVATE_MEDIA_ENTITY_TYPES`, `MediaService.deleteForEntity`. Cron `notes-trash.cron.ts` 03:45 + dev job `notes-trash` |
+| **Tests** | `tsc` + lint clean, jest **91 suites / 1084 pass** (new `notes.handlers.spec.ts`, cron test; roles test now counts 19 modules). Live (port 5300): manager's note → admin `404` on read/edit/delete, list empty; label `409` (case/spaces); search with accents + checklist text; pin/archive rule; trash read-only `400`, restore; image PNG `201`, txt `400`; admin `/api/media/:id` → `404`, list has no note file; purge job deleted an 8-day-old note + its image; impersonation → `403` |
+| **Test data** | Manager (user 2, tenant 1): note 1 `TEST note privée` + label 1 `TEST Chantier`. ImageKit test images were deleted |
+| **Frontend** | `/notes` + `/field/notes`, Tiptap editor, see `ChanitOs_client/my-app/.instruction/state.md`. `tsc` + lint + `next build` pass |
+| **Next action** | Owner restarts the frontend dev server (it answers 404 on the new pages until then), opens `/fr/notes` as manager and `/fr/field/notes` as a worker |
+
+---
+
+## step 23: contacts page (employee directory) (2026-10-17)
+
+Nothing committed or pushed. Rule: [../contacts.md](../contacts.md). Build: [../Phaces/23-contacts.md](../Phaces/23-contacts.md).
+
+| | |
+|---|---|
+| **Owner decisions** | Employees only; permission `contacts` = admin + manager (view), every plan; inactive shown with a badge; hourly rate never sent; 20 cards per page, cards only; details = info + open projects (manager or task assignee), shown to everyone with `contacts`, name + status only |
+| **Migration** | `20261017130000_permission_module_contacts` (enum value) applied to the local DB, Prisma client regenerated |
+| **Backend** | New module `src/contacts/` (no repository): `GET /api/contacts?page=&limit=&search=`, `GET /api/contacts/:id`. New reads: `UsersService.findDirectory` / `findDirectoryEntry` (safe select, no `hourly_rate`), `ProjectsService.findOpenForUser`. Avatars from `MediaService.findByEntityIds` |
+| **Frontend** | `/contacts` + `/contacts/[id]` + menu app "Contacts" + role label + texts in `fr.json` |
+| **Tests** | Backend `tsc` clean, lint clean on new code, jest **90 suites / 1063 pass**. Live (manager): list 200, no `hourly_rate`, inactive user in the list, search OK, details with open projects, company B user 404, worker 403. Frontend `tsc` + lint clean, no `next build` run |
+| **Next action** | Owner opens `/fr/contacts` as manager (and admin) |
+
+---
+
+## step 22: tenant analytics page (2026-10-17)
+
+Nothing committed or pushed. Rule: [../analytics.md](../analytics.md). Build: [../Phaces/22-analytics.md](../Phaces/22-analytics.md).
+
+| | |
+|---|---|
+| **Owner decisions** | 7 blocks; permission `analytics` = admin + accountant (view); every plan; each block also needs its module's view right (option B) |
+| **Migration** | `20261017120000_permission_module_analytics` (enum value) applied to the local DB, Prisma client regenerated |
+| **Backend** | `GET /api/analytics/overview?from=&to=` in the new module `src/company-analytics/` (`src/analytics/` is the product-events module). Default = last 12 months, max 24, every month filled with 0. New reads in invoices, payments, quotes, margins, time entries, purchase invoices, clients. `loadPermissions()` in `permission.helper.ts` now shared with the dashboard |
+| **Frontend** | `/analytics` page + menu app "Analyses" + role label; period buttons; charts in plain HTML/CSS (no library) |
+| **Tests** | Backend `tsc` + lint clean, jest **89 suites / 1059 pass**. Live: admin 200 (8 keys), accountant 200 (no `hours`), manager 403, bad period 400. Frontend `tsc` + lint clean, no `next build` run |
+| **Next action** | Owner opens `/fr/analytics` as admin and as accountant |
+
+---
+
+## LATEST — emails: new design, money/dates by language, payment received email (2026-10-17)
+
+Nothing committed or pushed. Rules: `DESIGN.md` § 1–4 and § 6; [../subscription-plans.md](../subscription-plans.md) § The payment email.
+
+| | |
+|---|---|
+| **Design** | Only `src/email/templates/email-layout.ts` (same inputs): soft grey page, white rounded card, navy header + thin orange line, orange button with white text, footer under the card. Every email uses it. New `renderEmailSummary` (receipt box) |
+| **Money / dates** | `src/email/helpers/email-format.helper.ts`: `renderNotification` formats known payload keys by locale → `10,00 €`, `30/12/2026` (en `€10.00`) |
+| **Payment received** | Stripe `invoice.paid` → `HandleInvoicePaidHandler` → alert `subscription_payment_received` (recipients `settings`, company locale): plan + period, overage + month, VAT if any, total, invoice number, button to Billing. 0 € skipped. Split: `src/stripe/helpers/invoice-receipt.helper.ts`. Plan name via `ModuleRef` (`PlansModule` imports `StripeModule`). No migration (`notifications.type` is a string). Frontend: type, icon, label, link |
+| **Tests** | `tsc` clean, lint clean, **jest 88 suites / 1044 pass**. Frontend `tsc` + lint clean. 3 sample emails sent to the owner's test address (payment received, renewal, failed) |
+| **ToDo** | `ToDo/emails-and-payments.md`: Pay-now button, invoice PDF link, super admin emails in French, turn off Stripe receipt, live webhook must list `invoice.paid` |
+| **Seen** | `HandlePaymentSucceededHandler` "rolls the period forward" test failed once in a full run, passes alone and on rerun (time-based, flaky) |
+| **Next action** | Owner restarts the API, checks the test emails, then pays with a test card (`stripe listen`) to get a real "Paiement reçu" |
+
+---
+
+## reset password in 2 steps + show/hide password (2026-10-16)
+
+Nothing committed or pushed. Rule: [../auth-tokens.md](../auth-tokens.md) § Reset password in two steps.
+
+| | |
+|---|---|
+| **Owner ask** | Eye button on every password input; reset page: code first, then the new password, same card |
+| **Backend** | `POST /api/auth/check-reset-code` (public, 10/min): email + code → `valid: true` or 400. Code NOT used; wrong code = 1 try. `OneTimeCodesService.check` (shares the logic with `verify`). `ResetPasswordDto` extends the new `CheckResetCodeDto` |
+| **Tests** | `tsc` clean, auth + one-time-codes + wiring 13 suites / 87 pass, lint clean. Live: route answers 400 on a wrong code |
+| **Open (owner)** | Send the paid Stripe invoice to the client by email — answered in chat, not built |
+| **Next action** | Owner tests `/reset-password` with a real emailed code |
+
+---
+
+## billing history shows what Stripe charged (2026-10-16)
+
+Nothing committed or pushed. Rule: [../subscription-plans.md](../subscription-plans.md) § The billing history. Routes: [../Phaces/21-stripe-checkout.md](../Phaces/21-stripe-checkout.md) § 5.
+
+| | |
+|---|---|
+| **Why** | Owner's Part B test: Stripe charged 14 € (10 plan + 4 overage), the history showed only "En plus : 4 €" |
+| **Owner decision** | Each period shows Formule + Supplément = Total payé, read from Stripe (no new column) |
+| **Backend** | `GET /api/billing/history` + `GET /api/admin/billing/tenants/:tenantId/history`: one item per period (paged by period). `StripeService.listCustomerInvoices` (new handler), `periodBilling` helper matches plan lines (start of month) + overage lines (invoice at end of month). Old `/billing/invoices` and `/admin/billing/snapshots` unchanged. No migration |
+| **Frontend** | `UsagePeriodList` + new `PeriodTotals`; the 3 history cards use the new routes; texts in `fr.json` |
+| **Tests** | Backend `tsc` clean, billing/stripe/subscriptions 11 suites / 132 pass + new `period-billing.helper.spec.ts`, wiring spec OK, lint clean. Real Stripe data of tenant 14 → 14,00 € / 10,00 € / 0,00 €. Frontend `tsc` + lint clean |
+| **Next action** | Owner restarts the API, opens the history (tenant + admin) of `TEST Pay Company` |
+| **Seen during Part B tests** | Tenant socket stops after an API restart (expired token → server closes the socket, no reconnect) — notification shows only after a reload. Not fixed yet |
+
+---
+
+## step 21 built: Stripe Checkout (2026-10-15)
 
 Backend + frontend built. **Nothing committed or pushed.** Build file: [../Phaces/21-stripe-checkout.md](../Phaces/21-stripe-checkout.md). Rule: `subscription-plans.md` § Paying by card.
 

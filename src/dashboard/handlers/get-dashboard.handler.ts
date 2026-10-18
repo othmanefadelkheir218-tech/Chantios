@@ -1,12 +1,8 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PermissionModule, Prisma } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
-import {
-  ResolvedPermission,
-  resolvePermission,
-  RoleName,
-} from '../../auth/helpers/permission.helper';
+import { loadPermissions } from '../../auth/helpers/permission.helper';
 import { InvoicesService } from '../../invoices/invoices.service';
 import { MarginsService } from '../../margins/margins.service';
 import { MaterialsService } from '../../materials/materials.service';
@@ -48,7 +44,7 @@ export class GetDashboardHandler {
   ) {}
 
   async execute(actor: AuthenticatedUser): Promise<Widgets> {
-    const can = await this.permissionsOf(actor);
+    const can = await loadPermissions(this.roles, actor.roleId);
     const tenant = await this.tenants.findForNotifications(actor.tenantId);
     const { today, weekStart } = dashboardDates(
       new Date(),
@@ -129,18 +125,5 @@ export class GetDashboardHandler {
       `Dashboard for user ${actor.userId}: ${Object.keys(widgets).join(', ') || 'no widget'}`,
     );
     return widgets;
-  }
-
-  /** Same resolution as `PermissionGuard`: default matrix + this tenant's overrides. */
-  private async permissionsOf(
-    actor: AuthenticatedUser,
-  ): Promise<(module: PermissionModule) => ResolvedPermission> {
-    const role = await this.roles.findRoleById(actor.roleId);
-    if (!role) {
-      throw new ForbiddenException('Unknown role');
-    }
-    const overrides = await this.roles.findOverridesForRole(actor.roleId);
-    return (module) =>
-      resolvePermission(role.name as RoleName, module, overrides);
   }
 }

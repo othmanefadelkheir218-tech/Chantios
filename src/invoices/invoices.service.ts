@@ -19,6 +19,7 @@ import { SendReminderHandler } from './handlers/send-reminder.handler';
 import { SetInvoiceLinesHandler } from './handlers/set-invoice-lines.handler';
 import { UpdateInvoiceHandler } from './handlers/update-invoice.handler';
 import { InvoiceRepository } from './repositories/invoice.repository';
+import { PaymentRepository } from './repositories/payment.repository';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
 @Injectable()
@@ -37,6 +38,7 @@ export class InvoicesService {
     private readonly invoiceCoverage: InvoiceCoverageHandler,
     private readonly invoices: InvoiceRepository,
     private readonly renderInvoicePdf: RenderInvoicePdfHandler,
+    private readonly paymentLedger: PaymentRepository,
   ) {}
 
   create(dto: CreateInvoiceDto, actor: AuthenticatedUser) {
@@ -117,5 +119,27 @@ export class InvoicesService {
   /** Dashboard (step 18). */
   summarizeUnpaid() {
     return this.invoices.summarizeUnpaid();
+  }
+
+  // ---- Analytics (step 22) — plain reads, the rules live in the queries ----
+
+  /** Invoiced incl. VAT per issue day, `draft` / `cancelled` left out. */
+  invoicedByDay(from: Date, to: Date) {
+    return this.invoices.sumIssuedByDay(from, to);
+  }
+
+  /** Money received per payment day. */
+  collectedByDay(from: Date, to: Date) {
+    return this.paymentLedger.sumByDay(from, to);
+  }
+
+  /** The clients with the most invoiced in the period, with what was paid. */
+  topClients(from: Date, to: Date, limit: number) {
+    return this.invoices.findTopClientsBetween(from, to, limit);
+  }
+
+  /** The unpaid invoices of `summarizeUnpaid`, in four groups by days late. */
+  summarizeAging() {
+    return this.invoices.summarizeAging();
   }
 }

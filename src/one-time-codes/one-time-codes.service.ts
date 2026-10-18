@@ -109,12 +109,37 @@ export class OneTimeCodesService {
     scope: OneTimeCodeScope,
     rawCode: string,
   ): Promise<boolean> {
+    const activeId = await this.match(type, scope, rawCode);
+    if (activeId === null) return false;
+    await this.codes.markConsumed(activeId);
+    return true;
+  }
+
+  /**
+   * Same as `verify`, but a right code is NOT consumed: the reset form checks
+   * the code first, then sends it again with the new password. A wrong code
+   * still counts as one try.
+   */
+  async check(
+    type: OneTimeCodeType,
+    scope: OneTimeCodeScope,
+    rawCode: string,
+  ): Promise<boolean> {
+    return (await this.match(type, scope, rawCode)) !== null;
+  }
+
+  /** The active row id when the code matches, else `null` (tries counted). */
+  private async match(
+    type: OneTimeCodeType,
+    scope: OneTimeCodeScope,
+    rawCode: string,
+  ): Promise<number | null> {
     const active = await this.codes.findActive(type, scope);
     if (!active) {
       this.logger.warn(
         `No active ${type} code (scope ${JSON.stringify(scope)})`,
       );
-      return false;
+      return null;
     }
 
     const maxAttempts = CODE_MAX_ATTEMPTS[type];
@@ -123,15 +148,14 @@ export class OneTimeCodesService {
       this.logger.warn(
         `${type} code locked out after ${active.attemptCount} attempts`,
       );
-      return false;
+      return null;
     }
 
     if (hashCode(rawCode) !== active.codeHash) {
       await this.codes.incrementAttempt(active.id);
-      return false;
+      return null;
     }
 
-    await this.codes.markConsumed(active.id);
-    return true;
+    return active.id;
   }
 }

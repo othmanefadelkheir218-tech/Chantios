@@ -35,4 +35,20 @@ export class PaymentRepository {
     });
     return result._sum.amount ?? new Prisma.Decimal(0);
   }
+
+  /** Analytics (step 22): money received per day between two `payment_date`s (inclusive), correction rows included. */
+  async sumByDay(
+    from: Date,
+    to: Date,
+  ): Promise<{ day: Date; amount: Prisma.Decimal }[]> {
+    const rows = await this.tenantPrisma.db.payment.groupBy({
+      by: ['paymentDate'],
+      where: { paymentDate: { gte: from, lte: to } },
+      _sum: { amount: true },
+    });
+    return rows.map((row) => ({
+      day: row.paymentDate,
+      amount: row._sum.amount ?? new Prisma.Decimal(0),
+    }));
+  }
 }

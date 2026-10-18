@@ -39,6 +39,7 @@
 | 16 | [16-documents.md](16-documents.md) | Quote/invoice PDF, freezing, VAT block, email attachment |
 | 17 | [17-support-feedback.md](17-support-feedback.md) | Tickets, feedback, analytics, impersonation |
 | 18 | [18-subscriptions-stripe.md](18-subscriptions-stripe.md) | Plan limits, overage, the storage downgrade gate, Stripe webhooks, renewal |
+| 19 | [19-client-email.md](19-client-email.md) | Email with clients: company address, personal Gmail, topics + project tags, alerts, disconnection, GDPR delete (after build step 25) |
 
 Results of every phase: [RESULTS.md](RESULTS.md).
 

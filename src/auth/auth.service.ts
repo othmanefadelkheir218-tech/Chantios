@@ -9,6 +9,7 @@ import { LoginDto } from './dto/login.dto';
 import { MobileLoginDto } from './dto/mobile-login.dto';
 import { RegisterTenantDto } from './dto/register-tenant.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { CheckResetCodeDto } from './dto/check-reset-code.dto';
 import { Verify2faDto } from './dto/verify-2fa.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { AdminCreateTenantHandler } from './handlers/admin-create-tenant.handler';
@@ -26,6 +27,7 @@ import { MobileLoginHandler } from './handlers/mobile-login.handler';
 import { RefreshHandler } from './handlers/refresh.handler';
 import { RegisterTenantHandler } from './handlers/register-tenant.handler';
 import { ResetPasswordHandler } from './handlers/reset-password.handler';
+import { CheckResetCodeHandler } from './handlers/check-reset-code.handler';
 import { RevokeAllSessionsHandler } from './handlers/revoke-all-sessions.handler';
 import { RevokeSessionHandler } from './handlers/revoke-session.handler';
 import { Verify2faHandler } from './handlers/verify-2fa.handler';
@@ -42,6 +44,7 @@ export class AuthService {
     private readonly logout: LogoutHandler,
     private readonly forgotPassword: ForgotPasswordHandler,
     private readonly resetPassword: ResetPasswordHandler,
+    private readonly checkResetCode: CheckResetCodeHandler,
     private readonly changePassword: ChangePasswordHandler,
     private readonly verifyEmail: VerifyEmailHandler,
     private readonly getMe: GetMeHandler,
@@ -75,6 +78,10 @@ export class AuthService {
 
   forgotPasswordFor(dto: ForgotPasswordDto) {
     return this.forgotPassword.execute(dto);
+  }
+
+  checkResetCodeWith(dto: CheckResetCodeDto) {
+    return this.checkResetCode.execute(dto);
   }
 
   resetPasswordWith(dto: ResetPasswordDto) {

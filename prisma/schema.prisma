@@ -276,6 +276,9 @@ enum PermissionModule {
   chat
   team
   settings
+  analytics
+  contacts
+  notes
 
   @@map("permission_module")
 }
@@ -289,6 +292,7 @@ enum MediaEntityType {
   quote
   invoice
   message
+  note
 
   @@map("media_entity_type")
 }
@@ -376,6 +380,9 @@ model Tenant {
   conversationMembers  ConversationMember[]
   messages             Message[]
   messageReads         MessageRead[]
+  notes                Note[]
+  noteLabels           NoteLabel[]
+  noteLabelLinks       NoteLabelLink[]
 
   @@map("tenants")
 }
@@ -616,29 +623,29 @@ model Role {
 /// email is UNIQUE ACROSS THE WHOLE APP, not per tenant, because login is
 /// email + password with no company field. One email belongs to one company.
 model User {
-  id              Int       @id @default(autoincrement())
-  tenantId        Int       @map("tenant_id")
-  roleId          Int       @map("role_id") @db.SmallInt
-  name            String
+  id                 Int       @id @default(autoincrement())
+  tenantId           Int       @map("tenant_id")
+  roleId             Int       @map("role_id") @db.SmallInt
+  name               String
   /// NULL only for a `worker` added without email (auth-tokens.md § 2b).
-  email           String?   @unique
+  email              String?   @unique
   /// 8 digits, unique app-wide: phone login of a worker with no email.
-  loginCode       String?   @unique @map("login_code") @db.VarChar(8)
+  loginCode          String?   @unique @map("login_code") @db.VarChar(8)
   /// The admin chose a temporary password: the user must pick their own.
-  mustChangePassword Boolean @default(false) @map("must_change_password")
-  phone           String?
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+  phone              String?
   /// argon2id
-  passwordHash    String?   @map("password_hash")
+  passwordHash       String?   @map("password_hash")
   /// argon2id. `worker` role only — a PIN is a credential, never readable.
-  mobilePinHash   String?   @map("mobile_pin_hash")
+  mobilePinHash      String?   @map("mobile_pin_hash")
   /// Locks the account at 5.
-  failedPinCount  Int       @default(0) @map("failed_pin_count") @db.SmallInt
+  failedPinCount     Int       @default(0) @map("failed_pin_count") @db.SmallInt
   /// Frozen onto each time_entries row at write time.
-  hourlyRate      Decimal   @default(0) @map("hourly_rate") @db.Decimal(12, 2)
-  isActive        Boolean   @default(true) @map("is_active")
-  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(6)
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  hourlyRate         Decimal   @default(0) @map("hourly_rate") @db.Decimal(12, 2)
+  isActive           Boolean   @default(true) @map("is_active")
+  emailVerifiedAt    DateTime? @map("email_verified_at") @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   role   Role   @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -671,6 +678,8 @@ model User {
   createdPortalTokens PortalToken[]
   conversationMembers ConversationMember[]
   messageReads        MessageRead[]
+  notes               Note[]
+  noteLabels          NoteLabel[]
 
   @@index([tenantId])
   @@map("users")
@@ -1615,6 +1624,69 @@ model Media {
   @@index([entityType, entityId])
   @@index([tenantId])
   @@map("media")
+}
+
+/// A private note (doc/notes/notes.md). Only `userId` ever reads it — no
+/// role, not the tenant admin. Images are `media` rows, entity_type = 'note'.
+model Note {
+  id          Int       @id @default(autoincrement())
+  tenantId    Int       @map("tenant_id")
+  userId      Int       @map("user_id")
+  title       String?
+  /// The editor document (Tiptap JSON). Checklists live inside it.
+  content     Json?
+  /// Plain-text copy of `content` + title, built by the server, for search.
+  contentText String    @default("") @map("content_text")
+  /// A key from NOTE_COLORS (notes/helpers/note.helper.ts).
+  color       String    @default("default")
+  isPinned    Boolean   @default(false) @map("is_pinned")
+  isArchived  Boolean   @default(false) @map("is_archived")
+  /// Trash. Purged with its images after 7 days (notes-trash.cron.ts).
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  labels NoteLabelLink[]
+
+  @@unique([tenantId, id])
+  @@index([userId, deletedAt])
+  @@map("notes")
+}
+
+/// A user's own label. + uq_note_labels_user_name: UNIQUE (user_id, lower(btrim(name))),
+///   raw SQL in migration 20261017140000_notes.
+model NoteLabel {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int      @map("tenant_id")
+  userId    Int      @map("user_id")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes  NoteLabelLink[]
+
+  @@unique([tenantId, id])
+  @@index([userId])
+  @@map("note_labels")
+}
+
+model NoteLabelLink {
+  id       Int @id @default(autoincrement())
+  tenantId Int @map("tenant_id")
+  noteId   Int @map("note_id")
+  labelId  Int @map("label_id")
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Composite FKs: the link, its note and its label belong to one company.
+  note   Note      @relation(fields: [tenantId, noteId], references: [tenantId, id], onDelete: Cascade)
+  label  NoteLabel @relation(fields: [tenantId, labelId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([noteId, labelId])
+  @@index([labelId])
+  @@map("note_label_links")
 }
 
 /// tenantId is NULLABLE and adminUserId exists because some alerts go to

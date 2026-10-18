@@ -20,7 +20,7 @@ One `media` table handles **all files** in the system — invoice documents, sit
 | `file_url` | ImageKit URL — never changes after upload |
 | `file_type` | MIME type (`image/jpeg`, `application/pdf`...) |
 | `file_size` | Size in bytes |
-| `entity_type` | `user` · `tenant` · `project` · `report` · `purchase_invoice` · `quote` · `invoice` · `message` |
+| `entity_type` | `user` · `tenant` · `project` · `report` · `purchase_invoice` · `quote` · `invoice` · `message` · `note` (private, see [notes.md](notes.md)) |
 | `entity_id` | The ID of the linked record |
 | `is_locked` | `true` = the frozen copy of a **sent** quote or invoice. Delete refuses it, soft or hard |
 | `deleted_at` | Soft delete (trash). `NULL` = not deleted |

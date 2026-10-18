@@ -18,6 +18,7 @@ import { BillingService } from './billing.service';
 import { BILLING_RENEWAL_QUEUE } from './dto/renewal-job.dto';
 import { ApplyPendingPlanIfDueHandler } from './handlers/apply-pending-plan-if-due.handler';
 import { CountUsageHandler } from './handlers/count-usage.handler';
+import { FindBillingHistoryHandler } from './handlers/find-billing-history.handler';
 import { FindUsageHandler } from './handlers/find-usage.handler';
 import { MySubscriptionHandler } from './handlers/my-subscription.handler';
 import { OpenPortalHandler } from './handlers/open-portal.handler';
@@ -64,6 +65,7 @@ import { RenewalProcessor } from './processors/renewal.processor';
     UsageCounterHelper,
     CountUsageHandler,
     FindUsageHandler,
+    FindBillingHistoryHandler,
     MySubscriptionHandler,
     RequestDowngradeHandler,
     ApplyPendingPlanIfDueHandler,

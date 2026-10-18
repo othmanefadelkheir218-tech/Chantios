@@ -20,6 +20,7 @@ export const TENANT_ALERT_TYPES = [
   'task_status_changed',
   'end_of_day_reminder',
   'subscription_payment_failed',
+  'subscription_payment_received',
   'subscription_renewal_upcoming',
   'trial_ending',
   'trial_ended',

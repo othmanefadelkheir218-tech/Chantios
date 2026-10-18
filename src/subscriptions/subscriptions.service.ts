@@ -66,6 +66,11 @@ export class SubscriptionsService {
     return this.findUsage.execute(tenantId, query);
   }
 
+  /** The billing history (step 21): one page of periods, every row of each. `[rows, number of periods]`. */
+  usagePeriods(tenantId: number, skip: number, take: number) {
+    return this.subscriptions.findUsagePeriods(tenantId, skip, take);
+  }
+
   /** `GET /api/admin/billing/snapshots` (step 14) — every tenant. */
   allUsage(query: PaginationQueryDto) {
     return this.findAllUsage.execute(query);

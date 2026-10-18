@@ -17,6 +17,24 @@ export const ALLOWED_MIME_TYPES: Record<MediaEntityType, readonly string[]> = {
   quote: ['application/pdf'],
   invoice: ['application/pdf'],
   message: ['application/pdf', 'image/jpeg', 'image/png'],
+  note: ['image/jpeg', 'image/png', 'image/webp'],
+};
+
+/**
+ * Files only their owner's module may reach (doc/notes/notes.md: a note's
+ * images are private). The generic `/api/media` routes never list, read,
+ * rename, trash or delete them, and refuse them on upload.
+ */
+export const PRIVATE_MEDIA_ENTITY_TYPES: readonly MediaEntityType[] = ['note'];
+
+/** The `entity_type` values the generic `/api/media` routes accept. */
+export const PUBLIC_MEDIA_ENTITY_TYPES = Object.values(MediaEntityType).filter(
+  (type) => !PRIVATE_MEDIA_ENTITY_TYPES.includes(type),
+);
+
+/** Prisma filter for every generic-route read: never a private file. */
+export const NOT_PRIVATE_MEDIA: Prisma.MediaWhereInput = {
+  entityType: { notIn: [...PRIVATE_MEDIA_ENTITY_TYPES] },
 };
 
 /**
@@ -91,6 +109,7 @@ export function buildMediaFilter(
 ): Prisma.MediaWhereInput {
   return {
     deletedAt: null,
+    ...NOT_PRIVATE_MEDIA,
     ...(entityType !== undefined && { entityType }),
     ...(entityId !== undefined && { entityId }),
     ...(uploadedBy !== undefined && { uploadedBy }),

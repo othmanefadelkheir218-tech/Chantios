@@ -18,6 +18,12 @@ export interface Env {
   IMAGEKIT_PRIVATE_KEY: string;
   IMAGEKIT_URL_ENDPOINT: string;
   RESEND_API_KEY: string;
+  /** Signs the Resend inbound-email webhook. Optional while that route is a test. */
+  RESEND_WEBHOOK_SECRET?: string;
+  /** Google OAuth client for "Connect Gmail" (send only). Optional while that route is a test. */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  GOOGLE_REDIRECT_URI: string;
   EMAIL: string;
   APP_URL: string;
   PORTAL_BASE_URL: string;
@@ -53,6 +59,15 @@ const envSchema = Joi.object<Env>({
   IMAGEKIT_PRIVATE_KEY: Joi.string().required(),
   IMAGEKIT_URL_ENDPOINT: Joi.string().uri().required(),
   RESEND_API_KEY: Joi.string().pattern(/^re_/).required(),
+  RESEND_WEBHOOK_SECRET: Joi.string()
+    .pattern(/^whsec_/)
+    .allow('')
+    .optional(),
+  GOOGLE_CLIENT_ID: Joi.string().allow('').optional(),
+  GOOGLE_CLIENT_SECRET: Joi.string().allow('').optional(),
+  GOOGLE_REDIRECT_URI: Joi.string()
+    .uri()
+    .default('http://localhost:5300/api/email-connections/google/callback'),
   EMAIL: Joi.string().email().required(), // sender address (domain verified in Resend)
   APP_URL: Joi.string().uri().required(), // base URL of the frontend pages that the invitation links open
   PORTAL_BASE_URL: Joi.string().uri().required(), // step 12 — client portal

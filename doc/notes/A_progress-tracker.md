@@ -166,6 +166,14 @@
 
 - [ ] **Frontend** — planned, not started. The API additions it needs are step 18 ([Phaces/18-frontend-support.md](Phaces/18-frontend-support.md)). Frontend plan: `ChanitOs_client/my-app/.instruction/`.
 
+- [x] **Tenant analytics page** — decided 2026-10-17: new `analytics` permission (admin + accountant view), every plan, each block also needs its source module's view right, 7 blocks over a period (default last 12 months, max 24). See [analytics.md](analytics.md).
+
+- [x] **Contacts page (employee directory)** — decided 2026-10-17: employees only, new `contacts` permission (view), inactive shown with a badge, 20 cards per page + search, details add assigned projects (manager or task assignee), own routes, `hourly_rate` never sent. Default admin + manager (view), every plan; the projects list shows to everyone with `contacts` (name, status only). Only open projects (`prospect`, `in_progress`). See [contacts.md](contacts.md).
+
+- [x] **Notes page (like Google Keep)** — raised 2026-10-17. **Decided 2026-10-17:** new `notes` permission, every role `own` by default (worker too, in the Field area), the admin removes it per role only; notes are private, nobody else reads them, the admin neither. Independent (no project/client link), images allowed (count in plan storage), 7-day trash, every plan. See [notes.md](notes.md).
+
+- [ ] **Email with clients (company address + personal Gmail)** — raised 2026-10-18. Business rules **decided 2026-10-18** (owner) in `NOTE/EMAIL-CONNECTIONS-PLAN.md`; build plan [Phaces/25-client-email.md](Phaces/25-client-email.md), tests [PhacesTest/19-client-email.md](PhacesTest/19-client-email.md). **Still open:** D1 how a Gmail mailbox is billed (proposal: usage-based plan feature `email_mailboxes`, never blocks); D2 attachments of a type or size chat does not allow (proposal: save the allowed ones, list the others); D3 spike — does Gmail keep our own `Message-ID`.
+
 ## Related notes
 
 - \[\[naming-conventions\]\]

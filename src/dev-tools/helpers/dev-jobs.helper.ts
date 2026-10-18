@@ -3,6 +3,7 @@ import { CleanupExpiredTokensJob } from '../../auth/jobs/cleanup-expired-tokens.
 import { BillingRenewalCron } from '../../crons/billing-renewal.cron';
 import { EndOfDayReminderCron } from '../../crons/end-of-day-reminder.cron';
 import { MissingTimesheetCron } from '../../crons/missing-timesheet.cron';
+import { NotesTrashCron } from '../../crons/notes-trash.cron';
 import { PurchaseDueCron } from '../../crons/purchase-due.cron';
 import { RetentionCron } from '../../crons/retention.cron';
 import { StalledProjectCron } from '../../crons/stalled-project.cron';
@@ -39,6 +40,7 @@ export const DEV_JOBS: Record<string, Type<RunnableJob>> = {
   retention: RetentionCron,
   'media-purge': PurgeExpiredMediaJob,
   'token-cleanup': CleanupExpiredTokensJob,
+  'notes-trash': NotesTrashCron,
 };
 
 export const DEV_JOB_NAMES = Object.keys(DEV_JOBS);

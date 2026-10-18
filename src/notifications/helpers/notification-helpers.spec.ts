@@ -258,7 +258,7 @@ describe('renderNotification', () => {
       'nl',
     );
     expect(out.html).toContain('Openen</a>');
-    expect(out.html).toContain('background:#FF6A00');
+    expect(out.html).toContain('background:#C2570C');
     // the in-app body keeps the inline link
     expect(out.body).toContain('https://x/p/t');
   });

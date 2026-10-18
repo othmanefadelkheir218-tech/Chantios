@@ -53,11 +53,12 @@ CREATE TYPE import_status            AS ENUM ('pending','processing','done','fai
 
 CREATE TYPE permission_module AS ENUM (
   'clients','projects','tasks','time_entries','catalogue','stock','quotes','invoices',
-  'purchase_invoices','margins','subcontractors','reports','media','chat','team','settings'
+  'purchase_invoices','margins','subcontractors','reports','media','chat','team','settings',
+  'analytics','contacts','notes'
 );
 
 CREATE TYPE media_entity_type AS ENUM (
-  'user','tenant','project','report','purchase_invoice','quote','invoice','message'
+  'user','tenant','project','report','purchase_invoice','quote','invoice','message','note'
 );
 ```
 
@@ -1160,6 +1161,51 @@ CREATE UNIQUE INDEX uq_read_client ON message_reads (message_id, client_id) WHER
 
 Conversations and messages are **archived, never deleted** — they carry `is_archived`, never `is_active`.
 
+### Notes — private to one user (`doc/notes/notes.md`)
+
+```sql
+CREATE TABLE notes (
+  id           SERIAL PRIMARY KEY,
+  tenant_id    INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,  -- the owner; only this user ever reads it
+  title        TEXT,                                   -- optional, like Google Keep
+  content      JSONB,                                  -- the editor document (Tiptap JSON); checklists live inside it
+  content_text TEXT NOT NULL DEFAULT '',               -- plain-text copy, for search
+  color        TEXT NOT NULL DEFAULT 'default',        -- a key from a fixed list, checked in the DTO
+  is_pinned    BOOLEAN NOT NULL DEFAULT false,
+  is_archived  BOOLEAN NOT NULL DEFAULT false,
+  deleted_at   TIMESTAMPTZ,                            -- trash; purged with its images after 7 days
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, id)                               -- lets note_label_links carry a composite FK
+);
+CREATE INDEX idx_notes_user ON notes (user_id, deleted_at);
+
+-- Labels belong to one user too
+CREATE TABLE note_labels (
+  id         SERIAL PRIMARY KEY,
+  tenant_id  INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name       TEXT NOT NULL CHECK (btrim(name) <> ''),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, id)
+);
+CREATE UNIQUE INDEX uq_note_labels_user_name ON note_labels (user_id, lower(btrim(name)));
+
+CREATE TABLE note_label_links (
+  id        SERIAL PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  note_id   INTEGER NOT NULL,
+  label_id  INTEGER NOT NULL,
+  UNIQUE (note_id, label_id),
+  FOREIGN KEY (tenant_id, note_id)  REFERENCES notes(tenant_id, id)       ON DELETE CASCADE,
+  FOREIGN KEY (tenant_id, label_id) REFERENCES note_labels(tenant_id, id) ON DELETE CASCADE
+);
+CREATE INDEX idx_note_label_links_label ON note_label_links (label_id);
+```
+
+Images of a note are `media` rows with `entity_type = 'note'`. The generic `/api/media` routes never show or touch them — only the notes routes, for the owner.
+
 ---
 
 ## 10. Views — raw SQL in the migration
@@ -1402,6 +1448,10 @@ These are service-layer rules. The schema above supports either answer.
 15. **End of the trial.** Raised 2026-10-10: nothing ended a trial, so a company stayed `trialing` for free forever. **Decided 2026-10-10** — reminder on day 11; on day 14 the first renewal sets `past_due` + `grace_ends_at = period_end + 7 days` and a banner; on day 21 `cancelled` (blocked, data kept, billing page still readable); a payment sets `active`. New column `tenant_subscriptions.grace_ends_at`. See `doc/notes/subscription-plans.md` § The end of the trial.
 16. **Grace period after a failed payment.** Raised 2026-10-10 with question 15: a Stripe payment failure sets `past_due` with no deadline, so a company that stops paying keeps full access. Decide whether it gets the same 7-day grace and block as the trial, another number, or stays open. **Decided 2026-10-10** — the same: `past_due` + `grace_ends_at = now + 7 days`, the alert asks to pay before that date, then `cancelled`. A second failure does not extend the date; a failure never reopens a blocked company. See `doc/notes/subscription-plans.md` § A failed payment.
 17. **Paying by card (Stripe Checkout).** Raised 2026-10-15: nothing lets the tenant admin pay, so a company can only leave `past_due` / `cancelled` through the dev tools. **Decided 2026-10-15** — option A: Stripe Checkout + a Stripe subscription, Stripe charges every month, our job sends the overage. **Decided 2026-10-15:** Q1–Q5 as recommended; Q6 the tenant admin can cancel, works until the period end, no refund; Q7 VAT later. Q6b undo a cancel: yes; Q8 a blocked company that pays starts a new month on the payment day. No schema change. See `doc/notes/Phaces/21-stripe-checkout.md` § 2.
+18. **Tenant analytics page.** Raised 2026-10-17: the owner wants a page with charts for the tenant admin. **Decided 2026-10-17** — a new `analytics` permission (admin + accountant view by default), on every plan; each block also needs the view right on its source module (option B, same as the dashboard); 7 blocks over a period (default last 12 months, max 24). New enum value `permission_module.analytics`, no table. See `doc/notes/analytics.md`.
+19. **Contacts page (employee directory).** Raised 2026-10-17: a read-only page with every employee as a card, details on click, never the hourly rate. **Decided 2026-10-17** — employees only; new `contacts` permission (view only); inactive users shown with a badge; 20 per page, cards only, search; details add assigned projects (manager or task assignee); own routes `GET /api/contacts` and `/api/contacts/:id`, `hourly_rate` never sent. New enum value `permission_module.contacts`, no table. Default: admin + manager (view), every plan. A user without `projects` view still sees a colleague's projects (name, status only). Only open projects (`prospect`, `in_progress`). See `doc/notes/contacts.md`.
+20. **Notes page (like Google Keep).** Raised 2026-10-17: each user saves private notes, rich text, Keep-like UI. **Decided 2026-10-17** — new enum value `permission_module.notes`, every role `own` by default (worker too); the admin removes it per role only; notes are private (the admin cannot read them). Independent (no project/client link), images allowed (media, count in plan storage), 7-day trash, every plan. Tables `notes`, `note_labels`, `note_label_links` in § 9; enum value `media_entity_type.note`. See `doc/notes/notes.md`.
+21. **Email with clients (company address + personal Gmail).** Raised 2026-10-18: staff talk with clients by email from ChantierOS; one chat per client with project-tagged topics. **Decided 2026-10-18** (owner) — all business rules in `NOTE/EMAIL-CONNECTIONS-PLAN.md` (to move into `doc/notes/client-email.md`). New enum values `permission_module.email`, `conversation_type.client`, `sender_type.contact`; tables `email_inboxes`, `email_addresses`, `client_emails`, `conversation_topics`, `message_emails`, `inbound_email_events` (platform) — DDL in `doc/notes/Phaces/25-client-email.md` § 3, to copy into § 9. **Still open:** D1 how a Gmail mailbox is billed (proposal: usage-based plan feature `email_mailboxes`, never blocks — this also sets the price per plan); D2 email attachments of a type or size chat does not allow (proposal: save the allowed ones, list the others by name); D3 spike — does Gmail keep our own `Message-ID`.
 
 ## Related notes
 

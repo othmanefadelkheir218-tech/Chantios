@@ -16,6 +16,8 @@ import { CreateCustomerHandler } from './handlers/create-customer.handler';
 import { CreatePortalSessionHandler } from './handlers/create-portal-session.handler';
 import { EndSubscriptionNowHandler } from './handlers/end-subscription-now.handler';
 import { FindOpenInvoiceUrlHandler } from './handlers/find-open-invoice-url.handler';
+import { ListCustomerInvoicesHandler } from './handlers/list-customer-invoices.handler';
+import { InvoiceSummary } from './dto/invoice-summary.dto';
 import { SetCancelAtPeriodEndHandler } from './handlers/set-cancel-at-period-end.handler';
 import { UpdateSubscriptionPriceHandler } from './handlers/update-subscription-price.handler';
 
@@ -35,6 +37,7 @@ export class StripeService {
     private readonly updateSubscriptionPriceHandler: UpdateSubscriptionPriceHandler,
     private readonly endSubscriptionNowHandler: EndSubscriptionNowHandler,
     private readonly findOpenInvoiceUrlHandler: FindOpenInvoiceUrlHandler,
+    private readonly listCustomerInvoicesHandler: ListCustomerInvoicesHandler,
     @InjectQueue(STRIPE_WEBHOOKS_QUEUE)
     private readonly queue: Queue<WebhookJobData>,
   ) {}
@@ -116,6 +119,11 @@ export class StripeService {
   /** The Stripe page of the unpaid invoice, or `null`. */
   findOpenInvoiceUrl(subscriptionId: string): Promise<string | null> {
     return this.findOpenInvoiceUrlHandler.execute(subscriptionId);
+  }
+
+  /** Every invoice of a Stripe customer, for the billing history. `null` if Stripe can't be read. */
+  listCustomerInvoices(customerId: string): Promise<InvoiceSummary[] | null> {
+    return this.listCustomerInvoicesHandler.execute(customerId);
   }
 
   /** Checks the Stripe signature. Throws 400 if the request is not from Stripe. */

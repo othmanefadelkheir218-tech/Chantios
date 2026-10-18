@@ -89,6 +89,11 @@ export class ProjectsService {
       : this.projects.findSummariesByIds(ids);
   }
 
+  /** Contacts page (step 23): open projects this user manages or has a task on. */
+  findOpenForUser(userId: number) {
+    return this.projects.findOpenForUser(userId);
+  }
+
   /** Dashboard (step 18). A plain count, no rule beyond "open". */
   countOpenByStatus() {
     return this.projects.countOpenByStatus();

@@ -13,7 +13,8 @@ import { MediaRepository } from '../repositories/media.repository';
  * Hard-deletes (ImageKit + row) every `media` row for one entity, trashed
  * rows included (the parent itself is gone — nothing left to keep a trashed
  * row for). `is_locked` rows are skipped, same rule as the bulk routes.
- * Today's only intended caller: step 04's `prospect`-only project delete.
+ * Callers: step 04's `prospect`-only project delete, and the notes module
+ * (a note deleted for good, or one image removed — `mediaIds`).
  */
 @Injectable()
 export class DeleteMediaByEntityHandler {
@@ -28,8 +29,12 @@ export class DeleteMediaByEntityHandler {
     entityType: MediaEntityType,
     entityId: number,
     actor: AuthenticatedUser,
+    mediaIds?: number[],
   ) {
-    const rows = await this.media.findAllForEntity(entityType, entityId);
+    const all = await this.media.findAllForEntity(entityType, entityId);
+    const rows = mediaIds
+      ? all.filter((row) => mediaIds.includes(row.id))
+      : all;
     const { eligible, skipped } = splitLocked(rows);
 
     const succeeded: Media[] = [];

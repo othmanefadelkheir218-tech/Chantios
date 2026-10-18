@@ -102,6 +102,7 @@ From [technical/build-order.md](../technical/build-order.md) § 1b. A Prisma cli
 | `POST` | `/api/auth/refresh` | `@Public()` | rotates: new row, old revoked |
 | `POST` | `/api/auth/logout` | `AuthGuard` | clears cookies, sets `revoked_at` |
 | `POST` | `/api/auth/forgot-password` | `@Public()` | rate-limited hard |
+| `POST` | `/api/auth/check-reset-code` | `@Public()` | email + code → `valid: true`, code **not** used (step 1 of the reset form) |
 | `POST` | `/api/auth/reset-password` | `@Public()` | code + new password |
 | `POST` | `/api/auth/change-password` | `AuthGuard` | old + new |
 | `POST` | `/api/auth/verify-email` | `@Public()` | 24h code |

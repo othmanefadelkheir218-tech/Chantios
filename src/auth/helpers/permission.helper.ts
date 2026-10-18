@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import {
   PermissionModule,
   PermissionScope,
@@ -52,6 +53,9 @@ export const DEFAULT_PERMISSION_MATRIX: Record<
     chat: 'full',
     team: 'full',
     settings: 'full',
+    analytics: 'view',
+    contacts: 'view',
+    notes: 'own',
   },
   manager: {
     clients: 'full',
@@ -70,6 +74,9 @@ export const DEFAULT_PERMISSION_MATRIX: Record<
     chat: 'full',
     team: 'view',
     settings: 'none',
+    analytics: 'none',
+    contacts: 'view',
+    notes: 'own',
   },
   site_supervisor: {
     clients: 'view',
@@ -88,6 +95,9 @@ export const DEFAULT_PERMISSION_MATRIX: Record<
     chat: 'full',
     team: 'none',
     settings: 'none',
+    analytics: 'none',
+    contacts: 'none',
+    notes: 'own',
   },
   team_leader: {
     clients: 'none',
@@ -106,6 +116,9 @@ export const DEFAULT_PERMISSION_MATRIX: Record<
     chat: 'full',
     team: 'none',
     settings: 'none',
+    analytics: 'none',
+    contacts: 'none',
+    notes: 'own',
   },
   worker: {
     clients: 'none',
@@ -124,6 +137,9 @@ export const DEFAULT_PERMISSION_MATRIX: Record<
     chat: 'own',
     team: 'none',
     settings: 'none',
+    analytics: 'none',
+    contacts: 'none',
+    notes: 'own',
   },
   sales: {
     clients: 'full',
@@ -142,6 +158,9 @@ export const DEFAULT_PERMISSION_MATRIX: Record<
     chat: 'full',
     team: 'none',
     settings: 'none',
+    analytics: 'none',
+    contacts: 'none',
+    notes: 'own',
   },
   accountant: {
     clients: 'view',
@@ -160,6 +179,9 @@ export const DEFAULT_PERMISSION_MATRIX: Record<
     chat: 'full',
     team: 'none',
     settings: 'none',
+    analytics: 'view',
+    contacts: 'none',
+    notes: 'own',
   },
 };
 
@@ -242,4 +264,30 @@ export function resolvePermission(
     };
   }
   return defaultPermission(role, module);
+}
+
+/** The two lookups a permission check needs — `RolesService` has them. */
+interface PermissionSource {
+  findRoleById(id: number): Promise<{ name: string } | null>;
+  findOverridesForRole(
+    roleId: number,
+  ): Promise<Parameters<typeof resolvePermission>[2]>;
+}
+
+/**
+ * Every module's resolved permission for one role — the same answer as
+ * `PermissionGuard` (default matrix + this tenant's overrides). Used by the
+ * pages that show one block per module (dashboard, analytics).
+ */
+export async function loadPermissions(
+  roles: PermissionSource,
+  roleId: number,
+): Promise<(module: PermissionModule) => ResolvedPermission> {
+  const role = await roles.findRoleById(roleId);
+  if (!role) {
+    throw new ForbiddenException('Unknown role');
+  }
+  const overrides = await roles.findOverridesForRole(roleId);
+  return (module) =>
+    resolvePermission(role.name as RoleName, module, overrides);
 }

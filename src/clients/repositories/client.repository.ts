@@ -51,4 +51,12 @@ export class ClientRepository {
   countActive(): Promise<number> {
     return this.tenantPrisma.db.client.count({ where: { isActive: true } });
   }
+
+  /** Id + name of these clients, archived ones included (their old invoices still count). */
+  findNamesByIds(ids: number[]): Promise<{ id: number; name: string }[]> {
+    return this.tenantPrisma.db.client.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true },
+    });
+  }
 }

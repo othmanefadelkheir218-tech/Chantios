@@ -45,6 +45,18 @@ export class BillingController {
     return this.billingService.usage(actor.tenantId);
   }
 
+  /** The billing history: one item per past period, with what Stripe charged. */
+  @Get('history')
+  @TenantAuth()
+  @AllowLapsedSubscription()
+  @Module('settings')
+  history(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.billingService.history(actor.tenantId, query);
+  }
+
   @Get('invoices')
   @TenantAuth()
   @AllowLapsedSubscription()
