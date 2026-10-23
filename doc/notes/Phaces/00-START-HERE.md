@@ -118,7 +118,9 @@ From [technical/build-order.md](../technical/build-order.md). Phase numbers are 
 | 22 | [22-analytics.md](22-analytics.md) | — | no — all decided 2026-10-17 — the tenant analytics page (charts), backend + frontend |
 | 23 | [23-contacts.md](23-contacts.md) | — | no — all decided 2026-10-17 — the employee directory (cards, details, no salary), backend + frontend |
 | 24 | [24-notes.md](24-notes.md) | — | no — all decided 2026-10-17 — private notes like Google Keep (rich text, labels, images, 7-day trash) |
-| 25 | [25-client-email.md](25-client-email.md) | — | 3 — D1 mailbox billing, D2 attachment types, D3 spike (Gmail `Message-ID`) — email with clients: company address + personal Gmail, one chat per client with project-tagged topics (planned 2026-10-18) |
+| 25 | [25-client-email.md](25-client-email.md) | — | no — D1, D2, D3 decided 2026-10-18 — email with clients: company address + personal Gmail, one chat per client with project-tagged topics — **built 2026-10-19**, live tests left |
+| 26 | [26-chat-media-updates.md](26-chat-media-updates.md) | — | no — all decided 2026-10-19 — chat and media updates (project status badge, note images on `/media`, seen ticks, chat pages that scroll inside) — **built 2026-10-20**
+| 27 | [27-subscription-tva.md](27-subscription-tva.md) | — | no — all decided 2026-10-20 — TVA on the subscription: super-admin TVA table per country, EU reverse charge, HT prices, final price (HT / TVA / TTC) in the histories and emails — **built 2026-10-20**, live tests left
 
 ### Why three steps move
 

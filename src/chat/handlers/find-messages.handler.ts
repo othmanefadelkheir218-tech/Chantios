@@ -7,11 +7,14 @@ import { FindMessagesQueryDto } from '../dto/find-messages-query.dto';
 import { toMessageEntity } from '../helpers/chat.helper';
 import { MessageRepository } from '../repositories/message.repository';
 import { CheckAccessHandler } from './check-access.handler';
+import { ReadReceiptsHandler } from './read-receipts.handler';
 
 /**
  * `GET /api/conversations/:id/messages` — paginated, newest first. A non-member
  * gets `403`. The files of the whole page are read in ONE query through
  * `MediaService` (`entity_type = 'message'`), never one per message.
+ * Step 26 C: in the team chat, the caller's OWN messages also carry
+ * `read_count` / `member_count` (`ReadReceiptsHandler`, one batch).
  */
 @Injectable()
 export class FindMessagesHandler {
@@ -21,6 +24,7 @@ export class FindMessagesHandler {
     private readonly messages: MessageRepository,
     private readonly access: CheckAccessHandler,
     private readonly media: MediaService,
+    private readonly receipts: ReadReceiptsHandler,
   ) {}
 
   async execute(
@@ -28,7 +32,9 @@ export class FindMessagesHandler {
     { page, limit }: FindMessagesQueryDto,
     actor: AuthenticatedUser,
   ) {
-    await this.access.assertMember(conversationId, { userId: actor.userId });
+    const conversation = await this.access.assertMember(conversationId, {
+      userId: actor.userId,
+    });
     this.logger.debug(
       `Listing messages of conversation ${conversationId} (page ${page})`,
     );
@@ -38,12 +44,20 @@ export class FindMessagesHandler {
       toSkip(page, limit),
       limit,
     );
-    const files = await this.media.findByEntityIds(
-      'message',
-      rows.map((row) => row.id),
+    const own = rows.filter(
+      (row) => row.senderType === 'employee' && row.senderId === actor.userId,
     );
+    const [files, receipts] = await Promise.all([
+      this.media.findByEntityIds(
+        'message',
+        rows.map((row) => row.id),
+      ),
+      this.receipts.forMessages(conversation, own),
+    ]);
     return toPaginated(
-      rows.map((row) => toMessageEntity(row, files.get(row.id) ?? [])),
+      rows.map((row) =>
+        toMessageEntity(row, files.get(row.id) ?? [], receipts.get(row.id)),
+      ),
       total,
       page,
       limit,

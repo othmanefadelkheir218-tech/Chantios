@@ -213,7 +213,10 @@ describe('Projects handlers', () => {
         actor,
       );
 
-      const data = repo.create.mock.calls[0][0] as Record<string, unknown>;
+      const data = (repo.create.mock.calls as unknown[][])[0][0] as Record<
+        string,
+        unknown
+      >;
       expect(data.startDate).toEqual(new Date('2026-11-02'));
       expect(data.endDate).toEqual(new Date('2026-12-02'));
     });
@@ -300,7 +303,10 @@ describe('Projects handlers', () => {
         actor,
       );
 
-      const data = repo.update.mock.calls[0][1] as Record<string, unknown>;
+      const data = (repo.update.mock.calls as unknown[][])[0][1] as Record<
+        string,
+        unknown
+      >;
       expect(data.startDate).toEqual(new Date('2026-11-02'));
       expect(data.endDate).toEqual(new Date('2026-12-02'));
     });

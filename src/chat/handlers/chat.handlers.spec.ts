@@ -32,12 +32,14 @@ import { AdminJoinSupportHandler } from './admin-join-support.handler';
 import { AdminSendSupportMessageHandler } from './admin-send-support-message.handler';
 import { ArchiveConversationHandler } from './archive-conversation.handler';
 import { CheckAccessHandler } from './check-access.handler';
+import { ClientChatAccessHandler } from './client-chat-access.handler';
 import { ClientMessagesHandler } from './client-messages.handler';
 import { CreateConversationHandler } from './create-conversation.handler';
 import { EnsureProjectConversationHandler } from './ensure-project-conversation.handler';
 import { FindConversationsHandler } from './find-conversations.handler';
 import { FindMessagesHandler } from './find-messages.handler';
 import { MarkReadHandler } from './mark-read.handler';
+import { ReadReceiptsHandler } from './read-receipts.handler';
 import { SendMessageHandler } from './send-message.handler';
 import { UnreadCountHandler } from './unread-count.handler';
 
@@ -125,8 +127,10 @@ describe('Chat handlers', () => {
     findMany: jest.fn(),
     findManyForAdmin: jest.fn(),
     createForAdmin: jest.fn(),
+    findByIds: jest.fn(),
   };
   const reads = {
+    findUserReads: jest.fn(),
     markReadForUser: jest.fn(),
     countUnread: jest.fn(),
     countUnreadByConversation: jest.fn(),
@@ -135,13 +139,18 @@ describe('Chat handlers', () => {
   const tenantPrisma = {
     db: { $transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)) },
   };
-  const users = { findActiveInTenant: jest.fn(), findByIdRaw: jest.fn() };
+  const users = {
+    findActiveInTenant: jest.fn(),
+    findByIdRaw: jest.fn(),
+    findActiveWithRole: jest.fn(),
+  };
   const clients = { findByIdRaw: jest.fn() };
   const notifications = { dispatch: jest.fn() };
   const projects = { findOne: jest.fn() };
   const media = { attachToEntity: jest.fn(), findByEntityIds: jest.fn() };
   const audit = { write: jest.fn() };
   const gateway = { emitNewMessage: jest.fn(), emitMessageRead: jest.fn() };
+  const clientChatAccess = { assertChatForUser: jest.fn() };
   const logger = {
     info: jest.fn(),
     warn: jest.fn(),
@@ -168,6 +177,9 @@ describe('Chat handlers', () => {
     jest.resetAllMocks();
     tenantPrisma.db.$transaction.mockImplementation((fn) => fn(tx));
     media.findByEntityIds.mockResolvedValue(new Map());
+    users.findActiveWithRole.mockResolvedValue([]);
+    reads.findUserReads.mockResolvedValue([]);
+    messages.findByIds.mockResolvedValue([]);
     const handlers = [
       CheckAccessHandler,
       CreateConversationHandler,
@@ -175,6 +187,7 @@ describe('Chat handlers', () => {
       FindMessagesHandler,
       SendMessageHandler,
       MarkReadHandler,
+      ReadReceiptsHandler,
       UnreadCountHandler,
       ArchiveConversationHandler,
       AddMemberHandler,
@@ -198,6 +211,7 @@ describe('Chat handlers', () => {
         { provide: MediaService, useValue: media },
         { provide: AuditService, useValue: audit },
         { provide: ChatGateway, useValue: gateway },
+        { provide: ClientChatAccessHandler, useValue: clientChatAccess },
         ...handlers.map((h) => ({
           provide: getLoggerToken(h.name),
           useValue: logger,
@@ -294,6 +308,23 @@ describe('Chat handlers', () => {
       await expect(access.assertMember(30, { userId: 1 })).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('a client chat (step 25) joins by the inbox rule, not by members', async () => {
+      conversations.findById.mockResolvedValue({ id: 31, type: 'client' });
+      clientChatAccess.assertChatForUser.mockResolvedValue({});
+      await access.assertCanJoin(31, 1);
+      expect(clientChatAccess.assertChatForUser).toHaveBeenCalledWith(31, 1);
+    });
+
+    it('any other conversation keeps the membership check on join', async () => {
+      conversations.findById.mockResolvedValue({
+        id: 30,
+        type: 'internal',
+        members: [{ userId: 2, clientId: null, adminUserId: null }],
+      });
+      await expect(access.assertCanJoin(30, 1)).rejects.toThrow();
+      expect(clientChatAccess.assertChatForUser).not.toHaveBeenCalled();
     });
   });
 
@@ -462,6 +493,41 @@ describe('Chat handlers', () => {
       expect(result.data[0].attachments).toHaveLength(1);
       expect(result.data[1].attachments).toEqual([]);
     });
+
+    it('step 26 C: only the caller own messages carry read_count / member_count', async () => {
+      conversations.findById.mockResolvedValue(conversation());
+      messages.findMany.mockResolvedValue([
+        [message({ id: 101, senderId: 2 }), message({ id: 100 })],
+        2,
+      ]);
+      users.findActiveWithRole.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+      reads.findUserReads.mockResolvedValue([{ messageId: 100, userId: 2 }]);
+      const result = await findMessages.execute(
+        30,
+        { page: 1, limit: 20 },
+        actor,
+      );
+      // one batch for the page, scoped to the conversation's own tenant
+      expect(reads.findUserReads).toHaveBeenCalledTimes(1);
+      expect(reads.findUserReads).toHaveBeenCalledWith([100], 1);
+      expect(users.findActiveWithRole).toHaveBeenCalledWith([1, 2]);
+      expect(result.data[0]).not.toHaveProperty('readCount');
+      expect(result.data[1]).toMatchObject({ readCount: 1, memberCount: 1 });
+    });
+
+    it('step 26 C: no ticks outside the team chat (support, project client)', async () => {
+      conversations.findById.mockResolvedValue(
+        conversation({ type: 'support' }),
+      );
+      messages.findMany.mockResolvedValue([[message({ id: 100 })], 1]);
+      const result = await findMessages.execute(
+        30,
+        { page: 1, limit: 20 },
+        actor,
+      );
+      expect(reads.findUserReads).not.toHaveBeenCalled();
+      expect(result.data[0]).not.toHaveProperty('readCount');
+    });
   });
 
   describe('SendMessageHandler', () => {
@@ -601,11 +667,30 @@ describe('Chat handlers', () => {
       const result = await markRead.execute(30, actor);
       expect(reads.markReadForUser).toHaveBeenCalledWith(30, 1, 1);
       expect(gateway.emitMessageRead).toHaveBeenCalledTimes(2);
-      expect(gateway.emitMessageRead).toHaveBeenCalledWith(30, 101, {
-        type: 'employee',
-        id: 1,
-      });
+      expect(gateway.emitMessageRead).toHaveBeenCalledWith(
+        30,
+        101,
+        { type: 'employee', id: 1 },
+        undefined, // not found by findByIds here: no count to send
+      );
       expect(result).toEqual({ conversationId: 30, marked: 2, unread: 0 });
+    });
+
+    it('step 26 C: the event carries the sender new count (A sees ✓✓ live)', async () => {
+      conversations.findById.mockResolvedValue(conversation());
+      reads.markReadForUser.mockResolvedValue([100]);
+      reads.countUnread.mockResolvedValue(0);
+      messages.findByIds.mockResolvedValue([message({ id: 100, senderId: 2 })]);
+      users.findActiveWithRole.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+      reads.findUserReads.mockResolvedValue([{ messageId: 100, userId: 1 }]);
+      await markRead.execute(30, actor);
+      expect(messages.findByIds).toHaveBeenCalledWith(30, [100]);
+      expect(gateway.emitMessageRead).toHaveBeenCalledWith(
+        30,
+        100,
+        { type: 'employee', id: 1 },
+        { readCount: 1, memberCount: 1 },
+      );
     });
 
     it('opening again marks nothing and announces nothing', async () => {
@@ -892,7 +977,7 @@ describe('ChatGateway', () => {
   const cls = {
     run: jest.fn((fn: () => Promise<unknown>) => fn()),
   };
-  const access = { assertMember: jest.fn() };
+  const access = { assertMember: jest.fn(), assertCanJoin: jest.fn() };
   const adminJoin = { execute: jest.fn() };
   const logger = {
     info: jest.fn(),
@@ -959,7 +1044,7 @@ describe('ChatGateway', () => {
 
   it('a member joins: the tenant is put in context and the SAME access check runs', async () => {
     tokens.verifyAccessToken.mockReturnValue({ sub: 1, tenantId: 4 });
-    access.assertMember.mockResolvedValue({ id: 30 });
+    access.assertCanJoin.mockResolvedValue(undefined);
     const client = socket();
     await gateway.handleConnection(client);
 
@@ -967,7 +1052,7 @@ describe('ChatGateway', () => {
 
     expect(ack).toEqual({ ok: true });
     expect(tenantContext.setTenantId).toHaveBeenCalledWith(4);
-    expect(access.assertMember).toHaveBeenCalledWith(30, { userId: 1 });
+    expect(access.assertCanJoin).toHaveBeenCalledWith(30, 1);
     expect(
       (client as unknown as { join: jest.Mock }).join,
     ).toHaveBeenCalledWith('conversation:30');
@@ -975,7 +1060,7 @@ describe('ChatGateway', () => {
 
   it('a NON-member join is refused and never enters the room', async () => {
     tokens.verifyAccessToken.mockReturnValue({ sub: 99, tenantId: 4 });
-    access.assertMember.mockRejectedValue(
+    access.assertCanJoin.mockRejectedValue(
       new ForbiddenException('You are not a member of this conversation'),
     );
     const client = socket();

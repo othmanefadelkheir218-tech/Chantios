@@ -10,10 +10,14 @@ import {
 import { ApiExcludeController } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Request } from 'express';
+import { Public } from '../common/decorators/public.decorator';
 import { InboundEmailService } from './inbound-email.service';
 
-// TEST ONLY — receives Resend `email.received` webhooks, checks the signature,
-// fetches the full email and logs it. Nothing is saved. Replace before going live.
+/**
+ * `POST /api/webhooks/resend-inbound` — Resend's `email.received` notice
+ * (step 25). Public: the Svix signature is the proof (`400` if wrong). The
+ * notice is stored once and queued; `200 { received: true }` at once.
+ */
 @ApiExcludeController()
 @SkipThrottle()
 @Controller('webhooks/resend-inbound')
@@ -21,6 +25,7 @@ export class InboundEmailController {
   constructor(private readonly inboundEmailService: InboundEmailService) {}
 
   @Post()
+  @Public()
   @HttpCode(HttpStatus.OK)
   async receive(
     @Req() req: RawBodyRequest<Request>,
@@ -33,7 +38,7 @@ export class InboundEmailController {
       timestamp,
       signature,
     });
-    await this.inboundEmailService.logReceived(event);
+    await this.inboundEmailService.recordAndEnqueue(event);
     return { received: true };
   }
 }

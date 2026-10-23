@@ -6,6 +6,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { getLoggerToken } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
+import { RolesService } from '../../roles/roles.service';
 import { TenantsService } from '../../tenants/tenants.service';
 import { MediaRepository } from '../repositories/media.repository';
 
@@ -65,6 +66,7 @@ describe('Media handlers', () => {
   const repo = {
     create: jest.fn(),
     findById: jest.fn(),
+    findVisibleById: jest.fn(),
     findByEntity: jest.fn(),
     findAllForEntity: jest.fn(),
     findByEntityAndType: jest.fn(),
@@ -80,6 +82,7 @@ describe('Media handlers', () => {
   };
   const audit = { write: jest.fn() };
   const tenants = { setLogoMediaId: jest.fn() };
+  const roles = { findRoleById: jest.fn() };
   const logger = {
     info: jest.fn(),
     warn: jest.fn(),
@@ -116,6 +119,7 @@ describe('Media handlers', () => {
         { provide: MediaRepository, useValue: repo },
         { provide: AuditService, useValue: audit },
         { provide: TenantsService, useValue: tenants },
+        { provide: RolesService, useValue: roles },
         ...handlers.map((h) => ({
           provide: getLoggerToken(h.name),
           useValue: logger,
@@ -234,7 +238,13 @@ describe('Media handlers', () => {
   });
 
   describe('FindMediaHandler', () => {
+    const asRole = (name: string) =>
+      roles.findRoleById.mockResolvedValue({ id: 1, name });
+    const listWhere = () =>
+      (repo.findMany.mock.calls[0] as [Record<string, unknown>])[0];
+
     it('limits the list to the caller’s own uploads when scope is own', async () => {
+      asRole('worker');
       repo.findMany.mockResolvedValue([[media()], 1]);
 
       await findMedia.execute({ page: 1, limit: 20 }, actor, 'own');
@@ -247,12 +257,95 @@ describe('Media handlers', () => {
     });
 
     it('does not filter by uploader when scope is all', async () => {
+      asRole('manager');
       repo.findMany.mockResolvedValue([[media()], 1]);
 
       await findMedia.execute({ page: 1, limit: 20 }, actor, 'all');
 
-      const [where] = repo.findMany.mock.calls[0] as [Record<string, unknown>];
-      expect(where.uploadedBy).toBeUndefined();
+      expect(listWhere().uploadedBy).toBeUndefined();
+    });
+
+    it('a non-admin sees only their own note files', async () => {
+      asRole('manager');
+      repo.findMany.mockResolvedValue([[], 0]);
+
+      await findMedia.execute({ page: 1, limit: 20 }, actor, 'all');
+
+      expect(listWhere().AND).toEqual([
+        {
+          OR: [
+            { entityType: { notIn: ['note', 'email_attachment'] } },
+            { entityType: 'note', uploadedBy: actor.userId },
+          ],
+        },
+      ]);
+    });
+
+    it('the tenant admin sees every note file', async () => {
+      asRole('admin');
+      repo.findMany.mockResolvedValue([[], 0]);
+
+      await findMedia.execute({ page: 1, limit: 20 }, actor, 'all');
+
+      expect(listWhere().AND).toEqual([
+        {
+          OR: [
+            { entityType: { notIn: ['note', 'email_attachment'] } },
+            { entityType: 'note' },
+          ],
+        },
+      ]);
+    });
+
+    it('an impersonating platform admin sees no note file', async () => {
+      repo.findMany.mockResolvedValue([[], 0]);
+
+      await findMedia.execute(
+        { page: 1, limit: 20, entity_type: 'note' },
+        { ...actor, impersonatedBy: 7 },
+        'all',
+      );
+
+      expect(roles.findRoleById).not.toHaveBeenCalled();
+      expect(listWhere()).toEqual(
+        expect.objectContaining({
+          entityType: 'note',
+          AND: [{ entityType: { notIn: ['note', 'email_attachment'] } }],
+        }),
+      );
+    });
+
+    it('a search by entity_id never returns note files', async () => {
+      asRole('admin');
+      repo.findMany.mockResolvedValue([[], 0]);
+
+      await findMedia.execute(
+        { page: 1, limit: 20, entity_type: 'note', entity_id: 5 },
+        actor,
+        'all',
+      );
+
+      expect(listWhere().AND).toEqual([
+        { entityType: { notIn: ['note', 'email_attachment'] } },
+      ]);
+    });
+
+    it('a note file never carries its note id', async () => {
+      asRole('admin');
+      repo.findMany.mockResolvedValue([
+        [media({ entityType: 'note', entityId: 9, uploadedBy: 2 })],
+        1,
+      ]);
+
+      const page = await findMedia.execute(
+        { page: 1, limit: 20 },
+        actor,
+        'all',
+      );
+
+      expect(page.data[0]).toEqual(
+        expect.objectContaining({ entityType: 'note', entityId: null }),
+      );
     });
 
     it('findOne rejects an unknown id', async () => {
@@ -260,16 +353,62 @@ describe('Media handlers', () => {
       await expect(findMedia.findOne(99)).rejects.toThrow(NotFoundException);
     });
 
+    it('findOne without an actor (internal caller) never sees note files', async () => {
+      repo.findById.mockResolvedValue(media());
+      await findMedia.findOne(1);
+      expect(repo.findVisibleById).not.toHaveBeenCalled();
+    });
+
     it('findOne hides another uploaders file when scope is own', async () => {
-      repo.findById.mockResolvedValue(media({ uploadedBy: actor.userId + 1 }));
-      await expect(findMedia.findOne(1, actor, 'own')).rejects.toThrow(
+      asRole('worker');
+      repo.findVisibleById.mockResolvedValue(
+        media({ uploadedBy: actor.userId + 1 }),
+      );
+      await expect(findMedia.findVisible(1, actor, 'own')).rejects.toThrow(
         NotFoundException,
       );
     });
 
     it('findOne returns the callers own file when scope is own', async () => {
-      repo.findById.mockResolvedValue(media({ uploadedBy: actor.userId }));
-      await expect(findMedia.findOne(1, actor, 'own')).resolves.toBeDefined();
+      asRole('worker');
+      repo.findVisibleById.mockResolvedValue(
+        media({ uploadedBy: actor.userId }),
+      );
+      await expect(
+        findMedia.findVisible(1, actor, 'own'),
+      ).resolves.toBeDefined();
+    });
+
+    it('findOne gives the admin a note file without its note id', async () => {
+      asRole('admin');
+      repo.findVisibleById.mockResolvedValue(
+        media({ entityType: 'note', entityId: 9, uploadedBy: 2 }),
+      );
+
+      await expect(findMedia.findVisible(10, actor, 'all')).resolves.toEqual(
+        expect.objectContaining({ entityType: 'note', entityId: null }),
+      );
+      expect(repo.findVisibleById).toHaveBeenCalledWith(10, {
+        OR: [
+          { entityType: { notIn: ['note', 'email_attachment'] } },
+          { entityType: 'note' },
+        ],
+      });
+    });
+
+    it('findOne hides manager A’s note file from manager B', async () => {
+      asRole('manager');
+      repo.findVisibleById.mockResolvedValue(null);
+
+      await expect(findMedia.findVisible(10, actor, 'all')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(repo.findVisibleById).toHaveBeenCalledWith(10, {
+        OR: [
+          { entityType: { notIn: ['note', 'email_attachment'] } },
+          { entityType: 'note', uploadedBy: actor.userId },
+        ],
+      });
     });
   });
 

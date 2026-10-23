@@ -10,6 +10,7 @@ import { Server, Socket } from 'socket.io';
 import { TokenHelper } from '../../auth/helpers/token.helper';
 import { readCookie } from '../../chat/helpers/chat-access.helper';
 import { toSnakeKeys } from '../../common/helpers/case.helper';
+import { userPresenceRoom } from '../../common/helpers/presence.helper';
 import { ALLOWED_ORIGINS } from '../../config/env.config';
 
 export const userRoom = (userId: number) => `user:${userId}`;
@@ -58,6 +59,19 @@ export class NotificationsGateway implements OnGatewayConnection {
         : null;
     if (!room) return;
     this.server?.to(room).emit('notification', toSnakeKeys(row));
+  }
+
+  /**
+   * Step 25: is this user online — at least one counted socket in
+   * `presence:user:<id>` (the chat gateway puts it there, same server, Redis
+   * adapter across instances). An impersonation socket does not count.
+   */
+  async isUserOnline(userId: number): Promise<boolean> {
+    if (!this.server) return false;
+    const sockets = await this.server
+      .in(userPresenceRoom(userId))
+      .fetchSockets();
+    return sockets.length > 0;
   }
 
   private roomOf(client: Socket): string | null {

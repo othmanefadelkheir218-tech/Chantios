@@ -63,3 +63,17 @@ export class ClientEntity {
   @ApiProperty()
   updated_at: Date;
 }
+
+export class ClientExtraEmailEntity {
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  email: string;
+}
+
+/** `GET /api/clients/:id` — the client + its extra email addresses (step 25). */
+export class ClientDetailEntity extends ClientEntity {
+  @ApiProperty({ type: [ClientExtraEmailEntity] })
+  extra_emails: ClientExtraEmailEntity[];
+}

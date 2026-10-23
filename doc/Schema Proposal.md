@@ -36,8 +36,8 @@ CREATE TYPE stock_movement_type      AS ENUM ('purchase','consumption','adjustme
 CREATE TYPE reservation_status       AS ENUM ('active','released','consumed');
 CREATE TYPE task_type                AS ENUM ('meeting','work');
 CREATE TYPE task_status              AS ENUM ('planned','in_progress','completed');
-CREATE TYPE conversation_type        AS ENUM ('internal','project_client','support');
-CREATE TYPE sender_type              AS ENUM ('employee','client','admin');
+CREATE TYPE conversation_type        AS ENUM ('internal','project_client','support','client');
+CREATE TYPE sender_type              AS ENUM ('employee','client','admin','contact');
 CREATE TYPE portal_event_type        AS ENUM ('view','download');
 CREATE TYPE document_type            AS ENUM ('quote','invoice','purchase_invoice');
 CREATE TYPE one_time_code_type       AS ENUM ('password_reset','email_verification','admin_2fa');
@@ -50,15 +50,19 @@ CREATE TYPE feedback_type            AS ENUM ('feature_request','improvement','c
 CREATE TYPE feedback_status          AS ENUM ('new','reviewing','planned','declined','shipped');
 CREATE TYPE import_type              AS ENUM ('materials','stock');
 CREATE TYPE import_status            AS ENUM ('pending','processing','done','failed');
+CREATE TYPE email_inbox_kind         AS ENUM ('company','gmail');
+CREATE TYPE email_inbox_status       AS ENUM ('active','disconnected','removed');
+CREATE TYPE email_direction          AS ENUM ('inbound','outbound');
+CREATE TYPE email_transport          AS ENUM ('resend','gmail');
 
 CREATE TYPE permission_module AS ENUM (
   'clients','projects','tasks','time_entries','catalogue','stock','quotes','invoices',
   'purchase_invoices','margins','subcontractors','reports','media','chat','team','settings',
-  'analytics','contacts','notes'
+  'analytics','contacts','notes','email','email_gmail'
 );
 
 CREATE TYPE media_entity_type AS ENUM (
-  'user','tenant','project','report','purchase_invoice','quote','invoice','message','note'
+  'user','tenant','project','report','purchase_invoice','quote','invoice','message','note','email_attachment'
 );
 ```
 
@@ -145,6 +149,40 @@ CREATE TABLE plan_features (
 A plan is **immutable once in use**. A price or limit change deactivates the old row and creates a new one with `parent_plan_id` pointing back. Existing tenants stay on the old row.
 
 **Operational rule:** plans are never seeded, so the super-admin must create at least one plan and set `is_default = true` **before signups can work**. Registration fails without it.
+
+`base_price` and `overage_rate` are **HT**. The TVA is added on the Stripe invoice (below).
+
+### TVA on the subscription — created by the super-admin, never seeded
+
+```sql
+CREATE TABLE subscription_vat_rates (
+  id                                SERIAL PRIMARY KEY,
+  country_code                      CHAR(2) NOT NULL UNIQUE CHECK (country_code ~ '^[A-Z]{2}$'),  -- ISO 3166-1 alpha-2, upper case ('BE')
+  rate                              NUMERIC(5,2) NOT NULL CHECK (rate >= 0 AND rate < 100),
+  is_eu                             BOOLEAN NOT NULL DEFAULT true,  -- EU country: reverse charge applies to a company with a TVA number
+  is_active                         BOOLEAN NOT NULL DEFAULT true,  -- false = closed: no new payment from this country
+  stripe_tax_rate_id                TEXT NOT NULL,   -- Stripe TaxRate for `rate`; a rate change creates a new one, the old one is archived
+  stripe_reverse_charge_tax_rate_id TEXT,            -- Stripe TaxRate 0 % "Autoliquidation" for this country; EU rows only
+  created_at                        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at                        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+The TVA a company pays **ChantierOS** on its subscription — not the TVA on the company's own quotes and invoices (that one is per line, § 6). The seller country is a setting (`SELLER_COUNTRY=BE`), not a row. Which rate applies: `doc/notes/subscription-plans.md` § TVA on the subscription. Nothing stores the TVA of a past invoice: it is read from Stripe.
+
+`tenants.country` stays `CHAR(2)` nullable in the database (old rows); the API requires it on every create and refuses to empty it.
+
+The TVA number check (VIES) adds two columns to `tenants`:
+
+```sql
+CREATE TYPE vat_number_status AS ENUM ('valid', 'invalid', 'pending', 'not_checked');
+
+ALTER TABLE tenants
+  ADD COLUMN vat_number_status     vat_number_status,  -- NULL = no TVA number; 'pending' = VIES busy, retried; 'not_checked' = VAT_NUMBER_CHECK=off
+  ADD COLUMN vat_number_checked_at TIMESTAMPTZ;        -- last VIES answer
+```
+
+Reverse charge needs `vat_number_status IN ('valid', 'not_checked')`. `not_checked` only exists while `VAT_NUMBER_CHECK=off`.
 
 ### Subscriptions
 
@@ -1036,12 +1074,15 @@ CREATE TABLE media (
   file_id     TEXT NOT NULL,                       -- ImageKit's own file id, needed to delete/update it later
   file_url    TEXT NOT NULL,                       -- ImageKit URL, never changes
   file_type   TEXT NOT NULL,                       -- MIME
-  file_size   BIGINT NOT NULL CHECK (file_size > 0 AND file_size <= 10485760),  -- 10 MB
+  file_size   BIGINT NOT NULL,                     -- 10 MB, 25 MB for email_attachment (chk_media_file_size)
   is_locked   BOOLEAN NOT NULL DEFAULT false,      -- true = the frozen copy of a sent document
   uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   deleted_at  TIMESTAMPTZ,                         -- soft delete (trash). NULL = not deleted
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_media_file_size CHECK (
+    file_size > 0 AND (file_size <= 10485760 OR (entity_type = 'email_attachment' AND file_size <= 26214400))
+  )
 );
 CREATE INDEX idx_media_entity ON media (entity_type, entity_id);
 CREATE INDEX idx_media_tenant ON media (tenant_id);
@@ -1206,6 +1247,146 @@ CREATE INDEX idx_note_label_links_label ON note_label_links (label_id);
 
 Images of a note are `media` rows with `entity_type = 'note'`. The generic `/api/media` routes never show or touch them — only the notes routes, for the owner.
 
+### Client email (`doc/notes/client-email.md`)
+
+```sql
+-- Step 25 — email with clients (doc/notes/client-email.md).
+-- Enum values: permission_module.email, conversation_type.client, sender_type.contact,
+-- media_entity_type.email_attachment, and the email_* types (§ 0). media.chk_media_file_size above.
+-- Every tenant_id below also REFERENCES tenants(id) ON DELETE CASCADE, like every business table.
+-- Migrations: 20261018120000_client_email_enums (enum values) + 20261018120100_client_email.
+-- One row per inbox: the company address (1 per tenant) or a connected Gmail (1 per user + address)
+CREATE TABLE email_inboxes (
+  id                       SERIAL PRIMARY KEY,
+  tenant_id                INT NOT NULL REFERENCES tenants(id),
+  kind                     email_inbox_kind NOT NULL,
+  owner_user_id            INT REFERENCES users(id),          -- gmail only
+  gmail_address            VARCHAR(255),                       -- gmail only
+  refresh_token_encrypted  TEXT,                               -- gmail only, AES-256-GCM
+  scopes                   TEXT,
+  status                   email_inbox_status NOT NULL DEFAULT 'active',
+  last_error               TEXT,
+  forward_confirm_url      TEXT,                               -- Gmail's "confirm forwarding" link, shown to the owner
+  connected_at             TIMESTAMPTZ,
+  disconnected_at          TIMESTAMPTZ,
+  removed_at               TIMESTAMPTZ,
+  last_used_at             TIMESTAMPTZ,
+  last_received_at         TIMESTAMPTZ,
+  created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, id),
+  CONSTRAINT chk_inbox_kind_fields CHECK (
+    (kind = 'company' AND owner_user_id IS NULL AND gmail_address IS NULL AND refresh_token_encrypted IS NULL)
+ OR (kind = 'gmail'   AND owner_user_id IS NOT NULL AND gmail_address IS NOT NULL)
+  )
+);
+CREATE UNIQUE INDEX uq_inbox_company ON email_inboxes(tenant_id) WHERE kind = 'company';
+CREATE UNIQUE INDEX uq_inbox_gmail   ON email_inboxes(owner_user_id, lower(gmail_address)) WHERE status <> 'removed';
+
+-- Every address we receive on: <local_part>@mail.<our-domain>. GLOBAL unique (the webhook has no tenant yet).
+-- Company: 'company-x' (old names stay, is_primary = false). Gmail forward: 'company-x.<random>'.
+CREATE TABLE email_addresses (
+  id          SERIAL PRIMARY KEY,
+  tenant_id   INT NOT NULL,
+  inbox_id    INT NOT NULL,
+  local_part  VARCHAR(64) NOT NULL,
+  is_primary  BOOLEAN NOT NULL DEFAULT true,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  FOREIGN KEY (tenant_id, inbox_id) REFERENCES email_inboxes(tenant_id, id),
+  CONSTRAINT chk_email_local_part CHECK (local_part ~ '^[a-z0-9][a-z0-9.-]{1,62}[a-z0-9]$' AND local_part NOT LIKE 'reply-%')
+);
+CREATE UNIQUE INDEX uq_email_local_part ON email_addresses(lower(local_part));
+
+-- Extra addresses of a client (clients.email stays the main one). Needs UNIQUE (tenant_id, id) on clients.
+CREATE UNIQUE INDEX clients_tenant_id_id_key ON clients(tenant_id, id);
+-- Extra addresses of a client (clients.email stays the main one)
+CREATE TABLE client_emails (
+  id          SERIAL PRIMARY KEY,
+  tenant_id   INT NOT NULL,
+  client_id   INT NOT NULL,
+  email       VARCHAR(255) NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  FOREIGN KEY (tenant_id, client_id) REFERENCES clients(tenant_id, id)
+);
+CREATE UNIQUE INDEX uq_client_emails ON client_emails(tenant_id, lower(email));
+
+-- conversations: a 'client' conversation = one chat with one client (or unknown contact) in one inbox
+ALTER TABLE conversations
+  ADD COLUMN inbox_id      INT REFERENCES email_inboxes(id),
+  ADD COLUMN client_id     INT REFERENCES clients(id),
+  ADD COLUMN contact_email VARCHAR(255),
+  ADD COLUMN contact_name  VARCHAR(255),
+  ADD CONSTRAINT chk_client_conversation CHECK (
+    type <> 'client' OR (inbox_id IS NOT NULL AND (client_id IS NOT NULL OR contact_email IS NOT NULL))
+  );
+CREATE UNIQUE INDEX uq_client_conv_client  ON conversations(inbox_id, client_id) WHERE type = 'client' AND client_id IS NOT NULL;
+CREATE UNIQUE INDEX uq_client_conv_contact ON conversations(inbox_id, lower(contact_email)) WHERE type = 'client' AND client_id IS NULL;
+
+-- A topic = one email thread (one subject) inside a client conversation
+CREATE TABLE conversation_topics (
+  id                 SERIAL PRIMARY KEY,
+  tenant_id          INT NOT NULL,
+  conversation_id    INT NOT NULL REFERENCES conversations(id),
+  subject            VARCHAR(998) NOT NULL,
+  project_id         INT REFERENCES projects(id),           -- the project tag, NULL = no project
+  project_suggested  BOOLEAN NOT NULL DEFAULT false,         -- true = set by the "1 open project" rule, not confirmed yet
+  reply_token        VARCHAR(64) NOT NULL,                   -- Reply-To: reply-<token>@mail.<our-domain>
+  subject_code       VARCHAR(8)  NOT NULL,                   -- D3: '[#K7Q2M9]' at the end of the subject of every email sent from a Gmail inbox
+  created_by         INT REFERENCES users(id),               -- NULL = opened by the client
+  last_message_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX uq_topic_reply_token ON conversation_topics(reply_token);
+CREATE UNIQUE INDEX uq_topic_subject_code ON conversation_topics(conversation_id, subject_code);
+CREATE INDEX idx_topics_project ON conversation_topics(tenant_id, project_id);
+
+-- messages: an email message belongs to a topic; the email details are in message_emails
+ALTER TABLE messages
+  ADD COLUMN topic_id INT REFERENCES conversation_topics(id),
+  ALTER COLUMN sender_id DROP NOT NULL,
+  ADD CONSTRAINT chk_message_sender CHECK ((sender_type = 'contact') = (sender_id IS NULL));
+
+CREATE TABLE message_emails (
+  message_id           INT PRIMARY KEY REFERENCES messages(id),
+  tenant_id            INT NOT NULL,
+  direction            email_direction NOT NULL,
+  transport            email_transport,                      -- outbound only
+  inbox_id             INT NOT NULL REFERENCES email_inboxes(id),
+  header_message_id    VARCHAR(998),
+  in_reply_to          VARCHAR(998),
+  references_ids       TEXT[] NOT NULL DEFAULT '{}',
+  from_address         VARCHAR(255) NOT NULL,
+  from_name            VARCHAR(255),
+  to_addresses         TEXT[] NOT NULL,
+  cc_addresses         TEXT[] NOT NULL DEFAULT '{}',
+  subject              VARCHAR(998) NOT NULL,
+  html                 TEXT,                                 -- the email as it was (its style)
+  text_full            TEXT,                                 -- full text, quotes included; messages.content = clean text
+  skipped_attachments  JSONB NOT NULL DEFAULT '[]',          -- D2: [{ filename, reason: 'blocked_type' | 'too_large' }]
+  new_address          BOOLEAN NOT NULL DEFAULT false,       -- inbound from an address that is not the client's ("Add this address")
+  resend_email_id      VARCHAR(64),
+  gmail_message_id     VARCHAR(64),
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_message_emails_header ON message_emails(tenant_id, header_message_id);
+CREATE UNIQUE INDEX uq_message_emails_resend ON message_emails(resend_email_id) WHERE resend_email_id IS NOT NULL;
+
+-- Platform table (NO tenant scope, like stripe_events): one row per Resend webhook, for idempotency
+CREATE TABLE inbound_email_events (
+  id               SERIAL PRIMARY KEY,
+  resend_email_id  VARCHAR(64) NOT NULL UNIQUE,
+  payload          JSONB NOT NULL,
+  tenant_id        INT,                                      -- filled once routed, for support only
+  processed_at     TIMESTAMPTZ,
+  error            TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+- `email_addresses` is read **before** a tenant is known (the webhook). One explicit repository method runs on the unwrapped Prisma client (`findAddressForRouting`); nothing else bypasses the extension. Same for the reply token lookup (`findTopicByReplyToken`).
+- `inbound_email_events` is a platform table (no tenant scope, like `stripe_events`) — § 12.
+- A message of an email topic has `topic_id`; its email details are in `message_emails`. Files are `media` rows with `entity_type = 'email_attachment'`, `entity_id` = the message id.
+- The plan feature key `email_mailboxes` needs no DDL (`plan_features` is key/value).
+
 ---
 
 ## 10. Views — raw SQL in the migration
@@ -1349,7 +1530,7 @@ The multi-tenancy extension injects `where: { tenant_id }` into every query and 
 
 **Every business table has `tenant_id`, including child tables.** Only the platform tables are skipped — they are shared by everyone or owned by nobody:
 
-`tenants` · `admin_users` · `plans` · `plan_features` · `stripe_events` · `roles` · `refresh_tokens` · `one_time_codes`
+`tenants` · `admin_users` · `plans` · `plan_features` · `subscription_vat_rates` · `stripe_events` · `inbound_email_events` · `roles` · `refresh_tokens` · `one_time_codes`
 
 That is the whole list. One rule, no exceptions to remember.
 
@@ -1451,7 +1632,11 @@ These are service-layer rules. The schema above supports either answer.
 18. **Tenant analytics page.** Raised 2026-10-17: the owner wants a page with charts for the tenant admin. **Decided 2026-10-17** — a new `analytics` permission (admin + accountant view by default), on every plan; each block also needs the view right on its source module (option B, same as the dashboard); 7 blocks over a period (default last 12 months, max 24). New enum value `permission_module.analytics`, no table. See `doc/notes/analytics.md`.
 19. **Contacts page (employee directory).** Raised 2026-10-17: a read-only page with every employee as a card, details on click, never the hourly rate. **Decided 2026-10-17** — employees only; new `contacts` permission (view only); inactive users shown with a badge; 20 per page, cards only, search; details add assigned projects (manager or task assignee); own routes `GET /api/contacts` and `/api/contacts/:id`, `hourly_rate` never sent. New enum value `permission_module.contacts`, no table. Default: admin + manager (view), every plan. A user without `projects` view still sees a colleague's projects (name, status only). Only open projects (`prospect`, `in_progress`). See `doc/notes/contacts.md`.
 20. **Notes page (like Google Keep).** Raised 2026-10-17: each user saves private notes, rich text, Keep-like UI. **Decided 2026-10-17** — new enum value `permission_module.notes`, every role `own` by default (worker too); the admin removes it per role only; notes are private (the admin cannot read them). Independent (no project/client link), images allowed (media, count in plan storage), 7-day trash, every plan. Tables `notes`, `note_labels`, `note_label_links` in § 9; enum value `media_entity_type.note`. See `doc/notes/notes.md`.
-21. **Email with clients (company address + personal Gmail).** Raised 2026-10-18: staff talk with clients by email from ChantierOS; one chat per client with project-tagged topics. **Decided 2026-10-18** (owner) — all business rules in `NOTE/EMAIL-CONNECTIONS-PLAN.md` (to move into `doc/notes/client-email.md`). New enum values `permission_module.email`, `conversation_type.client`, `sender_type.contact`; tables `email_inboxes`, `email_addresses`, `client_emails`, `conversation_topics`, `message_emails`, `inbound_email_events` (platform) — DDL in `doc/notes/Phaces/25-client-email.md` § 3, to copy into § 9. **Still open:** D1 how a Gmail mailbox is billed (proposal: usage-based plan feature `email_mailboxes`, never blocks — this also sets the price per plan); D2 email attachments of a type or size chat does not allow (proposal: save the allowed ones, list the others by name); D3 spike — does Gmail keep our own `Message-ID`.
+21. **Email with clients (company address + personal Gmail).** Raised 2026-10-18: staff talk with clients by email from ChantierOS; one chat per client with project-tagged topics. **Decided 2026-10-18** (owner) — all business rules in `doc/notes/client-email.md`. New enum values `permission_module.email`, `conversation_type.client`, `sender_type.contact`; tables `email_inboxes`, `email_addresses`, `client_emails`, `conversation_topics`, `message_emails`, `inbound_email_events` (platform) — DDL in § 9 (Client email). **D1 decided 2026-10-18:** a Gmail mailbox is billed like employees — plan feature `email_mailboxes` (allowance + overage rate per plan), counted at renewal, never blocks, no buy button. **D2 decided 2026-10-18:** new media type `email_attachment` — PDF, images, Office, ZIP, TXT, CSV up to 25 MB; executables and scripts blocked (listed by name). **D3 decided 2026-10-18:** spike showed Resend and Gmail replace our `Message-ID`; option B — company inbox uses a reply-token `Reply-To`, a personal Gmail sends with no `Reply-To` (reply goes to the user's Gmail, back by forward) and every email it sends ends its subject with the topic code `[#K7Q2M9]` (`conversation_topics.subject_code`); a reply is matched by that code, then `References`, else a new topic — no guessing by subject; a wrongly placed email can be moved to another topic.
+
+22. **TVA on the subscription.** Raised 2026-10-20: plan prices had no TVA (`managed_payments` off, "decide later"). **Decided 2026-10-20** (owner) — we set the TVA ourselves with Stripe TaxRates (no Stripe Tax), seller country `SELLER_COUNTRY=BE`, prices HT, new platform table `subscription_vat_rates` managed by the super-admin (one rate per country, `is_eu`, `is_active`), EU reverse charge for another EU country with a TVA number, `tenants.country` required by the API, no country / unsupported country = cannot pay, changes from the next invoice, HT / TVA / TTC read from Stripe in both histories and the emails. Rule: `doc/notes/subscription-plans.md` § TVA on the subscription; build `doc/notes/Phaces/27-subscription-tva.md`. **Decided 2026-10-20:** Q9 the TVA number is checked with VIES (valid → reverse charge; invalid or busy → normal rate; busy retried), switched off by `VAT_NUMBER_CHECK=off` for dev / test servers (format only, fake numbers allowed) — new columns `tenants.vat_number_status`, `vat_number_checked_at`; Q10 a country where companies pay by card cannot be closed; Q11 only active TVA-table countries can be chosen. Nothing left open.
+
+23. **A TVA number from another country than the company.** Raised 2026-10-20 (step 27 build): a French company could save a Belgian number (`BE…`); VIES says valid, so it gets the reverse charge. Should the prefix have to match the company country (Greece = `EL`)? Today: not checked. Same item in `doc/notes/A_progress-tracker.md`.
 
 ## Related notes
 

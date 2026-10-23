@@ -1,4 +1,8 @@
-import { defaultPermission, resolvePermission } from './permission.helper';
+import {
+  defaultPermission,
+  isNeverGranted,
+  resolvePermission,
+} from './permission.helper';
 
 describe('default permission matrix — the worker', () => {
   it.each(['tasks', 'reports'] as const)(
@@ -40,5 +44,47 @@ describe('default permission matrix — the worker', () => {
         },
       ]).canCreate,
     ).toBe(true);
+  });
+});
+
+describe('default permission matrix — "Connecter un Gmail" (email_gmail)', () => {
+  it('admin only by default: the admin may connect a Gmail', () => {
+    expect(defaultPermission('admin', 'email_gmail').canCreate).toBe(true);
+  });
+
+  it.each([
+    'manager',
+    'sales',
+    'accountant',
+    'site_supervisor',
+    'team_leader',
+  ] as const)(
+    '%s: no Gmail connect by default (but email stays as it is)',
+    (role) => {
+      expect(defaultPermission(role, 'email_gmail').canCreate).toBe(false);
+    },
+  );
+
+  it('manager and sales still answer clients (email full)', () => {
+    expect(defaultPermission('manager', 'email').canCreate).toBe(true);
+    expect(defaultPermission('sales', 'email').canCreate).toBe(true);
+  });
+
+  it('the admin can grant it to a role through an override', () => {
+    const resolved = resolvePermission('manager', 'email_gmail', [
+      {
+        module: 'email_gmail',
+        canView: true,
+        canCreate: true,
+        canEdit: false,
+        canDelete: false,
+        scope: 'all',
+      } as never,
+    ]);
+    expect(resolved.canCreate).toBe(true);
+  });
+
+  it('the worker can never get it', () => {
+    expect(isNeverGranted('worker', 'email_gmail')).toBe(true);
   });
 });

@@ -25,6 +25,9 @@ import { MarkReadHandler } from './handlers/mark-read.handler';
 import { SendMessageHandler } from './handlers/send-message.handler';
 import { UnreadCountHandler } from './handlers/unread-count.handler';
 import { FindContactsHandler } from './handlers/find-contacts.handler';
+import { ReceiveInboundEmailHandler } from './handlers/receive-inbound-email.handler';
+import { InboundEmailInput } from './dto/inbound-email-input.dto';
+import { ConversationRepository } from './repositories/conversation.repository';
 import { ChatIdentity } from './helpers/chat-access.helper';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
@@ -47,6 +50,8 @@ export class ChatService {
     private readonly createSupportConversationHandler: CreateSupportConversationHandler,
     private readonly findSupportConversationHandler: FindSupportConversationHandler,
     private readonly adminAddSupportMember: AdminAddSupportMemberHandler,
+    private readonly receiveInboundEmailHandler: ReceiveInboundEmailHandler,
+    private readonly conversations: ConversationRepository,
   ) {}
 
   create(dto: CreateConversationDto, actor: AuthenticatedUser) {
@@ -181,5 +186,28 @@ export class ChatService {
     adminUserId: number,
   ) {
     return this.adminAddSupportMember.execute(ticketId, tenantId, adminUserId);
+  }
+
+  // ---- Internal API for step 25 (inbound-email) ----
+
+  /**
+   * The webhook's `reply-<token>@…` lookup, before any tenant is known: the
+   * topic and the tenant + inbox it belongs to, or null.
+   */
+  async findReplyTopic(token: string) {
+    const topic =
+      await this.conversations.findTopicByReplyTokenForRouting(token);
+    return topic && topic.conversation.inboxId
+      ? {
+          topicId: topic.id,
+          tenantId: topic.tenantId,
+          inboxId: topic.conversation.inboxId,
+        }
+      : null;
+  }
+
+  /** One received email → a message of a client chat. Null = already saved. */
+  receiveInboundEmail(input: InboundEmailInput) {
+    return this.receiveInboundEmailHandler.execute(input);
   }
 }

@@ -1,157 +1,540 @@
-# Phase 19 — Email with clients
+# Phase 19 — Email with clients (test plan)
 
-> Read [00-START-HERE.md](00-START-HERE.md) first. Build: [../Phaces/25-client-email.md](../Phaces/25-client-email.md). Rules: [NOTE/EMAIL-CONNECTIONS-PLAN.md](../../../NOTE/EMAIL-CONNECTIONS-PLAN.md) (or `doc/notes/client-email.md` once step 25 task A1 is done).
->
-> **Status: todo** — run after step 25 is built.
+> Rules: [../client-email.md](../client-email.md). Build: [../Phaces/25-client-email.md](../Phaces/25-client-email.md). **Status:** in progress. Company used: **"Eya Jarraya"** (the only company left after the reset of 2026-10-19).
 
-## Goal
+## How to use this file
 
-Prove every rule of email with clients: the company address (shared inbox), a personal Gmail (private inbox), one chat per client with project-tagged topics, replies in the same thread, alerts, access, disconnection and GDPR delete.
+Each test says:
 
-## Before you start
+- **Who** — the person who does the action, and from which mailbox or account
+- **Do** — what to click or what email to send
+- **Look** — where to check
+- **You should see** — what is correct
 
-| Thing | Value |
-|---|---|
-| API | `http://localhost:5300/api` — **the owner starts it**, never the test runner |
-| Public URL | ngrok on port 5300 (`ngrok http 127.0.0.1:5300`). The free URL changes at each restart → update the Resend webhook |
-| Resend | Domain `mail.<domain>` verified (send + receive). Webhook `email.received` → `<ngrok>/api/webhooks/resend-inbound`. Secret in `RESEND_WEBHOOK_SECRET` |
-| Google | Project in **Testing**, scope `gmail.send`, test users = the Gmail accounts below. Redirect URI = `GOOGLE_REDIRECT_URI` |
-| Env | `EMAIL_TOKEN_ENCRYPTION_KEY`, `INBOUND_EMAIL_DOMAIN` set |
-| Database | `docker exec chantieros_postgres psql -U chantieros -d chantieros` |
+When the test is correct, tick the box: `- [ ]` → `- [x]`. If not, leave it open and write what you saw under it.
 
-### The people (company A)
-
-| Who | Email | Role | In this phase |
-|---|---|---|---|
-| Owner | `othmanefadelkheir218@gmail.com` | admin | Shared inbox, admin actions. **Also connects this Gmail** (personal inbox) |
-| Manager | `zakariyazouazou@gmail.com` | manager | Shared inbox, tags |
-| Sales | `zakariyazouazou+sales@gmail.com` | sales | Has `email` by default |
-| Accountant | `zakariyazouazou+accountant@gmail.com` | accountant | **No** `email` → must be refused |
-| Worker | `winucardit@gmail.com` | worker | **Never** `email` |
-| Client of A | `gryehirir@gmail.com` | client with 2 projects | Known client |
-| Unknown contact | `eyajarraya771@gmail.com` | not a client | Unknown sender, then "Create client" |
-| Company B owner | `industrytechnology198@gmail.com` | admin of B | Isolation |
-
-Before section 3: client `gryehirir@gmail.com` has **2 open projects** (`TEST Salle de bain`, `TEST Cuisine`). Create the second one if missing. Every record created starts with `TEST`.
-
-### The "you check" tags (same as the other phases)
-
-**[CHECK EMAIL]** open the inbox, find the email · **[SEND EMAIL]** send the email described from the named inbox · **[REPLY]** click Reply in the named inbox on the named email · **[GMAIL SETTING]** do the step in Gmail settings · **[CHECK SCREEN]** look at the frontend page.
+🤖 = a technical check (the API or the database). You don't do it: ask Claude, "run test 1.3".
 
 ---
 
-## 1. Setup and permission
+## The cast
 
-| ID | Do | Expected | Result |
-|---|---|---|---|
-| EML-01 | `GET /api/roles/permissions` as the owner | `email` module listed; defaults admin/manager/sales full, others none, worker none; 7 roles × 20 modules | todo |
-| EML-02 | Owner `PATCH /api/email-inboxes/company { local_part: "test-alpha" }` | `200`, address `test-alpha@mail.<domain>`, `is_primary true` | todo |
-| EML-03 | Same as B owner `{ local_part: "test-alpha" }`; `"reply-x"`; `"A B"`; `"ab"` | `409`; `400`; `400`; `400` | todo |
-| EML-04 | Manager `PATCH /api/email-inboxes/company` (no `settings` edit) | `403` | todo |
-| EML-05 | Accountant and worker: `GET /api/email-inboxes`, `GET /api/client-chats` | `403` each | todo |
-| EML-06 | `GET /api/email-inboxes` as sales | `200`, company inbox, no Gmail inbox yet | todo |
+### Company A — "Eya Jarraya"
 
-## 2. Webhook security
+| Name in this file | Logs in with | Role |
+| --- | --- | --- |
+| **Eya** | `eyajarraya771@gmail.com` | boss (admin) |
+| **Manager** | `manager_eyajarraya771@gmail.com` | manager |
+| **Sales** | `sales_eyajarraya771@gmail.com` | sales |
+| **Accountant** | `accountant_eyajarraya771@gmail.com` | accountant (no email right) |
+| **Ahmed** | his login code, on the phone | worker (never email) |
 
-| ID | Do | Expected | Result |
-|---|---|---|---|
-| EML-07 | `POST /api/webhooks/resend-inbound` with no svix headers; with a wrong signature | `400`, `400`, no row in `inbound_email_events` | todo |
-| EML-08 | Resend dashboard → webhook → **Resend** the same delivery twice (after EML-10) | `200` both times, **one** event row, **one** message | todo |
+The Manager, Sales and Accountant emails are not real mailboxes: emails sent **to** them never arrive. Logging in works.
 
-## 3. Company inbox — receive
+### Company A's two mailboxes
 
-| ID | Do | Expected | Result |
-|---|---|---|---|
-| EML-09 | **[SEND EMAIL]** from `gryehirir@gmail.com` to `test-alpha@mail.<domain>`, subject `TEST Question carrelage`, text "Bonjour, quelle couleur ?" + a small JPEG | Log `process-inbound-email` done. One `client` conversation (inbox = company, `client_id` = the client), **one topic** `TEST Question carrelage` | todo |
-| EML-10 | `GET /api/client-chats` as owner, manager, sales | the chat is listed for all 3 (shared inbox), unread 1 | todo |
-| EML-11 | `GET /api/client-chats/:id/topics/:topicId/messages` | `content` = clean text only, `email.html` present, 1 attachment (the JPEG, `media.entity_type = message`) | todo |
-| EML-12 | Topic tag (client has **2** open projects) | `project_id null`, alert `new_email` payload `needs_project: true` | todo |
-| EML-13 | DB `notifications` | one `new_email` row for owner, manager, sales — none for accountant / worker | todo |
-| EML-14 | **[CHECK EMAIL]** alert email: owner has the app **closed** (no socket) → gets it; manager keeps a tab open (socket connected) → **no** email, in-app only | as stated | todo |
-| EML-15 | **[SEND EMAIL]** from `gryehirir@gmail.com`, attachments: a `.docx` and a 12 MB PDF | Message saved; `email.skipped_attachments` lists both with a reason; nothing in media for them (D2) | todo |
-| EML-16 | Auto-reply: **[SEND EMAIL]** from an inbox with a holiday auto-reply on, or send with header `Auto-Submitted: auto-replied` (Resend send script) | event processed, **no** message, **no** alert | todo |
-| EML-17 | **[SEND EMAIL]** to `nobody-xyz@mail.<domain>` | event row `error` "unknown address", no message anywhere | todo |
+| Mailbox | Address | Who reads it in the app |
+| --- | --- | --- |
+| **Company address** | `jarraya@mail.zouadev.com` | Eya, Manager, Sales (shared) |
+| **Eya's Gmail** | `eyajarraya771@gmail.com` | **Eya only** (private) |
 
-## 4. Company inbox — send and thread
+Both work at the same time.
 
-| ID | Do | Expected | Result |
-|---|---|---|---|
-| EML-18 | Manager `POST /api/client-chats/topics/:topicId/reply { content: "TEST Blanc ou gris ?" }` | `201`; message `direction outbound`, `transport resend` | todo |
-| EML-19 | **[CHECK EMAIL]** `gryehirir@gmail.com` | From **"TEST Alpha Renovation"** `<test-alpha@mail.<domain>>`, in the **same Gmail thread**, Reply-To `reply-…@mail.<domain>` | todo |
-| EML-20 | **[REPLY]** from `gryehirir@gmail.com` on that email: "Gris merci" | lands in the **same topic**, quoted text cut off, `content` = "Gris merci" | todo |
-| EML-21 | Owner on the project page context: `POST /api/client-chats/emails { to: "gryehirir@gmail.com", subject: "TEST Devis cuisine", content: "…", project_id: <Cuisine> }` | `201`, **new topic** in the **same client chat**, tagged `TEST Cuisine` | todo |
-| EML-22 | **[REPLY]** to EML-21's email | same topic, tag `TEST Cuisine` kept (no `needs_project`) | todo |
-| EML-23 | **[SEND EMAIL]** from a second address of the client (e.g. `gryehirir+work@gmail.com`) as **Reply** on EML-21's thread | same topic; message flagged `new_address`; **no** `client_emails` row yet | todo |
-| EML-24 | `POST /api/client-chats/:id/add-address { email: "gryehirir+work@gmail.com" }` | `201`, `client_emails` row; a **new** email from that address now matches the client | todo |
-| EML-25 | Reply in EML-23's topic | goes to `gryehirir+work@gmail.com` (the client's **last** address in that topic) | todo |
+### Outside people
 
-## 5. Project tags
-
-| ID | Do | Expected | Result |
-|---|---|---|---|
-| EML-26 | Manager `PATCH /api/client-chats/topics/<EML-09 topic>/project { project_id: <Salle de bain> }` | `200`, tag set, `project_suggested false` | todo |
-| EML-27 | Sales same call (no `projects` edit) | `403` | todo |
-| EML-28 | `project_id` of another client's project; of company B | `400`; `404` | todo |
-| EML-29 | Archive `TEST Cuisine` (client now has **1** open project). **[SEND EMAIL]** new subject from the client | new topic **suggested** `TEST Salle de bain`, `project_suggested true`, `needs_project false` | todo |
-| EML-30 | `GET /api/projects/<Salle de bain>/email-topics` | EML-09 and EML-29 topics only | todo |
-| EML-31 | `GET /api/client-chats/:id` | topics = the email topics **plus** the client's portal conversation(s) as 💬 (if a portal link exists) | todo |
-
-## 6. Unknown contact
-
-| ID | Do | Expected | Result |
-|---|---|---|---|
-| EML-32 | **[SEND EMAIL]** from `eyajarraya771@gmail.com` to the company address | `client` conversation with `client_id null`, `contact_email` set, `sender_type contact`; listed with `?unknown=true` | todo |
-| EML-33 | `POST /api/client-chats/:id/create-client` as manager | `201` client `TEST`-named from the email; the conversation now has `client_id`; a new email from Eya lands in it | todo |
-| EML-34 | Same as accountant | `403` | todo |
-
-## 7. Personal Gmail inbox
-
-| ID | Do | Expected | Result |
-|---|---|---|---|
-| EML-35 | Owner `POST /api/email-inboxes/gmail/connect` → open `url`, log in as `othmanefadelkheir218@gmail.com`, **leave the send box unchecked** | callback redirects with `?gmail=error`, no inbox row | todo |
-| EML-36 | Again, **check the box** | redirect `?gmail=connected`; inbox `kind gmail`, `status active`; `refresh_token_encrypted` is **not** readable text in the DB; forward address `test-alpha.<random>` | todo |
-| EML-37 | **[GMAIL SETTING]** in that Gmail: Forwarding → add the forward address | Gmail's confirmation arrives: inbox `forward_confirm_url` set, owner alert `email_forward_confirm` → open the link → confirm. Then turn forwarding on | todo |
-| EML-38 | **[SEND EMAIL]** from `eyajarraya771@gmail.com` to `othmanefadelkheir218@gmail.com` | forwarded → a chat in the **owner's Gmail inbox**; alert to the owner **only** | todo |
-| EML-39 | Manager and sales: `GET /api/client-chats` | the Gmail chat is **not** listed; `GET /:id` → `404`; socket `join` → `404` | todo |
-| EML-40 | Owner replies in that topic | `transport gmail`; **[CHECK EMAIL]** Eya gets it **from `othmanefadelkheir218@gmail.com`**, same thread; it is in the owner's Gmail **Sent** | todo |
-| EML-41 | **[REPLY]** from Eya | back through the forward into the **same topic** | todo |
-| EML-42 | Owner sets the tag on this topic; manager tries | `200`; `404` | todo |
-| EML-43 | `GET /api/email-inboxes` as owner (admin) | sees all Gmail inboxes of the company with status, no content | todo |
-
-## 8. Disconnection
-
-| ID | Do | Expected | Result |
-|---|---|---|---|
-| EML-44 | Revoke at Google: myaccount.google.com → Security → Third-party apps → ChantierOS → remove. Then owner replies in the Gmail topic | `409` "Your Gmail is disconnected"; inbox `disconnected`; alert `email_mailbox_disconnected` (in-app + **[CHECK EMAIL]**); **nothing sent** from the company address | todo |
-| EML-45 | Reconnect (EML-36 again) | same inbox back to `active`, old chats readable again | todo |
-| EML-46 | Connect sales' Gmail (`zakariyazouazou+sales@gmail.com` must be a Google test user, or use another test Gmail). Owner `DELETE /api/users/<sales>` | sales' Gmail inbox `removed`, token wiped; their chats readable by nobody (owner `404`) | todo |
-| EML-47 | Manager `DELETE /api/email-inboxes/<owner's Gmail>` | `403`; owner (admin) deleting another user's inbox → `200` | todo |
-
-## 9. GDPR delete, isolation, billing
-
-| ID | Do | Expected | Result |
-|---|---|---|---|
-| EML-48 | Manager `DELETE /api/client-chats/<Eya chat>` | `403` | todo |
-| EML-49 | Owner same | `200`; conversation, topics, messages, `message_emails`, reads and media gone (DB + **[CHECK IMAGEKIT]**); one `audit_logs` row `gdpr_delete` | todo |
-| EML-50 | B owner: `GET /api/client-chats` → `total 0`; A's chat, topic messages, reply, tag, delete → `404` | no foreign row written | todo |
-| EML-51 | Body with `tenant_id` on `POST /api/client-chats/emails` | `400` | todo |
-| EML-52 | **(only if D1 = feature key)** super-admin plan version with `email_mailboxes` 1 / `5.00`; company has 2 Gmail inboxes not removed → run renewal (`POST /api/admin/billing/run-renewal/:tenantId`) | snapshot `email_mailboxes` actual 2, overage `5.00`; connecting the 2nd Gmail was **not** blocked | todo |
-
-## 10. Frontend (owner, in the browser)
-
-| ID | Do | Expected | Result |
-|---|---|---|---|
-| EML-UI-01 | **[CHECK SCREEN]** `/fr/settings/email` as owner | company address + change, "Connecter mon Gmail", forward address with copy button and the Gmail steps, list of mailboxes with status | todo |
-| EML-UI-02 | `/fr/chat` → tab **Clients** | chats with 📧/💬, unread badge, "Contact inconnu" for Eya before EML-33 | todo |
-| EML-UI-03 | Open the client chat | topics column (subject, tag, "À lier", ⚠️ new address); thread with the original email (style) and the clean text switch; attachments with preview | todo |
-| EML-UI-04 | "Nouvel email" on the client page and on a project page | send-from choice (company / my Gmail); project pre-filled on the project page | todo |
-| EML-UI-05 | Project → tab **Emails** | only that project's topics | todo |
-| EML-UI-06 | Bell | `new_email` with the right icon and text; click opens the chat on the topic | todo |
-| EML-UI-07 | Log in as accountant and worker | no Clients tab, no Emails tab, no Settings → Email | todo |
-| EML-UI-08 | Settings → Roles | row "Email" (label from `fr.json`) | todo |
+| Name in this file | Email | Who they are |
+| --- | --- | --- |
+| **Othmane** | `othmanefadelkheir218@gmail.com` | a client of Eya (client "othmane"), 2 open projects: **"Rénovation complète salle de bain parentale"** and **"TEST Cuisine"** |
+| **Othmane (work)** | `othmanefadelkheir218+work@gmail.com` | Othmane's second address. Gmail delivers it to Othmane's normal inbox |
+| **Winu** | `winucardit@gmail.com` | a stranger, not a client |
+| **Zakariya** | `zakariyazouazou@gmail.com` | boss of **another** company ("hubchoose") |
 
 ---
+
+## 0. Before the tests
+
+Every time, before you test:
+
+- [ ] 
+
+- \[ \]
+- \[ \]
+- \[ \]
+- \[ \]
+- \[ \]
+- \[ \]
+- The API runs in your terminal (port 5300)
+- ngrok runs on port 5300, and the Resend webhook points to the ngrok address
+- You are logged in on the website as the person the test names
+
+- [x] **0.1 — Delete the old test chats** — done 2026-10-19 (4 chats deleted)
+
+- [x] **0.2 — Create the client "othmane"** with `othmanefadelkheir218@gmail.com`
+
+- [x] **0.3 — Create his 2 projects** (prospect or in progress)
+
+- [x] **0.4 — Create Manager, Sales, Accountant, and company B for Zakariya**
+
+---
+
+## 1. Who can use email
+
+- [x] **1.1 — The "Email" right exists**
+
+  - Who: Eya
+  - Do: menu **Paramètres → Rôles**
+  - You should see: a row **Email**. Admin, Manager, Sales = full. Accountant and Worker = no access
+  - *Done 2026-10-18*
+
+- [x] **1.2 — The company address is set**
+
+  - Who: Eya
+  - Do: **Paramètres → Email**
+  - You should see: **Adresse de l'entreprise** = `jarraya@mail.zouadev.com`
+  - *Done 2026-10-19*
+
+- [x] **1.3 — Another company cannot take the same address**
+
+  - Who: Zakariya (company B)
+  - Do: **Paramètres → Email** → in "Nom de l'adresse" type `jarraya` → **Choisir**. Then try `Jarraya` (capital J)
+  - You should see: the error "Cette adresse est déjà prise." both times
+
+- [x] **1.4 — A bad address name is refused**
+
+  - Who: Zakariya
+  - Do: same place, try `ab` (too short), then `a b` (a space), then `reply-test` (reserved word)
+  - You should see: "Adresse non valide." each time
+
+- [x] **1.5 — The Manager cannot change the company address**
+
+  - Who: Manager
+  - Do: open **Paramètres**
+  - You should see: no **Email** settings page, or no **Changer** button
+
+- [x] **1.6 — The Accountant and Ahmed have no email**
+
+  - Who: Accountant, then Ahmed on the phone
+  - Do: open **Messages**
+  - You should see: no **Clients** tab, and no **Paramètres → Email**
+
+- [x] **1.7 — Sales sees the company address but not Eya's Gmail**
+
+  - Who: Sales
+  - Do: **Paramètres → Email**, then **Messages → Clients**
+  - You should see: the company address. **Nothing** from Eya's Gmail
+
+- [ ] **1.8 — Only the admin can connect a Gmail by default** _(new 2026-10-19)_
+  - Who: Manager, then Sales
+  - Do: **Paramètres → Email**
+  - You should see: **no** "Mon Gmail" card and **no** "Connecter mon Gmail" button. They still see the company address, and still answer clients in **Messages → Clients**
+  - And: Eya (admin) still sees **Connecter un autre Gmail**
+
+- [ ] **1.9 — The admin gives the right to a role**
+  - Who: Eya
+  - Do: **Paramètres → Rôles** → role **Manager** → row **Connecter un Gmail** → turn it on
+  - Then: the Manager reloads **Paramètres → Email**
+  - You should see: the "Mon Gmail" card with **Connecter mon Gmail**. Turn it off again after the test → the button is gone
+
+- [ ] **1.10 — The worker can never get it**
+  - Who: Eya
+  - Do: **Paramètres → Rôles** → role **Worker** → try to turn on **Connecter un Gmail**
+  - You should see: refused
+
+## 2. Security of the incoming door
+
+- [x] **2.1 — 🤖 A fake email call is refused** — *done 2026-10-18*
+
+- [x] **2.2 — 🤖 The same email sent twice is saved once** (click "Resend" on a delivery in the Resend dashboard)
+
+  - *Done 2026-10-19: replay answered* `200`*, log "already on file"; email* `4fe1f0d8…` *= 1 event, 1 message*
+
+## 3. A client writes to the company address
+
+- [x] **3.1 — Othmane writes to the company**
+
+  - Who: Othmane, in his Gmail
+  - Do: send an email **to** `jarraya@mail.zouadev.com`. Subject: `TEST Question carrelage`. Text: "Bonjour, quelle couleur ?". Attach a small photo (JPG)
+  - Look: Eya → **Messages → Clients**
+  - You should see: a chat **othmane** with a topic **TEST Question carrelage**, the text and the photo
+
+- [x] **3.2 — Everyone with the email right sees it**
+
+  - Who: Eya, then Manager, then Sales
+  - Look: **Messages → Clients**
+  - You should see: the chat **othmane** for all 3, with an unread badge
+
+- [x] **3.3 — The topic asks to choose a project**
+
+  - Look: the topic **TEST Question carrelage**
+  - You should see: the label **À lier** (Othmane has 2 open projects, so the app does not guess)
+
+- [x] **3.4 — The right people get the bell alert**
+
+  - Look: the bell 🔔 of Eya, Manager, Sales, then of the Accountant
+  - You should see: "new email" for Eya, Manager and Sales. **Nothing** for the Accountant
+
+- [x] **3.5 — Alert email only when you are not in the app**
+
+  - Do: close the app for Eya. Keep the Manager's tab open. Othmane sends a new email to the company address
+  - Look: Eya's Gmail inbox
+  - You should see: Eya gets an alert email. The Manager gets only the bell (no email)
+
+- [x] **3.6 — Office files are kept**
+
+  - Who: Othmane
+  - Do: send to the company address a Word file (.docx), an Excel file (.xlsx), a .zip, and a big PDF (about 15 MB)
+  - You should see: the 4 files in the chat
+
+- [x] **3.7 — Dangerous or too big files are not kept**
+
+  - Who: Othmane
+  - Do: send a file renamed `setup.exe`, and a file bigger than 25 MB (if Gmail refuses, skip the big one)
+  - You should see: the email is there, with "non enregistré pour la sécurité" for setup.exe and "non enregistré (plus de 25 Mo)" for the big file
+
+- [x] **3.8 — Holiday auto-replies are ignored**
+
+  - Who: Othmane — turn on "Vacation responder" in his Gmail settings
+  - Do: Eya → **Nouvel email** → Envoyer depuis: **Mon Gmail** → to Othmane. His Gmail answers by itself (send from **Mon Gmail**: Gmail sends vacation answers to the technical bounce address of a company-address email, so that answer never reaches the app)
+  - You should see: the automatic answer does **not** appear in the app, and no bell alert
+  - Then: turn the vacation responder off
+  - *Done 2026-10-19: answer "vacation message Re: test_gmail" reached the app and was skipped ("ignored: auto-reply"), no message, no alert*
+
+- [x] **3.9 — 🤖 An email to an unknown address of ours is dropped** (Othmane sends to `nobody-xyz@mail.zouadev.com`; Claude checks the logs)
+
+  - *Done 2026-10-19: "unknown address", nothing saved*
+
+- [ ] **3.10 — Our own alert emails never loop** *(fixed 2026-10-19, test again)*
+
+  - Do: Eya's Gmail forwards everything. Close the app for Eya (so alerts go by email). Othmane sends an email to Eya's Gmail
+  - Look: **Messages → Clients** and the bell, for 1 minute
+  - You should see: Othmane's email once, one bell alert, and **no** chat "noreply@zouadev.com" growing. (Before the fix: a new topic every 5 seconds until Resend's daily limit)
+
+## 4. The company answers from the company address
+
+- [x] **4.1 — The Manager replies**
+
+  - Who: Manager
+  - Do: open topic **TEST Question carrelage**, write "TEST Blanc ou gris ?", click **Envoyer**
+  - Look: Othmane's Gmail
+  - You should see: the email comes **from "Eya Jarraya"** `jarraya@mail.zouadev.com`, and it is **in the same Gmail conversation** as his first email
+
+- [x] **4.2 — The Manager replies with files**
+
+  - Who: Manager
+  - Do: same topic, click **Joindre un fichier**, add a JPG, a PNG and a .txt, write a short text, **Envoyer**
+  - Look: Othmane's Gmail
+  - You should see: the 3 files attached. In the app: the 3 files under the message
+
+- [x] **4.3 — Othmane replies, and it lands in the same topic**
+
+  - Who: Othmane, in his Gmail
+  - Do: click **Reply** on the Manager's email, write "Gris merci", send
+  - Look: Eya → the topic **TEST Question carrelage**
+  - You should see: "Gris merci" in the **same topic**, without the old quoted text
+
+- [x] **4.4 — Eya writes a new email from a project page**
+
+  - Who: Eya
+  - Do: open project **TEST Cuisine** → tab **Emails** → **Nouvel email**. Envoyer depuis: **Adresse entreprise**. Objet: `TEST Devis cuisine`. Write a text, **Envoyer**
+  - You should see: a **new topic** in the same chat **othmane**, already linked to **TEST Cuisine**
+
+- [x] **4.5 — Othmane replies to it**
+
+  - Who: Othmane, **Reply** in his Gmail
+  - You should see: the answer in topic **TEST Devis cuisine**, still linked to **TEST Cuisine**
+
+- [x] **4.6 — Othmane replies from his second address**
+
+  - Who: Othmane, from `othmanefadelkheir218+work@gmail.com` (in Gmail: choose this address in "From", or use another mail app)
+  - Do: **Reply** on the "TEST Devis cuisine" email
+  - You should see: the answer in the same topic, with the warning "⚠️ Écrit depuis une adresse inconnue pour ce client." and a button **Ajouter cette adresse**
+
+- [x] **4.7 — Eya adds the second address**
+
+  - Who: Eya
+  - Do: click **Ajouter cette adresse**
+  - You should see: "…ajoutée au client." Then a **new** email from `+work` goes straight into Othmane's chat
+
+- [x] **4.8 — The reply goes to the address the client used last**
+
+  - Who: Eya, reply in that topic
+  - Look: who receives it
+  - You should see: it is sent to `othmanefadelkheir218+work@gmail.com`
+
+## 5. Linking topics to projects
+
+- [x] **5.1 — The Manager links a topic**
+
+  - Who: Manager
+  - Do: topic **TEST Question carrelage** → **Lier à un projet** → choose **Rénovation complète salle de bain parentale**
+  - You should see: "Projet enregistré." and the label **À lier** is gone
+
+- [x] **5.2 — Sales cannot link**
+
+  - Who: Sales
+  - Do: try the same on another topic
+  - You should see: no **Lier à un projet** button, or an error
+
+- [x] **5.3 — Only Othmane's projects can be chosen**
+
+  - Who: Manager
+  - Do: open **Lier à un projet**
+  - You should see: only Othmane's 2 projects in the list, not "Cuisine Peeters" or other clients' projects
+
+- [x] **5.4 — With one open project, the app suggests it**
+
+  - Do: Eya cancels project **TEST Cuisine**. Then Othmane sends a **new** email (new subject `TEST Nouvelle question`) to the company address
+  - You should see: the new topic shows **Rénovation complète salle de bain parentale** with the word **suggéré** and a **Confirmer** button
+
+- [ ] **5.5 — The project page shows only its emails**
+
+  - Who: Eya
+  - Do: open project **Rénovation complète salle de bain parentale** → tab **Emails**
+  - You should see: only the topics linked to this project (3.1 and 5.4)
+
+## 6. A stranger writes
+
+- [x] **6.1 — Winu writes to the company**
+
+  - Who: Winu, from `winucardit@gmail.com`
+  - Do: send any email to `jarraya@mail.zouadev.com`
+  - Look: **Messages → Clients**
+  - You should see: a chat marked **Contact inconnu**
+
+- [x] **6.2 — The Manager makes him a client**
+
+  - Who: Manager
+  - Do: open that chat → **Créer le client**. Name and email are filled. Add a phone → **Créer le client**
+  - You should see: "Client créé…". The chat now shows the client name. A new email from Winu goes into this chat
+
+- [x] **6.3 — The Accountant cannot do it**
+
+  - Who: Accountant
+  - You should see: he cannot even open client chats
+
+## 7. Eya connects her Gmail
+
+Eya's Gmail is already connected, so 7.2 to 7.6 are done. To test them again: **Retirer** first (test 9.3), then start at 7.1.
+
+- [x] **7.1 — A warning comes before Google**
+
+  - Who: Eya
+  - Do: **Paramètres → Email → Connecter un autre Gmail**
+  - You should see: the window **"Avant de connecter votre Gmail"** (all your emails will arrive; advice: a company Gmail or a filter). **Annuler** closes it. **J'ai compris, continuer** opens Google
+
+- [x] **7.2 — Without the "send" permission, it refuses**
+
+  - Do: at Google, do **not** tick "Envoyer des e-mails en votre nom"
+  - You should see: "Cochez « Envoyer des emails en votre nom » chez Google, puis recommencez."
+  - *Done 2026-10-19*
+
+- [x] **7.3 — With the permission, it connects**
+
+  - Do: tick the box
+  - You should see: "Votre Gmail est connecté." and the status 🟢 **Connecté**
+  - *Done 2026-10-19*
+
+- [x] **7.4 — Gmail checks the forward address**
+
+  - Who: Eya, in Gmail
+  - Do: Gmail → Settings → **Forwarding and POP/IMAP** → **Add a forwarding address** → paste the address shown in the app → open the confirm link (in the app or in the bell) → **Confirm**
+  - You should see: "Confirmation Success!"
+  - *Done 2026-10-19*
+
+- [x] **7.5 — Turn the forward on**
+
+  - Do: reload Gmail → **Forward a copy of incoming mail to** → choose the address in the list → **Save Changes**
+  - *Done 2026-10-19*
+
+- [x] **7.6 — The setup steps hide by themselves**
+
+  - Look: **Paramètres → Email**, after the first forwarded email
+  - You should see: "Transfert actif…" and a **Voir la configuration** button
+  - *Done 2026-10-19*
+
+## 8. Emails through Eya's Gmail
+
+- [x] **8.1 — Othmane writes to Eya's Gmail**
+
+  - Who: Othmane
+  - Do: send an email **to** `eyajarraya771@gmail.com`
+  - You should see: a chat in Eya's **Messages → Clients**, filter **Mon Gmail**. Bell alert for Eya **only**
+  - *Done 2026-10-19*
+
+- [x] **8.2 — Nobody else sees Eya's Gmail**
+
+  - Who: Manager, then Sales
+  - Look: **Messages → Clients**
+  - You should see: **no** chat from Eya's Gmail
+
+- [x] **8.3 — Eya replies, and it stays in the same conversation** *(fixed 2026-10-19, test again)*
+
+  - Who: Eya
+  - Do: reply in that Gmail topic, **Envoyer**
+  - Look: Othmane's Gmail, and Eya's Gmail **Sent** folder
+  - You should see: the email comes **from** `eyajarraya771@gmail.com`, **in the same conversation** as Othmane's email, subject "Re: …" **without** a code like `[#K7Q2M9]`. It is also in Eya's **Sent**
+
+- [x] **8.4 — Eya replies with files** *(fixed 2026-10-19, test again)*
+
+  - Who: Eya
+  - Do: same topic, **Joindre un fichier** → a JPG and a PNG → **Envoyer**
+  - You should see: Othmane receives both files
+
+- [x] **8.5 — Othmane's answer comes back to the same topic**
+
+  - Who: Othmane, **Reply** in his Gmail
+  - You should see: the answer in the same topic in the app (it also stays in Eya's Gmail)
+
+- [x] **8.6 — Eya starts a new email from her Gmail**
+
+  - Who: Eya
+  - Do: **Nouvel email** → Envoyer depuis: **Mon Gmail** → À: Othmane → Objet `TEST Visite mardi` → **Envoyer**
+  - Look: Othmane's Gmail
+  - You should see: from Eya's Gmail, subject `TEST Visite mardi [#XXXXXX]` (a short code at the end). In the app the subject shows **without** the code
+
+- [x] **8.7 — Othmane's reply finds this topic**
+
+  - Who: Othmane, **Reply** on "TEST Visite mardi"
+  - You should see: the answer in topic **TEST Visite mardi**
+
+- [x] **8.7b — Eya's 2nd reply stays in the same conversation** *(fixed 2026-10-19, test again)*
+
+  - Who: Eya, after 8.7
+  - Do: reply again in topic **TEST Visite mardi**, **Envoyer**
+  - Look: Othmane's Gmail
+  - You should see: the email is **in the same conversation**, subject `Re: TEST Visite mardi [#XXXXXX]` (the code stays). Before the fix: the code was gone and Gmail opened a new conversation
+
+- [x] **8.8 — Two topics with the same subject do not mix**
+
+  - Do: Eya starts a 2nd email "TEST Visite mardi". Othmane replies to the **first** one
+  - You should see: the answer goes to the **first** topic
+  - Then: on any received email, click **Déplacer vers un autre sujet** → choose the other topic → **Déplacer**. It moves
+
+- [x] **8.9 — A brand new email with the same subject is a new topic**
+
+  - Who: Othmane
+  - Do: write a **new** email (not Reply) to Eya's Gmail with subject `TEST Visite mardi`
+  - You should see: a **new** topic (the app never guesses by subject)
+
+- [x] **8.10 — Personal emails also arrive (the warning of 7.1)**
+
+  - Do: any newsletter or other sender writes to Eya's Gmail
+  - You should see: it appears in Eya's chats as **Contact inconnu**. Only Eya sees it
+
+- [x] **8.11 — The company address still works**
+
+  - Who: Othmane
+  - Do: send an email to `jarraya@mail.zouadev.com`
+  - You should see: it lands in the **company** mailbox (Manager and Sales see it), not in Eya's Gmail
+
+## 9. Disconnecting Gmail
+
+- [x] **9.1 — Google access removed**
+
+  - Who: Eya
+  - Do: go to myaccount.google.com → Security → **Third-party apps** → ChantierOS → remove access. Then in the app, reply in a Gmail topic
+  - You should see: an error "Envoi impossible…", status 🔴 **Déconnecté**, a bell alert and an email. Nothing is sent from the company address instead
+
+- [x] **9.2 — Reconnect**
+
+  - Do: **Paramètres → Email → Reconnecter** (no warning window this time)
+  - You should see: 🟢 **Connecté** again, the old chats are back
+
+- [x] **9.3 — Retirer (disconnect for good)**
+
+  - Do: **Retirer** → confirm
+  - You should see: "Gmail retiré." The old chats stay, read only
+  - Then: in Gmail, turn the forward off yourself (the app cannot do it)
+
+- [x] **9.4 — A deactivated employee loses their Gmail**
+
+  - Do: Eya first gives **Connecter un Gmail** to the Sales role (test 1.9). Sales connects any spare Gmail (it must be a Google test user). Then Eya deactivates Sales in **Équipe**
+  - You should see: Sales' Gmail shows **Retiré** in Eya's mailbox list. Nobody can read Sales' chats, not even Eya
+
+- [x] **9.5 — The Manager cannot remove Eya's Gmail**
+
+  - Who: Manager
+  - You should see: no **Retirer** button for Eya's Gmail
+
+## 10. Delete, other company, billing
+
+- [x] **10.1 — The Manager cannot delete a whole chat**
+
+  - Who: Manager
+  - Do: open a client chat
+  - You should see: no **Supprimer (RGPD)** button
+
+- [x] **10.2 — Eya deletes a whole chat (GDPR)**
+
+  - Do: open a chat → **Supprimer (RGPD)** → **Supprimer pour toujours**
+  - You should see: the chat, its emails and its files are gone
+  - *Done 2026-10-19 (the 4 old chats, files gone from ImageKit too)*
+
+- [x] **10.3 — The other company sees nothing**
+
+  - Who: Zakariya (company B)
+  - Look: **Messages → Clients**
+  - You should see: an empty list. None of Eya's chats
+
+- [x] **10.4 — 🤖 The company id cannot be forced in a request** (Claude checks)
+  - _Done 2026-10-19: as Eya, `tenant_id: 16` (company B) in a new email, a reply and the chat list → `400` "property tenant_id should not exist" each time; nothing sent_
+
+- [ ] **10.5 — The 2nd Gmail is billed**
+
+  - Do: Eya connects a **second** Gmail (it is allowed, never blocked). Then Claude moves Eya's Stripe test clock past **30 April 2027** (the first full month on the new plan)
+  - Look: **Paramètres → Facturation → Historique**
+  - You should see: a line **Boîtes Gmail: 2 / 1** and **€2.00** extra. The months before do not have this line (the old plan had no Gmail limit)
+
+## 11. Screens to look at
+
+- [ ] **11.1 — Paramètres → Email**: company address with **Copier** and **Changer**; **Mon Gmail** with 🟢 status and **Retirer**; for Eya also **Toutes les boîtes Gmail**
+
+- [ ] **11.2 — Messages → Clients**: the list of chats, unread badges, **Contact inconnu**, filters **Boîte** and **Expéditeur**
+
+- [ ] **11.3 — Inside a chat**: topics on the left (subject, project, **À lier**, **Nouvelle adresse**); **Voir l'email d'origine** / **Voir le texte**; files you can open
+
+- [ ] **11.4 — Nouvel email**: on the client page and on a project page; the choice **Envoyer depuis**; on a project page the project is already chosen
+
+- [ ] **11.5 — A refused file shows a clear message**, never nothing
+
+- [ ] **11.6 — Bell**: "new email" opens the right chat and topic
+
+- [ ] **11.7 — Paramètres → Facturation**: storage shows like **1 Mo / 1 Go** (not 0.00094… / 1), and a **Boîtes Gmail** row
+
+---
+
+## Google errors you may see (not app bugs)
+
+| You see | Why | Fix |
+| --- | --- | --- |
+| `redirect_uri_mismatch` | Google does not know the return address | Google Cloud → Credentials → add `http://localhost:5300/api/email-inboxes/gmail/callback` |
+| "n'a pas terminé la procédure de validation" (403) | This Gmail is not a test user | Google Cloud → Audience → Test users → add the Gmail |
+| "Your account is temporarily unavailable" | Google blocked the account for a while | Wait, try in a private window |
+| Gmail: "Invalid forwarding address" | The address was typed in the box | Use **Add a forwarding address**, confirm, then pick it in the list |
+| The Gmail disconnects after 7 days | Google's limit for apps in test mode | Click **Reconnecter** |
 
 ## Result
 
-Not run yet.
+In progress. Done: 0.1–0.4, 1.1, 1.2, 2.1, 7.2–7.6, 8.1, 10.2. To test again after the fixes of 2026-10-19: 4.2, 8.3, 8.4.
+
+## Problems found — waiting to fix
+
+- [x] **P3 — In a topic Eya started from her Gmail, her 2nd reply opened a new conversation** (found in test 8.7, fixed 2026-10-19)
+
+  - What happened: the rule "a reply to the client has no code" also removed the code in a thread **we** started, so the subject changed and Othmane's Gmail split the conversation
+  - Fix: keep the subject the thread already has — if the client's last email carries our `[#code]`, the reply keeps it (`threadHasCode`)
+  - To do: restart the API, then run 8.7b (and check 8.3 again: a topic Othmane started still has **no** code)
+
+- [x] **P2 — Alert emails came back in a loop** (found 2026-10-19, fixed the same day)
+
+  - What happened: the app emailed Eya an alert → her Gmail forwarded it → the app saw a new email from `noreply@zouadev.com` → a new alert → … 57 junk topics, then Resend's daily limit stopped it
+  - Fix: an email from our own sender address is ignored, like an auto-reply (`isOwnEmail` in `email-parse.helper.ts`)
+  - To do by hand: delete the chat "noreply@zouadev.com" (**Supprimer (RGPD)**), then run 3.10
+
+- [x] **P1 — Project → Emails: every topic opens the same topic** (found in test 5.5, fixed 2026-10-19)
+
+  - What you see: on a project page → tab **Emails**, the list is correct, but clicking any topic always opens the same one (the old choice, or the first topic "test subject")
+  - Why: the link is right (`/chat/clients/<id>?topic=<topicId>`), but the chat page reads `?topic=` only once, when the page is first created (`ClientChatClient.tsx` line 27, `useState(asked …)`). With `cacheComponents: true` (Next.js 16) the page stays alive between visits, so the new `?topic=` is ignored
+  - Fix (frontend, \~3 lines): follow `?topic=` every time the URL changes; clicking a topic in the left column keeps working
+  - Fixed: the URL is now the only source of the chosen topic; a click on the left also writes `?topic=` (`ClientChatClient.tsx`)
+  - After the fix: run 5.5 again (and 11.6, the bell also opens a topic with `?topic=`)

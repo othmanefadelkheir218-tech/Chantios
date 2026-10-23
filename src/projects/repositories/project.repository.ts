@@ -108,6 +108,23 @@ export class ProjectRepository {
     });
   }
 
+  /** Step 25 — the open projects of one client (the email topic tag rules). */
+  findOpenForClient(clientId: number) {
+    return this.tenantPrisma.db.project.findMany({
+      where: { clientId, status: { in: ['prospect', 'in_progress'] } },
+      select: { id: true, name: true, status: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  /** Step 25 — id, name, client and status of a few projects (topic tags). */
+  findBasicsByIds(ids: number[]) {
+    return this.tenantPrisma.db.project.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, clientId: true, status: true },
+    });
+  }
+
   /** Name + address of these projects (the worker's own project list). Tenant-scoped like every read here. */
   findSummariesByIds(ids: number[]) {
     return this.tenantPrisma.db.project.findMany({

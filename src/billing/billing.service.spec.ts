@@ -15,6 +15,7 @@ describe('BillingService.allSnapshots — one tenant or every tenant', () => {
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
     subscriptions as never,
     {} as never,
     {} as never,

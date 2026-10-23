@@ -1,9 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsIn,
   IsOptional,
   IsString,
+  Matches,
   MinLength,
 } from 'class-validator';
 
@@ -25,6 +27,18 @@ export class RegisterTenantDto {
   @ApiProperty({ description: "The admin's own name", example: 'Jean Dupont' })
   @IsString()
   name: string;
+
+  @ApiProperty({
+    description:
+      'Company country, ISO 2 letters. Must be an active country of the TVA table (GET /api/vat-rates/countries), else 400.',
+    example: 'BE',
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
+  @IsString()
+  @Matches(/^[A-Z]{2}$/, { message: 'country must be 2 letters (BE)' })
+  country: string;
 
   @ApiPropertyOptional({ example: '+32 2 123 45 67' })
   @IsOptional()

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
+import { AppEventsService } from '../../common/events/app-events.service';
 import { SessionsService } from '../../sessions/sessions.service';
 import { toUserEntity } from '../helpers/user.helper';
 import { UserRepository } from '../repositories/user.repository';
@@ -19,6 +20,7 @@ export class DeactivateUserHandler {
     private readonly users: UserRepository,
     private readonly sessions: SessionsService,
     private readonly audit: AuditService,
+    private readonly events: AppEventsService,
   ) {}
 
   async execute(id: number, actor: AuthenticatedUser) {
@@ -43,6 +45,10 @@ export class DeactivateUserHandler {
       oldValue: toUserEntity(current),
       newValue: entity,
       ipAddress: null,
+    });
+    this.events.emit('user.deactivated', {
+      tenantId: actor.tenantId,
+      userId: id,
     });
     this.logger.info(`User deactivated and sessions revoked: ${id}`);
     return entity;

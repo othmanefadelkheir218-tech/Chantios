@@ -5,16 +5,97 @@
 
 ---
 
-## LATEST — step 25: email with clients — PLANNED, not built (2026-10-18)
+## LATEST — step 27: TVA on the subscription — BUILT, phases A → E2 (2026-10-20)
 
-Planning only. Rules: `NOTE/EMAIL-CONNECTIONS-PLAN.md` (+ `NOTE/GOOGLE-GMAIL-SETUP.md`, `NOTE/AI-email-idea.md` — AI on hold). Build: [../Phaces/25-client-email.md](../Phaces/25-client-email.md). Tests: [../PhacesTest/19-client-email.md](../PhacesTest/19-client-email.md).
+Nothing committed or pushed. Build: [../Phaces/27-subscription-tva.md](../Phaces/27-subscription-tva.md) (all ticked but E3). Tests: [../PhacesTest/20-subscription-tva.md](../PhacesTest/20-subscription-tva.md). Rule: [../subscription-plans.md](../subscription-plans.md) § TVA on the subscription.
 
 | | |
 |---|---|
-| **Proven by hand** | Resend receive on `mail.zouadev.com` (webhook + signature + full email), reply token in Reply-To, Gmail forward keeps `Message-ID`, send as the user's Gmail (`gmail.send`) in the same thread, `References` links the client's next reply |
-| **Test code in place** | `src/inbound-email/` (logs only) and `src/email-connections/` (`test-send`, `.gmail-test-connection.json`) — replaced by step 25 tasks B1/B3 |
-| **Open (owner)** | D1 Gmail mailbox billing (proposal: plan feature `email_mailboxes`, usage-based), D2 attachments chat does not allow, D3 spike: Gmail keeps our `Message-ID`? |
-| **Next action** | Owner answers D1–D2, then build step 25 from task A1 |
+| **Migrations** | `20261020193840_subscription_vat_rates` (table + checks), `..._tenant_vat_number_status` (enum + 2 columns; old TVA numbers set `pending` → the retry job asks VIES). Both applied, Prisma client generated |
+| **Backend** | New module `src/vat-rates/` (admin `GET/POST/PATCH /api/admin/vat-rates`, public `GET /api/vat-rates/countries`). Country required + active TVA country on register, admin create, admin edit, profile. TVA number normalized + format + VIES (`VAT_NUMBER_CHECK`), retry cron every 30 min. Checkout: 409 without TVA, TaxRate on the subscription, customer TVA number + reverse-charge footer. Overage taxed. Country / number / rate change → BullMQ `billing-tax-sync` jobs. `yarn tva:sync` for old card subscriptions. History + 3 emails show HT / TVA / TTC |
+| **Frontend** | `/admin/vat-rates` page + "TVA" menu (billing admins). Country select (active TVA countries) on register, profile, admin create + edit. TVA number status badge. Billing card: TVA line, warning + Pay disabled without TVA. Admin subscription card: country + TVA number. History: Formule HT, Supplément HT, Total HT, TVA, Total payé. "HT" on every price |
+| **Checks** | Backend `tsc` clean, lint 0 errors (3 old warnings), jest **106 suites / 1324 pass**. Frontend `tsc` + lint clean. Live: `GET /api/vat-rates/countries` → `[]` (table empty). **No browser check yet**. `yarn build` not run (would write `dist` under the owner's watch server) |
+| **Lint side fixes** | `yarn lint --fix` dropped a cast in 2 admin guard specs → removed the unused import; 2 old `any` reads in `projects.handlers.spec.ts` typed |
+| **New open question** | 23 — a TVA number whose prefix is not the company country (in both lists). Not checked today |
+| **Next action** | 1. Owner restarts the API (new module, new crons, new queue). 2. Add to `.env`: `SELLER_COUNTRY=BE` and, in dev, `VAT_NUMBER_CHECK=off` (default `vies`). 3. Super-admin `/admin/vat-rates`: add BE 21, FR 20, NL 21, DE 19, ES 21 — **until then nobody can sign up** (country list empty). 4. Stripe Dashboard: seller TVA number + address (E3). 5. `yarn tva:sync` once for existing card subscriptions. 6. Live tests PhacesTest/20. 7. Then commit (ask before pushing) |
+
+### Small fixes this session (2026-10-20, not committed)
+
+- `/media`: fixed grid — the image is absolute inside the square, cropped (`object-fit: cover`), the cell never grows (`MediaCard.tsx`)
+- Client chat "Sujets" column: search by subject. API `GET /api/client-chats/:id/topics?search=` (case-insensitive, `findTopicsPage`); portal chats filtered in the browser. No more sideways scroll (long project tag cut with "…")
+- Thin 6px scrollbar for the whole app (`globals.css`; Firefox keeps `scrollbar-width: thin`)
+- Backend chat jest 112 pass; both `tsc` + lint clean. No browser check yet
+
+---
+
+## step 26: chat and media updates — phases A + B + C + D BUILT (2026-10-20)
+
+Nothing committed or pushed. Build: [../Phaces/26-chat-media-updates.md](../Phaces/26-chat-media-updates.md) (D1–D9 ticked, D10 = owner's browser check).
+
+| | |
+|---|---|
+| **D backend** | Topics paged. `GET /api/client-chats/:id` keeps `topics` (first 20 email topics + portal chats) + new `topics_total`; `?topic_id=` also returns an older linked topic. New `GET /api/client-chats/:id/topics?page=&limit=`. One place: `chat/handlers/find-chat-topics.handler.ts` |
+| **D frontend** | Chat pages fill the screen (`lib/chat/full-height-routes.ts`: `/chat/[id]`, `/chat/clients/[id]`, `/field/chat/[id]` → shell `h-dvh`, no footer). Each list scrolls inside, last 20 + "Charger plus" (no jump, `use-thread-scroll.ts`). New team message added into the cache, no reload. `/chat/[id]` has the conversation list on the left (desktop). Phone: one panel at a time. Viewport `interactive-widget=resizes-content` |
+| **Tests** | Backend `tsc` + lint clean, jest **100 suites / 1217 pass** (4 new topic-paging tests). Frontend `tsc` + lint clean. **No browser check yet** |
+| **Next action** | 1. Owner restarts API + frontend. 2. D10: a chat with 60+ messages (opens on the last 20, "Charger plus" without a jump), a client with 30+ topics (list scrolls, "Charger plus"), phone width 375 px (one panel, composer stays above the keyboard), desktop. Also the C and B checks below. 3. Then commit (ask before pushing) |
+
+---
+
+## step 26 phases A + B + C (2026-10-20)
+
+Nothing committed or pushed. Build: [../Phaces/26-chat-media-updates.md](../Phaces/26-chat-media-updates.md) (A1–A3, B1–B8, C1–C8 ticked).
+
+| | |
+|---|---|
+| **C** | "Seen" ticks in the team chat (`internal` only). API: own messages carry `read_count` / `member_count` (`GET /conversations/:id/messages`, `POST` reply); socket `message_read` carries the new count. Rule in one place: `chat/helpers/read-receipt.helper.ts` (Q8). Frontend: `ReadTicks.tsx` + `use-read-receipts.ts` in `components/shared/chat/` (✓ / ✓✓ / "Vu par X/Y") — page, dock and field chat |
+| **Tests** | Backend `tsc` + lint clean, jest **100 suites / 1213 pass** (new: `read-receipt.helper.spec.ts` + 3 handler tests). Frontend `tsc` + lint clean. **No live check yet** |
+| **Next action** | 1. Owner restarts API + frontend; checks: A sends, B opens → A sees ✓✓ live; 6-person group, 2 reads → "Vu par 2/5"; also `/media` (phase B). 2. New conversation: **step 26 phase D** (scroll inside + load more + mobile) |
+
+---
+
+## step 26 phases A + B (2026-10-20)
+
+Nothing committed or pushed. Build: [../Phaces/26-chat-media-updates.md](../Phaces/26-chat-media-updates.md) (A1–A3, B1–B8 ticked).
+
+| | |
+|---|---|
+| **A** | Status badge next to each project in the topic picker and the New email dialog (frontend only). Cancelled project still selectable |
+| **B** | Note images on `/media`: the owner sees their own, the tenant admin sees all — file only, `entity_id = null`, no link to the note. Hidden while impersonating and in an `entity_id` search. Upload / trash of note files on `/api/media` still refused. `FindMediaHandler.findVisible` (route) vs `findOne(id)` (internal callers, no note files) |
+| **Rule notes** | `notes.md` § Private, `chat-conversations.md` (seen ticks, for C), `client-email.md` (status badge + paging, for D), tracker line added. No open question |
+| **Tests** | Backend `tsc` + lint clean, jest **99 suites / 1203 pass** (new FindMedia tests: admin / owner / manager B / impersonation / entity_id search / no note id). Frontend `tsc` + lint clean. **No live check yet** (needs the owner's server + logins) |
+| **Next action** | 1. Owner restarts API + frontend, checks `/media` as admin and as the note owner (and step 25 open tests). 2. New conversation: **step 26 phase C** (seen ticks) |
+
+---
+
+## step 25: email with clients — BUILT, live tests almost done (2026-10-19)
+
+Nothing committed or pushed (~107 changed files). Rule: [../client-email.md](../client-email.md). Build: [../Phaces/25-client-email.md](../Phaces/25-client-email.md). Tests: [../PhacesTest/19-client-email.md](../PhacesTest/19-client-email.md) — plain words, checkboxes, **68 done / 12 open**.
+
+| | |
+|---|---|
+| **Status** | Backend + frontend built. Live tests run on tenant **15 "Eya Jarraya"** (company address `jarraya@mail.zouadev.com`, Gmails `eyajarraya771@gmail.com` + `winucardit@gmail.com`). Tenant **16 "hubchoose"** (`zakariyazouazou@gmail.com`) is company B for isolation. Every other tenant was hard-deleted (DB + ImageKit) |
+| **Fixed today (from live tests)** | Files on a sent email refused (private `email_attachment` hidden from the attach check) · Gmail reply subject: keep the subject the thread already has — client's topic = no `[#code]`, our topic = code in every email (P3) · alert-email loop: an email from our own sender (`EMAIL`) is ignored like an auto-reply (P2) · project → Emails opened the wrong topic: the URL `?topic=` drives the chat page (P1) · forward steps hide once forwarding works · warning dialog before connecting a Gmail · billing storage shown in Ko / Mo / Go |
+| **New owner decisions (written in the notes)** | Connecting a Gmail never turns off the company address (both active). New right **`email_gmail`** "Connecter un Gmail": admin only by default, the admin turns it on per role; `email` (answer clients) unchanged; worker never. Migration `20261019180000_email_gmail_permission` applied |
+| **Tests** | Backend jest **99 suites / 1195 pass**, `tsc` clean. Frontend `tsc` + lint clean. Live ✅ include: GDPR delete, webhook replay, auto-reply ignored, unknown address dropped, Gmail connect + forward, tenant id forced → `400`, 2nd Gmail billed (10.5) |
+| **Open tests** | 1.8–1.10 (new `email_gmail` right) · 3.10 (loop fix, needs Resend) · 5.5 (re-run after P1 fix) · 11.1–11.7 (screen checks) |
+| **Blocked** | **Resend daily quota reached** (the loop used 200 emails): company-address sends, alert emails, invitations, reset codes fail with `429` until it resets. Receiving and sending from "Mon Gmail" still work |
+| **Stripe** | Eya's test clock `clock_1URHmJ5hh9F3Yct5f1uqKhWR` at **2027-05-31 02:10**, plan 10 (TEST Small), period 31 May → 30 June 2027. Advance in 2 steps (renewal +10 min, then +2 h) with `stripe listen` running |
+| **Ideas, not decided** | (a) "C'est un client existant" button: link an unknown sender's chat to an existing client (today only "Créer le client") · (b) show the project status in the topic project list (a cancelled project can be chosen, by the rule) |
+| **Seen** | `.gmail-test-connection.json` (old file with a live Google token) still in the project root — no code reads it; the owner can delete it. Chat "noreply@zouadev.com" (57 junk topics from the loop) — delete it with **Supprimer (RGPD)** if not done |
+| **Next action** | 1. Owner restarts API + frontend. 2. Run open tests 1.8–1.10, 5.5, 11.x. 3. When Resend works again (`node` test or ask Claude "check Resend"): 3.10 + re-check company-address sends. 4. Then commit (ask the owner before pushing) |
+
+---|---|
+| **Owner decision 2026-10-19** | "Create client" from an unknown email = the normal client form, name + email pre-filled, the user adds the phone (a client needs one). Written in the rule note |
+| **Migrations** | `20261018120000_client_email_enums` + `20261018120100_client_email` applied, Prisma client regenerated, no drift |
+| **Env** | `EMAIL_TOKEN_ENCRYPTION_KEY` (random) + `INBOUND_EMAIL_DOMAIN=mail.zouadev.com` added to the local `.env`. `GOOGLE_REDIRECT_URI` default is now `/api/email-inboxes/gmail/callback` — **add it in Google Cloud** |
+| **Backend** | `email-connections` (inboxes, company address, Gmail connect/callback/remove, encrypted token, send through Resend or Gmail with `[#code]`), `inbound-email` (Resend webhook, `inbound_email_events`, queue, routing, auto-replies, Gmail forward confirm), chat `/api/client-chats` + `/api/projects/:id/email-topics`, socket join rule, 3 alerts (email only if offline), `user.deactivated` removes Gmail, billing `email_mailboxes` (optional plan key), permission `email` (worker never). Test modules replaced |
+| **Tests** | Backend `tsc` clean, lint clean on new code, jest **99 suites / 1180 pass**. Live: EML-01..07 ✅ (permissions, company address `test-alpha@mail.zouadev.com`, webhook signature) |
+| **Frontend** | Messages tabs Équipe / Clients, `/chat/clients/[id]`, New email dialog, project tab Emails, Settings → Email, client page, notifications, billing + admin plan form. `tsc`, lint, `next build` (temp copy) pass. See `ChanitOs_client/my-app/.instruction/state.md` |
+| **Live fixes 2026-10-19** | Gmail connect works (redirect URI + test user set in Google Cloud). 3 fixes from live tests: (1) files on a sent email were refused (`400`): the attach check hid the private `email_attachment` type → `MediaRepository.findManyByIdsForAttach`; (2) a Gmail reply to the client's email had `[#code]`, so the client's Gmail opened a new conversation → no code on that reply (owner decision, rule note updated); (3) Settings → Email hides the forward steps once a forwarded email arrived. Jest media/email/chat/inbound 168 pass, `tsc` clean on both sides |
+| **DB reset 2026-10-19 (owner)** | Hard-deleted every tenant except **15 "Eya Jarraya"** (`eyajarraya771@gmail.com`): tenants 1, 2, 7–14 with their 66 ImageKit files and 663 audit rows. **TEST Alpha (tenant 1) is gone**: the test plans in `PhacesTest/` need new test data. Platform admins and plans kept. Stripe test customers of those tenants still exist in Stripe. Billing page: storage now shown as Ko / Mo / Go (`lib/utils/format-storage.ts`) |
+| **Later 2026-10-19** | Live tests of `PhacesTest/19-client-email.md` (rewritten in plain words, checkboxes). Fixed: P2 alert-email loop (own sender ignored), P3 Gmail 2nd reply lost the `[#code]`. New right **`email_gmail`** ("Connecter un Gmail", admin only by default, migration `20261019180000` applied). P1 (project → Emails opened the wrong topic) fixed: the URL drives the chosen topic. Resend daily limit hit by the loop. DB reset: only tenant 15 (+ tenant 16 for isolation). Jest 99 suites / 1195 pass |
+| **Seen** | `.gmail-test-connection.json` (old test file with a live Google token) is still in the project root — no code reads it; the owner can delete it |
+| **Next action** | Owner: ngrok on 5300 + Resend webhook `email.received` → `<ngrok>/api/webhooks/resend-inbound`; Google redirect URI; restart the frontend. Then run test sections 3–10 together |
 
 ---
 

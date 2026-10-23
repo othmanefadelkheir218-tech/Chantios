@@ -257,6 +257,23 @@ export class SubscriptionRepository {
     });
   }
 
+  /**
+   * Tenant ids with a card subscription whose company is in this country
+   * (step 27: closing a TVA country, re-pointing a new rate). Empty country =
+   * every card subscription.
+   */
+  async findCardTenantIds(countryCode?: string): Promise<number[]> {
+    const rows = await this.prisma.tenantSubscription.findMany({
+      where: {
+        stripeSubscriptionId: { not: null },
+        ...(countryCode ? { tenant: { country: countryCode } } : {}),
+      },
+      select: { tenantId: true },
+      orderBy: { tenantId: 'asc' },
+    });
+    return rows.map((r) => r.tenantId);
+  }
+
   // ---- Platform stats (GET /api/admin/stats) ----
 
   /** Subscriptions of live companies, per status. */

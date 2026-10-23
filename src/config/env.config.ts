@@ -18,12 +18,16 @@ export interface Env {
   IMAGEKIT_PRIVATE_KEY: string;
   IMAGEKIT_URL_ENDPOINT: string;
   RESEND_API_KEY: string;
-  /** Signs the Resend inbound-email webhook. Optional while that route is a test. */
+  /** Signs the Resend inbound-email webhook. Required in production. */
   RESEND_WEBHOOK_SECRET?: string;
-  /** Google OAuth client for "Connect Gmail" (send only). Optional while that route is a test. */
+  /** Google OAuth client for "Connect Gmail" (send only). Required in production. */
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   GOOGLE_REDIRECT_URI: string;
+  /** Step 25 — AES-256-GCM key for the Gmail refresh tokens: 32 bytes, base64. */
+  EMAIL_TOKEN_ENCRYPTION_KEY: string;
+  /** Step 25 — the domain we receive client emails on, e.g. `mail.zouadev.com`. */
+  INBOUND_EMAIL_DOMAIN: string;
   EMAIL: string;
   APP_URL: string;
   PORTAL_BASE_URL: string;
@@ -32,6 +36,10 @@ export interface Env {
   JWT_REFRESH_SECRET: string;
   JWT_ACCESS_EXPIRES_IN: string;
   JWT_REFRESH_EXPIRES_IN: string;
+  /** Step 27 — the country ChantierOS sells from (TVA on the subscription). ISO 2 letters, upper case. */
+  SELLER_COUNTRY: string;
+  /** Step 27 — `vies` checks a company's TVA number with the EU VIES service; `off` = format only (dev, test servers). */
+  VAT_NUMBER_CHECK: 'vies' | 'off';
 }
 
 /** Every env variable used by the app. The app stops at startup if one is invalid. */
@@ -67,7 +75,9 @@ const envSchema = Joi.object<Env>({
   GOOGLE_CLIENT_SECRET: Joi.string().allow('').optional(),
   GOOGLE_REDIRECT_URI: Joi.string()
     .uri()
-    .default('http://localhost:5300/api/email-connections/google/callback'),
+    .default('http://localhost:5300/api/email-inboxes/gmail/callback'),
+  EMAIL_TOKEN_ENCRYPTION_KEY: Joi.string().base64().required(),
+  INBOUND_EMAIL_DOMAIN: Joi.string().hostname().required(),
   EMAIL: Joi.string().email().required(), // sender address (domain verified in Resend)
   APP_URL: Joi.string().uri().required(), // base URL of the frontend pages that the invitation links open
   PORTAL_BASE_URL: Joi.string().uri().required(), // step 12 — client portal
@@ -80,10 +90,21 @@ const envSchema = Joi.object<Env>({
   JWT_REFRESH_SECRET: Joi.string().min(32).required(),
   JWT_ACCESS_EXPIRES_IN: Joi.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
+  SELLER_COUNTRY: Joi.string()
+    .pattern(/^[A-Z]{2}$/)
+    .default('BE'),
+  // Its own switch, not tied to NODE_ENV: a hosted test server can turn it off.
+  VAT_NUMBER_CHECK: Joi.string().valid('vies', 'off').default('vies'),
 }).unknown(true);
 
 /** Env variables holding a public link: never `localhost` in production. */
 const PUBLIC_URL_KEYS = ['APP_URL', 'PORTAL_BASE_URL'] as const;
+/** Step 25 — optional in dev, the email feature needs them in production. */
+const PRODUCTION_REQUIRED_KEYS = [
+  'RESEND_WEBHOOK_SECRET',
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
+] as const;
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]'];
 
 function isLocalUrl(value: string): boolean {
@@ -99,7 +120,20 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     throw new Error(`Invalid environment variables:\n- ${details}`);
   }
   const value = result.value;
+  if (Buffer.from(value.EMAIL_TOKEN_ENCRYPTION_KEY, 'base64').length !== 32) {
+    throw new Error(
+      `Invalid environment variables:
+- EMAIL_TOKEN_ENCRYPTION_KEY must be 32 bytes, base64 (openssl rand -base64 32)`,
+    );
+  }
   if (value.NODE_ENV === 'production') {
+    const missing = PRODUCTION_REQUIRED_KEYS.filter((key) => !value[key]);
+    if (missing.length > 0) {
+      throw new Error(
+        `Invalid environment variables:
+- ${missing.join(', ')} must be set when NODE_ENV is production`,
+      );
+    }
     const local = PUBLIC_URL_KEYS.filter((key) => isLocalUrl(value[key]));
     if (local.length > 0) {
       throw new Error(

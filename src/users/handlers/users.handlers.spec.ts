@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getLoggerToken } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
+import { AppEventsService } from '../../common/events/app-events.service';
 import { SessionsService } from '../../sessions/sessions.service';
 import { UserRepository } from '../repositories/user.repository';
 import { DeactivateUserHandler } from './deactivate-user.handler';
@@ -40,6 +41,7 @@ describe('Users handlers', () => {
   };
   const sessions = { revokeAllForUser: jest.fn() };
   const audit = { write: jest.fn() };
+  const events = { emit: jest.fn() };
   const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn() };
 
   let updateUser: UpdateUserHandler;
@@ -61,6 +63,7 @@ describe('Users handlers', () => {
         { provide: UserRepository, useValue: repo },
         { provide: SessionsService, useValue: sessions },
         { provide: AuditService, useValue: audit },
+        { provide: AppEventsService, useValue: events },
         ...handlers.map((h) => ({
           provide: getLoggerToken(h.name),
           useValue: logger,
@@ -131,6 +134,10 @@ describe('Users handlers', () => {
       expect(sessions.revokeAllForUser).toHaveBeenCalledWith(2);
       expect(result.isActive).toBe(false);
       expect(audit.write).toHaveBeenCalledTimes(1);
+      expect(events.emit).toHaveBeenCalledWith('user.deactivated', {
+        tenantId: actor.tenantId,
+        userId: 2,
+      });
     });
 
     it('rejects an unknown user', async () => {

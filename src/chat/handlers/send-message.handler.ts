@@ -16,6 +16,7 @@ import {
 } from '../helpers/message-alert.helper';
 import { MessageRepository } from '../repositories/message.repository';
 import { CheckAccessHandler } from './check-access.handler';
+import { ReadReceiptsHandler } from './read-receipts.handler';
 
 /**
  * `POST /api/conversations/:id/messages` — the caller must be a member; an
@@ -39,6 +40,7 @@ export class SendMessageHandler {
     private readonly notifications: NotificationsService,
     private readonly users: UsersService,
     private readonly clients: ClientsService,
+    private readonly receipts: ReadReceiptsHandler,
   ) {}
 
   async execute(
@@ -81,8 +83,15 @@ export class SendMessageHandler {
       return message;
     });
 
-    const files = await this.media.findByEntityIds('message', [created.id]);
-    const entity = toMessageEntity(created, files.get(created.id) ?? []);
+    const [files, receipts] = await Promise.all([
+      this.media.findByEntityIds('message', [created.id]),
+      this.receipts.forMessages(conversation, [created]),
+    ]);
+    const entity = toMessageEntity(
+      created,
+      files.get(created.id) ?? [],
+      receipts.get(created.id),
+    );
 
     this.gateway.emitNewMessage(conversationId, entity);
     await this.notifyMembers(conversation, actor, content);

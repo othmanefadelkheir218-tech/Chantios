@@ -12,11 +12,14 @@ import { PlansService } from '../../plans/plans.service';
 import { SubscriptionsService } from '../../subscriptions/subscriptions.service';
 import { TenantsService } from '../../tenants/tenants.service';
 import { invoiceReceipt } from '../helpers/invoice-receipt.helper';
+import { totalTaxRateIds } from '../helpers/invoice-tax.helper';
+import { FindTaxRatesHandler } from './find-tax-rates.handler';
 
 /**
  * `invoice.paid`: the company's admin gets a "payment received" email with
- * the detail — plan (+ its period), extra usage (+ the month it covers),
- * VAT, total (doc/notes/subscription-plans.md § The payment email). An
+ * the detail — plan HT (+ its period), extra usage HT (+ the month it
+ * covers), Total HT, TVA (rate or "autoliquidation"), total paid TTC
+ * (doc/notes/subscription-plans.md § The payment email). An
  * invoice of 0 € (the trial) sends nothing.
  *
  * `PlansService` comes from `ModuleRef` (`strict: false`), not from a module
@@ -31,6 +34,7 @@ export class HandleInvoicePaidHandler {
     private readonly tenants: TenantsService,
     private readonly notifications: NotificationsService,
     private readonly moduleRef: ModuleRef,
+    private readonly findTaxRates: FindTaxRatesHandler,
   ) {}
 
   async execute(event: Stripe.Event): Promise<void> {
@@ -66,7 +70,10 @@ export class HandleInvoicePaidHandler {
     await this.notifications.dispatch('subscription_payment_received', {
       tenantId: subscription.tenantId,
       payload: {
-        ...invoiceReceipt(invoice),
+        ...invoiceReceipt(
+          invoice,
+          await this.findTaxRates.execute(totalTaxRateIds(invoice)),
+        ),
         plan_name: plan.name,
         billing_url: billingPageUrl(locale),
       },

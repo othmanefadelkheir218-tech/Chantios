@@ -40,6 +40,7 @@
 | 17 | [17-support-feedback.md](17-support-feedback.md) | Tickets, feedback, analytics, impersonation |
 | 18 | [18-subscriptions-stripe.md](18-subscriptions-stripe.md) | Plan limits, overage, the storage downgrade gate, Stripe webhooks, renewal |
 | 19 | [19-client-email.md](19-client-email.md) | Email with clients: company address, personal Gmail, topics + project tags, alerts, disconnection, GDPR delete (after build step 25) |
+| 20 | [20-subscription-tva.md](20-subscription-tva.md) | TVA on the subscription: the super-admin TVA table, the rate per company (Belgium, EU reverse charge, no TVA number), no country = cannot pay, changes from the next invoice, HT / TVA / TTC in the histories and emails (after build step 27) |
 
 Results of every phase: [RESULTS.md](RESULTS.md).
 

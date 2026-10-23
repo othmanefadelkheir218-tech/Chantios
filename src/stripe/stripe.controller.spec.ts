@@ -54,6 +54,9 @@ describe('StripeController (webhook)', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
       queue as never,
     ),
   );

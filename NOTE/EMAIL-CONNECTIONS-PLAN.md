@@ -22,7 +22,7 @@ We **never read** a mailbox. We receive only what is sent or forwarded to our ad
 | Receive | Clients write to it directly (Resend) | **Gmail forward** to the user's personal forward address (Resend) | Mailbox forward (Resend) |
 | Send | Resend, from `company-x@mail.<our-domain>` with the company name | Gmail API (`gmail.send`), from the user's real Gmail | Resend, after the tenant adds DNS (SPF/DKIM) |
 | Who reads it | **Shared team inbox** — everyone with the `email` permission | **Only the owner** — not the admin either | To decide |
-| Price | **Free, always on, every plan** | **Paid per mailbox** (monthly add-on, Stripe) | **Paid per mailbox** |
+| Price | **Free, always on, every plan** | **Paid per mailbox, like employees** (see § 2) | **Paid per mailbox** |
 | Status | Build now | **Build now** | **Not built — keep the design open for it** |
 
 **Why each Gmail has its own forward address:** a forwarded email arrives with the **client** as sender and our address as recipient. If every Gmail forwarded to the company address, we could not tell whose mailbox it came from, and a private email would land in the shared inbox. So each connected Gmail gets its own forward address (e.g. `company-x.<token>@mail.<our-domain>`), and that address decides the owner.
@@ -41,10 +41,12 @@ We **never read** a mailbox. We receive only what is sent or forwarded to our ad
 
 | Action | Who |
 |---|---|
-| Buy extra mailboxes | **Admin only** |
-| Connect a Gmail | A user with `email`, **for their own Gmail only** (Google forces it: the owner must log in) — and only if a paid mailbox is free |
+| Choose who can connect | **Admin**, through the `email` permission per role |
+| Connect a Gmail | A user with `email`, **for their own Gmail only** (Google forces it: the owner must log in). **Never blocked** |
 | Disconnect a mailbox | **The owner** (their own) **and the admin** (anyone's — e.g. an employee leaves). The admin can disconnect, but still cannot read it |
 
+- **Billing — like employees:** each plan has a new item **`email_mailboxes`** = how many Gmail mailboxes are included + the price of each extra one, set by the super-admin per plan. At each renewal the app counts the Gmail mailboxes and bills the extra ones. There is **no "buy" button**, and connecting is never blocked.
+  - Example: plan includes 1, extra = €X/month. The company connects 3 → at renewal it pays 2 extra.
 - A **disconnected** mailbox **still counts as paid** until the admin removes it.
 - When a user is **deactivated**, their Gmail is **disconnected automatically**. Their private email chats stay **locked** (nobody reads them).
 - **Outlook / Microsoft 365** mailboxes: later, not in this plan.
@@ -105,6 +107,13 @@ We **never read** a mailbox. We receive only what is sent or forwarded to our ad
 
 The client sees each channel **separately**. Only ChantierOS shows everything together.
 
+### 8b. How a client's reply finds its topic
+- **ChantierOS address:** our emails carry a hidden reply address (`reply-<token>@mail…`). The reply always lands in the right topic.
+- **Personal Gmail:** no special reply address. The client's reply goes to the user's Gmail (they see it there too) and comes back to ChantierOS by the forward. To be sure of the topic, **every email sent from a personal Gmail ends its subject with a short code**: `Devis cuisine [#K7Q2M9]`. The client's reply keeps it (`Re: Devis cuisine [#K7Q2M9]`), so ChantierOS finds the topic **every time**. No guessing by subject.
+  - Order: 1. the code in the subject, 2. the client's earlier emails in the thread (their ids are known), 3. else a new topic.
+  - The code is in the email only, never shown in ChantierOS. The user can still **move** a message to another topic.
+- Why: Resend and Gmail both replace the email id we set (tested 2026-10-18), and the send-only Gmail permission cannot read the id Gmail gives.
+
 ### 9. Portal link (90 days) — still needed
 - **Email = talk. Portal = see and act:** quote, invoices, progress, photos, reports, **Accept / Refuse the quote**, PDFs.
 - Emails can carry a button ("View your quote") that opens the portal.
@@ -125,7 +134,10 @@ The client sees each channel **separately**. Only ChantierOS shows everything to
 
 ### 12. What we save
 - The email **as it was**: **original HTML** (its style) + clean text + subject, from, to, `message_id`, `in_reply_to`, `references`.
-- **Attachments** and inline images → **media** (ImageKit), like chat files.
+- **Attachments** and inline images → **media** (ImageKit), as a new type **email attachment**:
+  - Accepted: PDF, images, Word, Excel, PowerPoint, ZIP, TXT, CSV — **up to 25 MB** (Gmail's limit).
+  - **Blocked** (dangerous): programs and scripts (`.exe`, `.bat`, `.js`…). They are not saved; the message shows their name: "not saved for security".
+  - They count in the company's **storage**, like every file.
 - **Kept**, no automatic delete.
 - **GDPR:** when a client asks to delete their data, the **admin only** can delete that client's chat.
 
@@ -197,7 +209,7 @@ Security: the Google `state` carries the tenant and the user, **signed**. The we
 
 ## Open questions (to answer before building)
 
-1. **Price** of one extra mailbox per month? Is 1 Gmail included in some plans, or always paid?
+None. The price per mailbox is set by the super-admin in each plan (§ 2).
 
 ---
 

@@ -27,6 +27,7 @@ import { HandleCheckoutCompletedHandler } from './handle-checkout-completed.hand
 import { HandleInvoiceCreatedHandler } from './handle-invoice-created.handler';
 import { HandleInvoicePaidHandler } from './handle-invoice-paid.handler';
 import { HandleInvoiceUpcomingHandler } from './handle-invoice-upcoming.handler';
+import { FindTaxRatesHandler } from './find-tax-rates.handler';
 import { HandlePaymentFailedHandler } from './handle-payment-failed.handler';
 import { HandlePaymentSucceededHandler } from './handle-payment-succeeded.handler';
 import { HandleSubscriptionDeletedHandler } from './handle-subscription-deleted.handler';
@@ -432,6 +433,11 @@ describe('Stripe event handlers — customer resolution and status transitions',
         { provide: SubscriptionsService, useValue: subscriptions },
         { provide: TenantsService, useValue: tenants },
         { provide: NotificationsService, useValue: notifications },
+        // Step 27: no TaxRate on these test invoices.
+        {
+          provide: FindTaxRatesHandler,
+          useValue: { execute: () => Promise.resolve(new Map()) },
+        },
         ...handlers.map((h) => ({
           provide: getLoggerToken(h.name),
           useValue: logger,
@@ -783,15 +789,34 @@ describe('Stripe event handlers — customer resolution and status transitions',
       );
 
       await handleInvoiceUpcoming.execute(
-        stripeEvent('invoice.upcoming', invoice({ amount_due: 5000 })),
+        stripeEvent(
+          'invoice.upcoming',
+          invoice({
+            amount_due: 6050,
+            total: 6050,
+            total_excluding_tax: 5000,
+            total_taxes: [
+              { amount: 1050, tax_rate_details: { tax_rate: 'txr' } },
+            ],
+          }),
+        ),
       );
 
+      // Step 27: HT / TVA / TTC read from the Stripe invoice.
       expect(notifications.dispatch).toHaveBeenCalledWith(
         'subscription_renewal_upcoming',
         {
           tenantId: 7,
           dedupeDays: 3,
-          payload: { amount_due: '50.00', period_end: '2026-03-15' },
+          payload: {
+            amount_due: '60.50',
+            subtotal: '50.00',
+            tax_amount: '10.50',
+            tax_rate: null,
+            reverse_charge: false,
+            total: '60.50',
+            period_end: '2026-03-15',
+          },
         },
       );
     });

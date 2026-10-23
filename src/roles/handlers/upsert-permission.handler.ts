@@ -1,8 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PermissionModule } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import { AuthenticatedUser } from '../../auth/decorators/current-user.decorator';
+import { isNeverGranted, RoleName } from '../../auth/helpers/permission.helper';
 import { UpsertPermissionDto } from '../dto/upsert-permission.dto';
 import { RoleRepository } from '../repositories/role.repository';
 
@@ -28,6 +33,14 @@ export class UpsertPermissionHandler {
     if (!role) {
       this.logger.warn(`Cannot override permission: role ${roleId} not found`);
       throw new NotFoundException('Role not found');
+    }
+    const grantsSomething =
+      dto.can_view || dto.can_create || dto.can_edit || dto.can_delete;
+    if (grantsSomething && isNeverGranted(role.name as RoleName, module)) {
+      this.logger.warn(`Refused: role ${role.name} can never get ${module}`);
+      throw new BadRequestException(
+        `The ${role.name} role can never have the ${module} permission`,
+      );
     }
 
     const previous = await this.roles.findOverride(roleId, module);

@@ -6,6 +6,7 @@ import { RequestActor } from '../../common/decorators/actor.decorator';
 import { CreateTenantDto } from '../dto/create-tenant.dto';
 import { toTenantData, toTenantEntity } from '../helpers/tenant.helper';
 import { TenantRepository } from '../repositories/tenant.repository';
+import { PrepareTaxFieldsHandler } from './prepare-tax-fields.handler';
 
 @Injectable()
 export class CreateTenantHandler {
@@ -14,6 +15,7 @@ export class CreateTenantHandler {
     private readonly logger: PinoLogger,
     private readonly tenants: TenantRepository,
     private readonly audit: AuditService,
+    private readonly taxFields: PrepareTaxFieldsHandler,
   ) {}
 
   /** `tx` — step 02 registration runs this inside its own transaction. */
@@ -30,8 +32,14 @@ export class CreateTenantHandler {
       throw new ConflictException(`Email ${email} is already used`);
     }
 
+    // Step 27: active TVA country, TVA number normalized + VIES status
+    // `pending` (asked by the caller after its transaction, or the retry job).
+    const tax = await this.taxFields.execute(
+      { country: dto.country, vatNumber: dto.vat_number },
+      null,
+    );
     const tenant = await this.tenants.create(
-      toTenantData(dto) as Prisma.TenantCreateInput,
+      { ...toTenantData(dto), ...tax } as Prisma.TenantCreateInput,
       tx,
     );
     const entity = toTenantEntity(tenant);

@@ -3,8 +3,13 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import Stripe from 'stripe';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { SubscriptionsService } from '../../subscriptions/subscriptions.service';
+import { invoiceTotals, totalTaxRateIds } from '../helpers/invoice-tax.helper';
+import { FindTaxRatesHandler } from './find-tax-rates.handler';
 
-/** `invoice.upcoming`: a warning email to the tenant's own admin/manager. */
+/**
+ * `invoice.upcoming`: a warning email to the tenant's own admin/manager, with
+ * Total HT, TVA and Total TTC (step 27), read from the Stripe invoice.
+ */
 @Injectable()
 export class HandleInvoiceUpcomingHandler {
   constructor(
@@ -12,6 +17,7 @@ export class HandleInvoiceUpcomingHandler {
     private readonly logger: PinoLogger,
     private readonly subscriptions: SubscriptionsService,
     private readonly notifications: NotificationsService,
+    private readonly findTaxRates: FindTaxRatesHandler,
   ) {}
 
   async execute(event: Stripe.Event): Promise<void> {
@@ -39,6 +45,10 @@ export class HandleInvoiceUpcomingHandler {
       dedupeDays: 3,
       payload: {
         amount_due: (invoice.amount_due / 100).toFixed(2),
+        ...invoiceTotals(
+          invoice,
+          await this.findTaxRates.execute(totalTaxRateIds(invoice)),
+        ),
         period_end: subscription.periodEnd.toISOString().slice(0, 10),
       },
     });

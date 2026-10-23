@@ -1,16 +1,20 @@
 import { Injectable } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { ClientsService } from '../../clients/clients.service';
+import { EmailConnectionsService } from '../../email-connections/email-connections.service';
 import { MediaService } from '../../media/media.service';
 import { SubcontractorsService } from '../../subcontractors/subcontractors.service';
 import { UsersService } from '../../users/users.service';
 
-/** The 5 dimensions actually billed. `retention_days` is a value, never counted. */
+/** The dimensions actually billed. `retention_days` is a value, never counted. */
 export const BILLED_FEATURE_KEYS = [
   'max_workers',
   'max_managers',
   'max_clients',
   'max_subcontractors',
   'storage_gb',
+  // Step 25 (D1): Gmail mailboxes not removed. A plan without the key bills none.
+  'email_mailboxes',
 ] as const;
 
 /** The 7 seeded roles are fixed (prisma/seeds/data.seed.ts) — worker is id 5. */
@@ -33,16 +37,24 @@ export class UsageCounterHelper {
     private readonly clients: ClientsService,
     private readonly subcontractors: SubcontractorsService,
     private readonly media: MediaService,
+    // `ModuleRef`: email-connections reaches notifications, which reaches
+    // billing — a static import would close a module cycle.
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   async countAll(tenantId: number): Promise<Record<string, number>> {
-    const [workers, managers, clients, subs, storage] = await Promise.all([
-      this.users.countActiveByRole(tenantId, WORKER_ROLE_ID),
-      this.users.countActiveExcludingRole(tenantId, WORKER_ROLE_ID),
-      this.clients.countActive(),
-      this.subcontractors.countActive(),
-      this.media.getStorageUsage(),
-    ]);
+    const emailConnections = this.moduleRef.get(EmailConnectionsService, {
+      strict: false,
+    });
+    const [workers, managers, clients, subs, storage, mailboxes] =
+      await Promise.all([
+        this.users.countActiveByRole(tenantId, WORKER_ROLE_ID),
+        this.users.countActiveExcludingRole(tenantId, WORKER_ROLE_ID),
+        this.clients.countActive(),
+        this.subcontractors.countActive(),
+        this.media.getStorageUsage(),
+        emailConnections.countBillable(),
+      ]);
 
     return {
       max_workers: workers,
@@ -50,6 +62,7 @@ export class UsageCounterHelper {
       max_clients: clients,
       max_subcontractors: subs,
       storage_gb: storage.gb,
+      email_mailboxes: mailboxes,
     };
   }
 }

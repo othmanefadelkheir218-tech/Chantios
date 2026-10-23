@@ -1,51 +1,105 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
-  Headers,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseIntPipe,
+  Patch,
   Post,
   Query,
   Res,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiExcludeController } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
+import { Module } from '../auth/decorators/module.decorator';
+import { TenantAuth } from '../auth/decorators/tenant-auth.decorator';
+import { Public } from '../common/decorators/public.decorator';
+import { SnakeCaseInterceptor } from '../common/interceptors/snake-case.interceptor';
+import {
+  ApiDisconnectInbox,
+  ApiFindInboxes,
+  ApiGmailCallback,
+  ApiSetCompanyAddress,
+  ApiStartGmailConnect,
+} from './decorators/email-connections.swagger';
+import { SetCompanyAddressDto } from './dto/set-company-address.dto';
 import { EmailConnectionsService } from './email-connections.service';
-import type { TestSendInput } from './email-connections.service';
 
-// TEST ONLY — "Connect Gmail" with the `gmail.send` scope, then send one email
-// as the connected Gmail. Tokens live in memory, nothing is saved. Replace before going live.
-@ApiExcludeController()
-@Controller('email-connections/google')
+/**
+ * Email inboxes (step 25, doc/notes/client-email.md): the company address and
+ * the users' own Gmail. `tenant_id` always comes from the JWT.
+ */
+@ApiTags('Email inboxes')
+@UseInterceptors(SnakeCaseInterceptor)
+@Controller('email-inboxes')
 export class EmailConnectionsController {
   constructor(
     private readonly emailConnectionsService: EmailConnectionsService,
   ) {}
 
-  /** Open in the browser: redirects to Google's consent screen. */
-  @Get('connect')
-  connect(@Res() res: Response) {
-    res.redirect(this.emailConnectionsService.buildConsentUrl());
+  @Get()
+  @TenantAuth()
+  @Module('email')
+  @ApiFindInboxes()
+  findAll(@CurrentUser() actor: AuthenticatedUser) {
+    return this.emailConnectionsService.findAll(actor);
   }
 
-  /** Google sends the user back here with a one-time code. */
-  @Get('callback')
-  async callback(
+  @Patch('company')
+  @TenantAuth()
+  @Module('settings')
+  @ApiSetCompanyAddress()
+  setCompanyAddress(
+    @Body() dto: SetCompanyAddressDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.emailConnectionsService.setCompanyLocalPart(dto, actor);
+  }
+
+  @Post('gmail/connect')
+  @HttpCode(HttpStatus.OK)
+  @TenantAuth()
+  // "Connecter un Gmail" — separate from using email: each Gmail is billed.
+  @Module('email_gmail')
+  @ApiStartGmailConnect()
+  startGmail(@CurrentUser() actor: AuthenticatedUser) {
+    return this.emailConnectionsService.startGmail(actor);
+  }
+
+  /** Google sends the browser back here. Public: the signed `state` is the proof. */
+  @Get('gmail/callback')
+  @Public()
+  @SkipThrottle()
+  @ApiGmailCallback()
+  async gmailCallback(
     @Query('code') code: string | undefined,
     @Query('state') state: string | undefined,
     @Query('error') error: string | undefined,
+    @Res() res: Response,
   ) {
-    return this.emailConnectionsService.handleCallback(code, state, error);
+    const url = await this.emailConnectionsService.finishGmail(
+      code,
+      state,
+      error,
+    );
+    res.redirect(url);
   }
 
-  /** Sends one email as the connected Gmail. Needs the `x-test-key` from the callback. */
-  @Post('test-send')
-  @HttpCode(HttpStatus.OK)
-  async testSend(
-    @Headers('x-test-key') testKey: string | undefined,
-    @Body() body: TestSendInput,
+  /** Owner or `settings` edit — checked in the handler (the owner needs no extra right). */
+  @Delete(':id')
+  @TenantAuth()
+  @ApiDisconnectInbox()
+  disconnect(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() actor: AuthenticatedUser,
   ) {
-    return this.emailConnectionsService.testSend(testKey, body);
+    return this.emailConnectionsService.disconnect(id, actor);
   }
 }

@@ -44,17 +44,61 @@ const c =
   (subject: (p: Payload) => string, body: (p: Payload) => string): Copy =>
   (p) => ({ subject: subject(p), body: body(p) });
 
+/** Same as `c`, plus the orange button to `p[urlKey]` when the caller gave it. */
+const cb =
+  (
+    subject: (p: Payload) => string,
+    body: (p: Payload) => string,
+    label: string,
+    urlKey: string,
+  ): Copy =>
+  (p) => ({
+    subject: subject(p),
+    body: body(p),
+    ...(p[urlKey] ? { button: { label, url: s(p[urlKey]) } } : {}),
+  });
+
 type ReceiptWords = {
   subject: string;
   intro: (p: Payload) => string;
   plan: string;
   extra: string;
+  /** Step 27 — "Total HT". */
+  subtotal: string;
   tax: string;
+  /** Step 27 — the TVA percent / "autoliquidation" words of this language. */
+  vat: VatWords;
   total: string;
   period: (from: string, to: string) => string;
   invoice: string;
   button: string;
 };
+
+/** Step 27 — how a language writes a TVA percent and the EU reverse charge. */
+type VatWords = { tax: string; comma: boolean; reverseCharge: string };
+
+const VAT_WORDS: Record<EmailLocale, VatWords> = {
+  fr: { tax: 'TVA', comma: true, reverseCharge: 'autoliquidation' },
+  nl: { tax: 'Btw', comma: true, reverseCharge: 'verlegging van heffing' },
+  en: { tax: 'VAT', comma: false, reverseCharge: 'reverse charge' },
+};
+
+/**
+ * "TVA 21 %", "TVA 0 % — autoliquidation", or just "TVA" when the rate is
+ * not one (mixed, or none). `tax_rate` / `reverse_charge` come raw ("21.00").
+ */
+function vatLabel(w: VatWords, p: Payload): string {
+  if (p.reverse_charge === true) return `${w.tax} 0 % — ${w.reverseCharge}`;
+  if (typeof p.tax_rate !== 'string') return w.tax;
+  const rate = String(Number(p.tax_rate));
+  return `${w.tax} ${w.comma ? rate.replace('.', ',') : rate} %`;
+}
+
+/** The invoice has a TVA line to show: a rate, a reverse charge, or an amount. */
+const hasVat = (p: Payload) =>
+  typeof p.tax_rate === 'string' ||
+  p.reverse_charge === true ||
+  hasAmount(p.tax_amount);
 
 /** A formatted amount that is not zero (`0,00 €` / `€0.00` = no row). */
 const hasAmount = (value: unknown) =>
@@ -89,8 +133,10 @@ const receipt =
           : {}),
       });
     }
-    if (hasAmount(p.tax_amount)) {
-      rows.push({ label: w.tax, value: s(p.tax_amount) });
+    // Step 27: Total HT, then the TVA with its rate (or "autoliquidation").
+    if (hasVat(p)) {
+      rows.push({ label: w.subtotal, value: s(p.subtotal) });
+      rows.push({ label: vatLabel(w.vat, p), value: s(p.tax_amount) });
     }
     const invoiceLine = p.invoice_number
       ? `<p style="margin:16px 0 0;font-size:13px;color:#64748B;">${w.invoice} ${s(p.invoice_number)}</p>`
@@ -106,6 +152,20 @@ const receipt =
         : {}),
     };
   };
+
+/**
+ * Step 27 — "12,10 € TTC (10,00 € HT + TVA 21 % 2,10 €)". An invoice with no
+ * TVA (or an old payload) shows the plain amount due.
+ */
+function upcomingAmount(
+  p: Payload,
+  w: VatWords,
+  excl: string,
+  incl: string,
+): string {
+  if (!p.total || !hasVat(p)) return s(p.amount_due);
+  return `${s(p.total)} ${incl} (${s(p.subtotal)} ${excl} + ${vatLabel(w, p)} ${s(p.tax_amount)})`;
+}
 
 /**
  * Subject + body for every alert, per locale (`fr`, `en`, `nl`; a missing or
@@ -430,39 +490,39 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       () => 'Your subscription payment failed',
       (p) =>
         p.grace_ends_at
-          ? `We could not charge ${s(p.amount)}. Please pay before ${s(p.grace_ends_at)} on the billing page, or your company will be blocked.`
-          : `We could not charge ${s(p.amount)}. Your company stays blocked until the subscription is paid.`,
+          ? `We could not charge ${s(p.amount)} (VAT included). Please pay before ${s(p.grace_ends_at)} on the billing page, or your company will be blocked.`
+          : `We could not charge ${s(p.amount)} (VAT included). Your company stays blocked until the subscription is paid.`,
     ),
     fr: c(
       () => 'Le paiement de votre abonnement a échoué',
       (p) =>
         p.grace_ends_at
-          ? `Nous n'avons pas pu prélever ${s(p.amount)}. Merci de payer avant le ${s(p.grace_ends_at)} sur la page Abonnement, sinon votre entreprise sera bloquée.`
-          : `Nous n'avons pas pu prélever ${s(p.amount)}. Votre entreprise reste bloquée jusqu'au paiement de l'abonnement.`,
+          ? `Nous n'avons pas pu prélever ${s(p.amount)} (TVA comprise). Merci de payer avant le ${s(p.grace_ends_at)} sur la page Abonnement, sinon votre entreprise sera bloquée.`
+          : `Nous n'avons pas pu prélever ${s(p.amount)} (TVA comprise). Votre entreprise reste bloquée jusqu'au paiement de l'abonnement.`,
     ),
     nl: c(
       () => 'De betaling van uw abonnement is mislukt',
       (p) =>
         p.grace_ends_at
-          ? `We konden ${s(p.amount)} niet afschrijven. Betaal vóór ${s(p.grace_ends_at)} op de abonnementspagina, anders wordt uw bedrijf geblokkeerd.`
-          : `We konden ${s(p.amount)} niet afschrijven. Uw bedrijf blijft geblokkeerd tot het abonnement betaald is.`,
+          ? `We konden ${s(p.amount)} (btw inbegrepen) niet afschrijven. Betaal vóór ${s(p.grace_ends_at)} op de abonnementspagina, anders wordt uw bedrijf geblokkeerd.`
+          : `We konden ${s(p.amount)} (btw inbegrepen) niet afschrijven. Uw bedrijf blijft geblokkeerd tot het abonnement betaald is.`,
     ),
   },
   subscription_renewal_upcoming: {
     en: c(
       () => 'Your subscription renews soon',
       (p) =>
-        `Your next charge of ${s(p.amount_due)} is coming up on ${s(p.period_end)}.`,
+        `Your next charge of ${upcomingAmount(p, VAT_WORDS.en, 'excl. VAT', 'incl. VAT')} is coming up on ${s(p.period_end)}.`,
     ),
     fr: c(
       () => 'Votre abonnement se renouvelle bientôt',
       (p) =>
-        `Votre prochain prélèvement de ${s(p.amount_due)} aura lieu le ${s(p.period_end)}.`,
+        `Votre prochain prélèvement de ${upcomingAmount(p, VAT_WORDS.fr, 'HT', 'TTC')} aura lieu le ${s(p.period_end)}.`,
     ),
     nl: c(
       () => 'Uw abonnement wordt binnenkort verlengd',
       (p) =>
-        `Uw volgende afschrijving van ${s(p.amount_due)} gebeurt op ${s(p.period_end)}.`,
+        `Uw volgende afschrijving van ${upcomingAmount(p, VAT_WORDS.nl, 'excl. btw', 'incl. btw')} gebeurt op ${s(p.period_end)}.`,
     ),
   },
   trial_ending: {
@@ -550,14 +610,85 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
         `Uw bestand "${s(p.file_name)}" is niet geïmporteerd: ${s(p.error_count)} fout(en). Er is niets opgeslagen. Open de import om elke regel te zien.`,
     ),
   },
+  new_email: {
+    en: cb(
+      (p) => `New email from ${s(p.sender_name)}`,
+      (p) =>
+        `${s(p.sender_name)} — "${s(p.subject)}": ${s(p.preview)}${p.needs_project ? ' This client has several projects: link the email to one.' : ''}`,
+      'Open the email',
+      'open_url',
+    ),
+    fr: cb(
+      (p) => `Nouvel email de ${s(p.sender_name)}`,
+      (p) =>
+        `${s(p.sender_name)} — « ${s(p.subject)} » : ${s(p.preview)}${p.needs_project ? ' Ce client a plusieurs projets : liez l’email à un projet.' : ''}`,
+      'Ouvrir l’email',
+      'open_url',
+    ),
+    nl: cb(
+      (p) => `Nieuwe e-mail van ${s(p.sender_name)}`,
+      (p) =>
+        `${s(p.sender_name)} — "${s(p.subject)}": ${s(p.preview)}${p.needs_project ? ' Deze klant heeft meerdere projecten: koppel de e-mail aan een project.' : ''}`,
+      'E-mail openen',
+      'open_url',
+    ),
+  },
+  email_mailbox_disconnected: {
+    en: cb(
+      () => 'Your Gmail is disconnected',
+      (p) =>
+        `The Gmail ${s(p.gmail_address)} (${s(p.owner_name)}) is disconnected. Reconnect it to keep sending. Nothing is sent from another address.`,
+      'Reconnect',
+      'open_url',
+    ),
+    fr: cb(
+      () => 'Votre Gmail est déconnecté',
+      (p) =>
+        `Le Gmail ${s(p.gmail_address)} (${s(p.owner_name)}) est déconnecté. Reconnectez-le pour continuer à envoyer. Rien n’est envoyé depuis une autre adresse.`,
+      'Reconnecter',
+      'open_url',
+    ),
+    nl: cb(
+      () => 'Uw Gmail is losgekoppeld',
+      (p) =>
+        `De Gmail ${s(p.gmail_address)} (${s(p.owner_name)}) is losgekoppeld. Koppel hem opnieuw om te blijven verzenden. Er wordt niets vanaf een ander adres verzonden.`,
+      'Opnieuw koppelen',
+      'open_url',
+    ),
+  },
+  email_forward_confirm: {
+    en: cb(
+      () => 'Confirm the Gmail forward',
+      (p) =>
+        `Gmail asks you to confirm the forward of ${s(p.gmail_address)} to ChantierOS. Open the link to confirm, then turn forwarding on in Gmail.`,
+      'Confirm the forward',
+      'confirm_url',
+    ),
+    fr: cb(
+      () => 'Confirmez le transfert Gmail',
+      (p) =>
+        `Gmail vous demande de confirmer le transfert de ${s(p.gmail_address)} vers ChantierOS. Ouvrez le lien pour confirmer, puis activez le transfert dans Gmail.`,
+      'Confirmer le transfert',
+      'confirm_url',
+    ),
+    nl: cb(
+      () => 'Bevestig het doorsturen in Gmail',
+      (p) =>
+        `Gmail vraagt u het doorsturen van ${s(p.gmail_address)} naar ChantierOS te bevestigen. Open de link om te bevestigen en zet doorsturen daarna aan in Gmail.`,
+      'Doorsturen bevestigen',
+      'confirm_url',
+    ),
+  },
   subscription_payment_received: {
     en: receipt({
       subject: 'Payment received — thank you',
       intro: (p) =>
         `We received your payment of ${s(p.total)} on ${s(p.paid_at)}. Here is the detail.`,
-      plan: 'Plan',
-      extra: 'Extra usage',
+      plan: 'Plan (excl. VAT)',
+      extra: 'Extra usage (excl. VAT)',
+      subtotal: 'Total excl. VAT',
       tax: 'VAT',
+      vat: VAT_WORDS.en,
       total: 'Total paid',
       period: (from, to) => `From ${from} to ${to}`,
       invoice: 'Invoice',
@@ -567,10 +698,12 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       subject: 'Paiement reçu — merci',
       intro: (p) =>
         `Nous avons bien reçu votre paiement de ${s(p.total)} le ${s(p.paid_at)}. Voici le détail.`,
-      plan: 'Formule',
-      extra: 'Supplément (dépassement)',
+      plan: 'Formule HT',
+      extra: 'Supplément HT (dépassement)',
+      subtotal: 'Total HT',
       tax: 'TVA',
-      total: 'Total payé',
+      vat: VAT_WORDS.fr,
+      total: 'Total payé (TTC)',
       period: (from, to) => `Du ${from} au ${to}`,
       invoice: 'Facture',
       button: 'Voir mon abonnement',
@@ -579,10 +712,12 @@ const TEMPLATES: Record<NotificationType, LocaleCopy> = {
       subject: 'Betaling ontvangen — bedankt',
       intro: (p) =>
         `We hebben uw betaling van ${s(p.total)} ontvangen op ${s(p.paid_at)}. Hier is het detail.`,
-      plan: 'Formule',
-      extra: 'Extra gebruik',
+      plan: 'Formule excl. btw',
+      extra: 'Extra gebruik excl. btw',
+      subtotal: 'Totaal excl. btw',
       tax: 'Btw',
-      total: 'Totaal betaald',
+      vat: VAT_WORDS.nl,
+      total: 'Totaal betaald (incl. btw)',
       period: (from, to) => `Van ${from} tot ${to}`,
       invoice: 'Factuur',
       button: 'Mijn abonnement bekijken',

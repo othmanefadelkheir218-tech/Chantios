@@ -5,6 +5,7 @@ import { StripeService } from '../../stripe/stripe.service';
 import { SubscriptionsService } from '../../subscriptions/subscriptions.service';
 import { TenantsService } from '../../tenants/tenants.service';
 import { CardPaymentDto } from '../dto/card-payment.dto';
+import { TenantVatHandler } from './tenant-vat.handler';
 import {
   billingPageUrl,
   checkoutTrialEnd,
@@ -20,6 +21,9 @@ import {
  *   - card subscription, `cancelled` (blocked) → the old one is ended, then a
  *     new Checkout, so the new month starts on the payment day (Q8);
  *   - card subscription, `trialing`/`active` → 409: use "Manage payment".
+ * Step 27: no TVA for this company (no country, or not an active TVA
+ * country) → 409, nothing else happens. The Checkout subscription gets the
+ * resolved TaxRate; the customer its TVA number and reverse-charge footer.
  */
 @Injectable()
 export class StartCheckoutHandler {
@@ -30,6 +34,7 @@ export class StartCheckoutHandler {
     private readonly plans: PlansService,
     private readonly tenants: TenantsService,
     private readonly stripe: StripeService,
+    private readonly tenantVat: TenantVatHandler,
   ) {}
 
   async execute(
@@ -37,6 +42,15 @@ export class StartCheckoutHandler {
     { locale }: CardPaymentDto,
   ): Promise<{ url: string }> {
     this.logger.info(`Tenant ${tenantId} starts a card payment`);
+    const { vat, euVatNumber } = await this.tenantVat.withNumber(tenantId);
+    if (vat.kind === 'missing') {
+      this.logger.warn(`Tenant ${tenantId} cannot pay: no TVA (${vat.reason})`);
+      throw new ConflictException(
+        vat.reason === 'no_country'
+          ? 'Fill in your company country first'
+          : 'Your country is not supported yet',
+      );
+    }
     const subscription = await this.subscriptions.findByTenant(tenantId);
 
     if (subscription.stripeSubscriptionId) {
@@ -87,10 +101,19 @@ export class StartCheckoutHandler {
       await this.subscriptions.setStripeCustomerId(tenantId, customerId);
     }
 
+    // The customer first: its invoices print the TVA number / reverse-charge mention.
+    await this.stripe.syncSubscriptionTax({
+      customerId,
+      subscriptionId: null,
+      taxRateId: vat.stripeTaxRateId,
+      reverseCharge: vat.kind === 'reverse_charge',
+      euVatNumber,
+    });
     const url = await this.stripe.createCheckoutSession({
       tenantId,
       customerId,
       priceId: plan.stripePriceId,
+      taxRateId: vat.stripeTaxRateId,
       trialEnd:
         subscription.status === 'trialing'
           ? checkoutTrialEnd(subscription.periodEnd, new Date())

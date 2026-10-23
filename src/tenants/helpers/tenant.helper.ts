@@ -63,6 +63,15 @@ export function isSameTenant(
   );
 }
 
+/** Step 27: the country or the TVA number changed → the TVA may change from the next invoice. */
+export function taxProfileChanged(before: Tenant, after: Tenant): boolean {
+  return (
+    before.country !== after.country ||
+    before.vatNumber !== after.vatNumber ||
+    before.vatNumberStatus !== after.vatNumberStatus
+  );
+}
+
 /** Response shape: the reminder time goes back to `HH:mm`. */
 export function toTenantEntity(tenant: Tenant) {
   return {

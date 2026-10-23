@@ -13,6 +13,7 @@ import { NotificationsGateway } from '../gateways/notifications.gateway';
 import {
   StaffCandidate,
   filterStaffRecipients,
+  pickViewers,
   recipientRule,
 } from '../helpers/notification-recipients.helper';
 import { renderNotification } from '../helpers/notification-templates.helper';
@@ -107,12 +108,14 @@ export class DispatchNotificationHandler {
         })),
       );
       const byUser = new Map(recipients.map((user) => [user.id, user]));
+      const online = context.emailOnlyIfOffline
+        ? await this.onlineUserIds(recipients.map((user) => user.id))
+        : new Set<number>();
       for (const row of rows) {
-        this.deliver(
-          row,
-          byUser.get(row.userId ?? 0)?.email ?? undefined,
-          tenant.locale,
-        );
+        const email = online.has(row.userId ?? 0)
+          ? undefined // online in the app: in-app only (step 25)
+          : (byUser.get(row.userId ?? 0)?.email ?? undefined);
+        this.deliver(row, email, tenant.locale);
       }
       return rows.length;
     });
@@ -171,7 +174,7 @@ export class DispatchNotificationHandler {
       const users = await this.users.findActiveWithRole(ids);
       return users.filter((user) => !exclude.has(user.id));
     }
-    if (rule.kind !== 'staff') return [];
+    if (rule.kind !== 'staff' && rule.kind !== 'viewers') return [];
 
     const everyone = await this.users.findActiveWithRole();
     const roleIds = [...new Set(everyone.map((user) => user.roleId))];
@@ -183,9 +186,24 @@ export class DispatchNotificationHandler {
         ),
       ),
     );
-    return filterStaffRecipients(everyone, rule.module, overrides).filter(
-      (user) => !exclude.has(user.id),
-    );
+    const picked =
+      rule.kind === 'viewers'
+        ? pickViewers(everyone, rule, overrides, context.userIds)
+        : filterStaffRecipients(everyone, rule.module, overrides);
+    return picked.filter((user) => !exclude.has(user.id));
+  }
+
+  /** Who of these users has an open socket right now. A failed check = nobody (email them). */
+  private async onlineUserIds(userIds: number[]): Promise<Set<number>> {
+    const online = new Set<number>();
+    for (const userId of userIds) {
+      try {
+        if (await this.gateway.isUserOnline(userId)) online.add(userId);
+      } catch (err: unknown) {
+        this.logger.warn({ err }, `Presence check failed for user ${userId}`);
+      }
+    }
+    return online;
   }
 
   private async dropRecentlyNotified(

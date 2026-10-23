@@ -21,6 +21,7 @@ import { TaskStartingCron } from './task-starting.cron';
 import { TenantRunner } from './tenant-runner.service';
 import { TrialEndCron } from './trial-end.cron';
 import { UsageSpikeCron } from './usage-spike.cron';
+import { VatNumberRetryCron } from './vat-number-retry.cron';
 
 /**
  * The schedulers that raise alerts across every company. They hold no
@@ -59,6 +60,7 @@ import { UsageSpikeCron } from './usage-spike.cron';
     TrialEndCron,
     UsageSpikeCron,
     NotesTrashCron,
+    VatNumberRetryCron,
   ],
 })
 export class CronsModule {}

@@ -6,6 +6,7 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { ClientsController } from './clients.controller';
 import { ClientsService } from './clients.service';
+import { AddClientEmailHandler } from './handlers/add-client-email.handler';
 import { ArchiveClientHandler } from './handlers/archive-client.handler';
 import { CreateClientHandler } from './handlers/create-client.handler';
 import { FindClientHandler } from './handlers/find-client.handler';
@@ -33,6 +34,7 @@ import { ClientRepository } from './repositories/client.repository';
     FindClientHandler,
     UpdateClientHandler,
     ArchiveClientHandler,
+    AddClientEmailHandler,
   ],
   // `projects` imports this to validate `client_id` through `ClientsService`
   // (never this module's repository) — the one-directional edge that keeps

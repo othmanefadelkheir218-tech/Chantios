@@ -24,7 +24,8 @@ A new `module` key: **`notes`** (see [roles-permissions.md](roles-permissions.md
 - The tenant admin **cannot read, edit or delete** another user's notes. The admin can only remove the access, by role.
 - No platform admin route reads notes. **While a platform admin impersonates a user, the notes routes answer `403`** — impersonation is for support, not for reading private notes.
 - Labels belong to the user too, the same way.
-- Note images never show in the generic file routes (`/api/media`), even for the admin. Only the notes routes reach them, for the owner.
+- **Note images on the Files page (`/media`).** The owner sees their own note images there; the **tenant admin sees every note image**, as a file only (view and download) — never the note itself: no title, no text, no labels, no link to the note (`entity_id` is hidden, the file only says "Note"). Every `/api/notes` route stays closed to the admin. No one else sees them. While a platform admin impersonates, note images are hidden there too.
+- Note images can only be added or deleted through the note (`/api/notes/:id/images`), never from the Files page.
 - `audit_logs` never stores a note's title or content — only the action and the note id.
 
 Why: people write private things in notes, even passwords. If someone else can read them, users stop trusting the feature.

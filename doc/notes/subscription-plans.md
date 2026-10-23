@@ -120,20 +120,68 @@ Also decided 2026-10-15 (owner):
 - **A plan change** of a paying company changes the Stripe price at once, with no proration, and Stripe uses it from the next invoice.
 - **Card change and Stripe invoices**: the Stripe Customer Portal (update card + invoices only).
 - **Cancel**: the tenant admin can cancel. The app works until the end of the paid month, **no refund**. Then `cancelled` (blocked, data kept, can pay again).
-- **VAT**: not now, decided later.
+- **TVA**: see § TVA on the subscription.
 
 - **Undo a cancel**: before the month ends, the tenant admin can click "Keep my subscription"; the next month is charged normally.
 - **A blocked company pays again**: a new month starts on the payment day (blocked 1 March, pays 20 March → 20 March → 20 April).
 
 Build: [Phaces/21-stripe-checkout.md](Phaces/21-stripe-checkout.md) § 2.
 
+## Decided — TVA on the subscription
+
+Decided 2026-10-20 (owner). This is the TVA on what a **company pays ChantierOS** (plan + overage). It is not the TVA on the quotes and invoices a company sends to its own clients — that one stays per line ([client-invoices.md](client-invoices.md)).
+
+- **The seller is in Belgium.** ChantierOS is a Belgian company.
+- **Prices are HT** (TVA not included). Every plan price and overage rate is HT, and every screen shows "HT" next to it. The TVA is added on top.
+- **We set the TVA, not Stripe.** We do not use Stripe Tax (no 0.5% fee per payment). We tell Stripe the rate for each company; Stripe adds it to the invoice and charges the card.
+- **The super-admin manages a TVA table**: one row per country — country, rate, "EU country" yes/no, active. They can add a country, change a rate, close a country. Starting rows:
+
+  | Country | Rate | EU |
+  |---|---|---|
+  | Belgium (BE) | 21% | yes |
+  | France (FR) | 20% | yes |
+  | Netherlands (NL) | 21% | yes |
+  | Germany (DE) | 19% | yes |
+  | Spain (ES) | 21% | yes |
+
+- **Which rate a company pays:**
+
+  | Company | TVA |
+  |---|---|
+  | In Belgium (same country as the seller) | the Belgium rate from the table, with or without a TVA number |
+  | In another **EU** country **with** a TVA number | **0%, "Autoliquidation"** — the company declares the TVA in its own country (EU reverse charge) |
+  | In another EU country **without** a TVA number | the rate of **its own country** from the table |
+  | In a non-EU country of the table | the rate of its country from the table |
+
+- **The country is required.** Every company must have a country: at signup, when the super-admin creates a company, and on the company profile (it can be changed, never emptied).
+- **Only the countries of the TVA table can be chosen** (active rows) — at signup, on the profile, and when the super-admin creates a company. A company from a country not in the table cannot sign up until the super-admin adds that country.
+- **A country where companies pay by card cannot be closed.** The super-admin must wait until no company of that country has a card subscription. A rate change is always allowed.
+- **No country (an old company), or a closed country → the company cannot pay.** The Billing page says why and links to the company profile. Nothing else is blocked.
+- **A rate change applies from the next invoice.** Invoices already made keep their rate.
+- **A change of the company's country or TVA number applies from the next invoice** too.
+- **The TVA number is checked with VIES**, the free EU service, when the company saves it (and again by a background job while the answer is "busy"):
+
+  | VIES answer | Profile shows | TVA |
+  |---|---|---|
+  | valid | "Numéro TVA vérifié ✓" | reverse charge applies (EU company outside Belgium) |
+  | not valid | "Numéro TVA non valide" | the normal rate of its country |
+  | busy / down | "Vérification en cours" | the normal rate of its country until a good answer comes; retried automatically |
+
+  The super-admin sees the same status on the company page. Nothing is blocked because of it.
+- **The check can be switched off** with `VAT_NUMBER_CHECK=off` in `.env`, for dev and for a hosted test server, so fake numbers can be used. Off: only the format is checked (`BE0123456789`), the number counts as valid, and the profile shows "Non vérifié (mode test)". It does **not** follow dev / production mode: it is its own setting. Production keeps `VAT_NUMBER_CHECK=vies` (also the default when the line is missing).
+- **The Stripe invoice is legal:** it shows the company's TVA number, the TVA rate, and on a reverse-charge invoice the mention *"Autoliquidation — article 196 de la directive 2006/112/CE"*. The seller's own TVA number is set once in the Stripe Dashboard (owner).
+- **Everywhere a subscription amount is shown, the final price is shown:** Total HT, TVA (with the rate, or "Autoliquidation"), and **Total payé** (TTC — what the card was really charged). This covers the company's billing history, the super-admin's billing history of a company, and every automatic email that shows an amount (payment received, payment failed, next charge coming). All amounts come from the Stripe invoice, never recomputed.
+
+Build: [Phaces/27-subscription-tva.md](Phaces/27-subscription-tva.md).
+
 ## Decided — the billing history
 
-Decided 2026-10-16 (owner).
+Decided 2026-10-16 (owner). TVA added 2026-10-20 (§ TVA on the subscription).
 
-- The history shows **one block per finished period**: the usage counted at renewal (used / included per dimension), then **Formule + Supplément = Total payé**.
+- The history shows **one block per finished period**: the usage counted at renewal (used / included per dimension), then **Formule HT + Supplément HT = Total HT**, **TVA** (rate, or "Autoliquidation"), **Total payé** (TTC).
 - **The money comes from Stripe**, read when the history opens. It is never recomputed by us, so it always matches the Stripe invoices.
-- Stripe charges one period on two invoices: the **plan price at the start** of the period, the **overage at the end** (the invoice made at renewal). The block adds both: e.g. 10 € plan + 4 € overage = **14 €**.
+- Stripe charges one period on two invoices: the **plan price at the start** of the period, the **overage at the end** (the invoice made at renewal). The block adds both: e.g. 10 € plan + 4 € overage = **14 € HT**, TVA 21% = 2,94 €, **Total payé 16,94 €**.
+- If the two invoices of a period have different rates (the rate changed in between), the TVA line shows the amount without a single rate.
 - **Total à payer** instead of **Total payé** when one of those invoices is not paid yet.
 - A period with nothing charged by card (the trial, or a company that never paid by card) shows **0,00 €**. If overage was counted but not charged by card, a line says so.
 - If Stripe cannot be read, the usage still shows; the amounts say "unavailable".
@@ -146,7 +194,8 @@ Decided 2026-10-17 (owner).
 
 - When Stripe says an invoice is **paid** (`invoice.paid`), the company gets a **"Paiement reçu"** email (alert `subscription_payment_received`).
 - **Who:** the same people as the other subscription emails — the company's staff who can view `settings` (the admin). In the **company's language** (fr / nl / en; unknown → en).
-- **What it shows:** the plan name and its price with its period (*Du … au …*), the extra usage (overage) with the month it covers, the VAT when there is some, the **total paid**, the paid date, the invoice number, and a button to the Billing page.
+- **What it shows:** the plan name and its price HT with its period (*Du … au …*), the extra usage (overage) HT with the month it covers, **Total HT**, **TVA** (rate, or "Autoliquidation"), the **total paid** (TTC), the paid date, the invoice number, and a button to the Billing page.
+- **The other emails with an amount** show the final price too: "payment failed" gives the amount TTC ("TVA comprise"); "next charge coming" gives Total HT, TVA and Total TTC.
 - Same split as the billing history: a subscription line = the plan; any other line = overage. Amounts come from the Stripe invoice, never recomputed.
 - An invoice of **0 €** (the trial) sends nothing.
 - All company emails show money and dates in the reader's language: `10,00 €`, `30/12/2026` (fr / nl), `€10.00` (en).
@@ -210,6 +259,7 @@ A signup always needs a default plan, so the platform guards it:
 - Per plan: `id`, `name`, `base_price`, `is_default`, and `features`: `[{ feature_key, limit_value, overage_rate }]`.
 - Never returns `stripe_price_id`, `parent_plan_id`, or any subscriber count.
 - Sorted by `base_price`, cheapest first.
+- Prices are HT; the page says "HT" and "+ TVA".
 - Read-only. Plans are still created and changed only through `/api/admin/plans`.
 
 ## Related notes
@@ -234,7 +284,7 @@ A signup always needs a default plan, so the platform guards it:
 | `is_active` | boolean | false = no new signups allowed |
 | `is_default` | boolean | **The plan a new signup lands on.** Only one row may be true |
 | `parent_plan_id` | integer (nullable) | FK → plans.id — points to the previous version this was created from |
-| `base_price` | decimal | Monthly base price |
+| `base_price` | decimal | Monthly base price, **HT** (TVA added on the invoice — § TVA on the subscription) |
 | `stripe_price_id` | varchar | Stripe Price ID for this version — **auto-created, never input** (see below) |
 | `created_at` | timestamp |  |
 
@@ -257,7 +307,7 @@ The Stripe calls live in `src/stripe/` (`CreatePlanPriceHandler`, `ArchivePlanPr
 | `plan_id` | integer | FK → plans.id |
 | `feature_key` | varchar | One of the fixed keys listed above — `"max_workers"`, `"max_clients"`, `"storage_gb"`… |
 | `limit_value` | int | Included allowance (e.g. 5 employees) |
-| `overage_rate` | decimal | Price per extra unit beyond the limit |
+| `overage_rate` | decimal | Price per extra unit beyond the limit, **HT** |
 
 > `retention_days` has no overage rate — you either have it or not.
 

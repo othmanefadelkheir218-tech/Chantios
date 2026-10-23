@@ -24,6 +24,7 @@ import { CancelCardSubscriptionHandler } from './handlers/cancel-card-subscripti
 import { StartCheckoutHandler } from './handlers/start-checkout.handler';
 import { BlockExpiredGraceHandler } from './handlers/block-expired-grace.handler';
 import { TrialReminderHandler } from './handlers/trial-reminder.handler';
+import { SyncTenantTaxHandler } from './handlers/sync-tenant-tax.handler';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
 @Injectable()
@@ -43,10 +44,16 @@ export class BillingService {
     private readonly startCheckoutHandler: StartCheckoutHandler,
     private readonly openPortalHandler: OpenPortalHandler,
     private readonly cancelCardSubscriptionHandler: CancelCardSubscriptionHandler,
+    private readonly syncTenantTaxHandler: SyncTenantTaxHandler,
     private readonly subscriptions: SubscriptionsService,
     private readonly cls: ClsService,
     private readonly tenantContext: TenantContextService,
   ) {}
+
+  /** Step 27 (`yarn tva:sync`): the TVA of every card subscription on Stripe. */
+  syncAllTax() {
+    return this.syncTenantTaxHandler.executeAll();
+  }
 
   mySubscription(tenantId: number) {
     return this.mySubscriptionHandler.execute(tenantId);

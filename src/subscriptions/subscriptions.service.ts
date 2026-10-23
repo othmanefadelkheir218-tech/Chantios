@@ -152,6 +152,11 @@ export class SubscriptionsService {
     return this.subscriptions.findByStripeCustomerId(stripeCustomerId);
   }
 
+  /** Tenants paying by card, optionally only those of one country (step 27). */
+  findCardTenantIds(countryCode?: string) {
+    return this.subscriptions.findCardTenantIds(countryCode);
+  }
+
   /** Platform stats: subscriptions of live companies per status. */
   countByStatus() {
     return this.subscriptions.countByStatus();

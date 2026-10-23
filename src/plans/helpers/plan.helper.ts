@@ -1,7 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { toCamelKeys } from '../../common/helpers/case.helper';
-import { FEATURE_KEYS, PlanFeatureDto } from '../dto/create-plan.dto';
+import {
+  FEATURE_KEYS,
+  OPTIONAL_FEATURE_KEYS,
+  PlanFeatureDto,
+} from '../dto/create-plan.dto';
 import type { PlanWithFeatures } from '../repositories/plan.repository';
 
 /** The rows to insert in `plan_features`, without the plan id. */
@@ -11,9 +15,10 @@ export type PlanFeatureData = Omit<
 >;
 
 /**
- * Validates the feature list and turns it into rows. All 6 `FEATURE_KEYS`
- * are required, no more, no fewer — see doc/notes/subscription-plans.md
- * § "all 6 feature keys are required". `retention_days` is a value, not
+ * Validates the feature list and turns it into rows. The 6 first
+ * `FEATURE_KEYS` are required, no more, no fewer — see
+ * doc/notes/subscription-plans.md § "all 6 feature keys are required".
+ * `email_mailboxes` (step 25) is optional: left out = mailboxes not billed. `retention_days` is a value, not
  * something billed: its overage is always 0.
  */
 export function toFeatureRows(features: PlanFeatureDto[]): PlanFeatureData[] {
@@ -24,10 +29,13 @@ export function toFeatureRows(features: PlanFeatureDto[]): PlanFeatureData[] {
     }
     seen.add(feature_key);
   }
-  const missing = FEATURE_KEYS.filter((key) => !seen.has(key));
+  const required = FEATURE_KEYS.filter(
+    (key) => !OPTIONAL_FEATURE_KEYS.includes(key),
+  );
+  const missing = required.filter((key) => !seen.has(key));
   if (missing.length > 0) {
     throw new BadRequestException(
-      `All ${FEATURE_KEYS.length} features are required. Missing: ${missing.join(', ')}`,
+      `All ${required.length} features are required. Missing: ${missing.join(', ')}`,
     );
   }
   return features.map((feature) => {

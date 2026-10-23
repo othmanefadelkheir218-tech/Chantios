@@ -9,6 +9,7 @@ import { AuditService } from '../../audit/audit.service';
 import { EmailService } from '../../email/email.service';
 import { OneTimeCodesService } from '../../one-time-codes/one-time-codes.service';
 import { TenantRepository } from '../repositories/tenant.repository';
+import { PrepareTaxFieldsHandler } from './prepare-tax-fields.handler';
 import { CreateTenantHandler } from './create-tenant.handler';
 import { RestoreTenantHandler } from './restore-tenant.handler';
 import { RestoreTenantsHandler } from './restore-tenants.handler';
@@ -86,6 +87,11 @@ describe('Tenants handlers', () => {
         { provide: OneTimeCodesService, useValue: codes },
         { provide: EmailService, useValue: email },
         { provide: AppEventsService, useValue: { emit: emitEvent } },
+        // Step 27: country / TVA number checks have their own tests.
+        {
+          provide: PrepareTaxFieldsHandler,
+          useValue: { execute: () => Promise.resolve({ country: 'BE' }) },
+        },
         {
           provide: SessionsService,
           useValue: { revokeAllForTenant: revokeAllForTenant },
@@ -113,7 +119,7 @@ describe('Tenants handlers', () => {
       repo.create.mockResolvedValue(tenant());
 
       const result = await create.execute(
-        { name: 'Dupont', email: 'Contact@Dupont.test' },
+        { name: 'Dupont', email: 'Contact@Dupont.test', country: 'BE' },
         actor,
       );
 
@@ -133,7 +139,10 @@ describe('Tenants handlers', () => {
     it('rejects a second tenant with the same email', async () => {
       repo.findByEmail.mockResolvedValue(tenant());
       await expect(
-        create.execute({ name: 'Other', email: 'contact@dupont.test' }, actor),
+        create.execute(
+          { name: 'Other', email: 'contact@dupont.test', country: 'BE' },
+          actor,
+        ),
       ).rejects.toBeInstanceOf(ConflictException);
       expect(repo.create).not.toHaveBeenCalled();
       expect(audit.write).not.toHaveBeenCalled();
@@ -400,6 +409,9 @@ describe('UpdateTenantHandler — audit only a real change', () => {
       logger as never,
       repo as unknown as TenantRepository,
       audit as unknown as AuditService,
+      { execute: () => Promise.resolve({}) } as never,
+      { execute: jest.fn() } as never,
+      { emit: jest.fn() } as never,
     );
 
   beforeEach(() => jest.resetAllMocks());

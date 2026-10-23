@@ -31,6 +31,7 @@ export class PushOverageInvoiceItemHandler {
     description: string,
     idempotencyKey: string,
     invoiceId: string | null = null,
+    taxRateId: string | null = null,
   ): Promise<void> {
     if (amount.lte(0)) return;
     if (!stripeCustomerId) {
@@ -49,6 +50,9 @@ export class PushOverageInvoiceItemHandler {
           description,
           // A card company (step 21): straight onto this month's draft invoice.
           ...(invoiceId && { invoice: invoiceId }),
+          // Step 27: the overage is taxed too — set explicitly, never left to
+          // the invoice default (a pending item may land on another invoice).
+          ...(taxRateId && { tax_rates: [taxRateId] }),
         },
         { idempotencyKey },
       );

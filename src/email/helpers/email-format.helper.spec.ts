@@ -63,7 +63,7 @@ describe('payment received email', () => {
     expect(out.html).toContain('Formule');
     expect(out.html).toContain('<strong>Pro</strong>');
     expect(out.html).toContain('Du 01/11/2026 au 01/12/2026');
-    expect(out.html).toContain('Supplément (dépassement)');
+    expect(out.html).toContain('Supplément HT (dépassement)');
     expect(out.html).toContain('4,00 €');
     expect(out.html).toContain('Total payé');
     expect(out.html).toContain('14,00 €');
@@ -71,6 +71,68 @@ describe('payment received email', () => {
     expect(out.html).toContain('ABC-0002');
     // VAT 0 → no VAT row
     expect(out.html).not.toContain('TVA');
+  });
+
+  it('fr, TVA 21 % (step 27): Total HT, TVA with its rate, total paid TTC', () => {
+    const out = renderNotification(
+      'subscription_payment_received',
+      {
+        ...payload,
+        subtotal: '14.00',
+        tax_amount: '2.94',
+        tax_rate: '21.00',
+        reverse_charge: false,
+        total: '16.94',
+      },
+      'fr',
+    );
+    expect(out.html).toContain('Total HT');
+    expect(out.html).toContain('TVA 21 %');
+    expect(out.html).toContain('2,94 €');
+    expect(out.html).toContain('Total payé (TTC)');
+    expect(out.html).toContain('16,94 €');
+  });
+
+  it('en, reverse charge (step 27): VAT 0 % row even with no amount', () => {
+    const out = renderNotification(
+      'subscription_payment_received',
+      {
+        ...payload,
+        subtotal: '14.00',
+        tax_amount: '0.00',
+        tax_rate: '0.00',
+        reverse_charge: true,
+      },
+      'en',
+    );
+    expect(out.html).toContain('VAT 0 % — reverse charge');
+    expect(out.html).toContain('Total excl. VAT');
+  });
+
+  it('upcoming charge (step 27): TTC with HT + TVA in the text', () => {
+    const out = renderNotification(
+      'subscription_renewal_upcoming',
+      {
+        amount_due: '12.10',
+        subtotal: '10.00',
+        tax_amount: '2.10',
+        tax_rate: '21.00',
+        reverse_charge: false,
+        total: '12.10',
+        period_end: '2026-12-01',
+      },
+      'fr',
+    );
+    expect(out.html).toContain('12,10 € TTC (10,00 € HT + TVA 21 % 2,10 €)');
+  });
+
+  it('payment failed (step 27): the amount says VAT included', () => {
+    const out = renderNotification(
+      'subscription_payment_failed',
+      { amount: '12.10' },
+      'fr',
+    );
+    expect(out.html).toContain('12,10 € (TVA comprise)');
   });
 
   it('no overage: no extra row', () => {

@@ -86,6 +86,8 @@ Tenants use the 7 fixed roles. Fine-grained access overrides are handled via `ro
 | `analytics` | view | — | — | — | — | — | view |
 | `contacts` | view | view | — | — | — | — | — |
 | `notes` | own | own | own | own | own | own | own |
+| `email` | full | full | — | — | — | full | — |
+| `email_gmail` | full | — | — | — | — | — | — |
 
 ---
 

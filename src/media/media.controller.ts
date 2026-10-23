@@ -86,7 +86,7 @@ export class MediaController {
     @CurrentUser() actor: AuthenticatedUser,
     @PermissionScope() scope: Scope,
   ) {
-    return this.mediaService.findOne(id, actor, scope);
+    return this.mediaService.findVisible(id, actor, scope);
   }
 
   // Must stay registered before `PATCH :id` — both match one path segment.

@@ -113,8 +113,11 @@ describe('Notes helpers', () => {
   });
 
   it('the generic media filter never shows a note image', () => {
+    // Without a viewer (step 26 B: owner or tenant admin), no note file.
     expect(buildMediaFilter()).toMatchObject({
-      entityType: { notIn: ['note'] },
+      AND: [
+        { entityType: { notIn: expect.arrayContaining(['note']) as string[] } },
+      ],
     });
   });
 });

@@ -7,6 +7,11 @@ import { env } from '../config/env.config';
 import { stripe } from '../config/stripe.config';
 import { STRIPE_WEBHOOKS_QUEUE, WebhookJobData } from './dto/webhook.dto';
 import { ArchivePlanPriceHandler } from './handlers/archive-plan-price.handler';
+import { ArchiveTaxRateHandler } from './handlers/archive-tax-rate.handler';
+import {
+  CreateTaxRateHandler,
+  TaxRateInput,
+} from './handlers/create-tax-rate.handler';
 import { CreatePlanPriceHandler } from './handlers/create-plan-price.handler';
 import { PushOverageInvoiceItemHandler } from './handlers/push-overage-invoice-item.handler';
 import { RecordWebhookEventHandler } from './handlers/record-webhook-event.handler';
@@ -20,6 +25,10 @@ import { ListCustomerInvoicesHandler } from './handlers/list-customer-invoices.h
 import { InvoiceSummary } from './dto/invoice-summary.dto';
 import { SetCancelAtPeriodEndHandler } from './handlers/set-cancel-at-period-end.handler';
 import { UpdateSubscriptionPriceHandler } from './handlers/update-subscription-price.handler';
+import {
+  SubscriptionTaxInput,
+  SyncSubscriptionTaxHandler,
+} from './handlers/sync-subscription-tax.handler';
 
 @Injectable()
 export class StripeService {
@@ -38,6 +47,9 @@ export class StripeService {
     private readonly endSubscriptionNowHandler: EndSubscriptionNowHandler,
     private readonly findOpenInvoiceUrlHandler: FindOpenInvoiceUrlHandler,
     private readonly listCustomerInvoicesHandler: ListCustomerInvoicesHandler,
+    private readonly createTaxRateHandler: CreateTaxRateHandler,
+    private readonly archiveTaxRateHandler: ArchiveTaxRateHandler,
+    private readonly syncSubscriptionTaxHandler: SyncSubscriptionTaxHandler,
     @InjectQueue(STRIPE_WEBHOOKS_QUEUE)
     private readonly queue: Queue<WebhookJobData>,
   ) {}
@@ -59,6 +71,7 @@ export class StripeService {
     description: string,
     idempotencyKey: string,
     invoiceId: string | null = null,
+    taxRateId: string | null = null,
   ): Promise<void> {
     return this.pushOverageInvoiceItemHandler.execute(
       stripeCustomerId,
@@ -66,6 +79,7 @@ export class StripeService {
       description,
       idempotencyKey,
       invoiceId,
+      taxRateId,
     );
   }
 
@@ -124,6 +138,23 @@ export class StripeService {
   /** Every invoice of a Stripe customer, for the billing history. `null` if Stripe can't be read. */
   listCustomerInvoices(customerId: string): Promise<InvoiceSummary[] | null> {
     return this.listCustomerInvoicesHandler.execute(customerId);
+  }
+
+  // ---- Step 27 — TVA on the subscription ----
+
+  /** A new Stripe TaxRate (exclusive). Returns its id. Throws 502 if Stripe fails. */
+  createTaxRate(input: TaxRateInput): Promise<string> {
+    return this.createTaxRateHandler.execute(input);
+  }
+
+  /** Archives a Stripe TaxRate. Best-effort — never throws. */
+  archiveTaxRate(taxRateId: string | null): Promise<void> {
+    return this.archiveTaxRateHandler.execute(taxRateId);
+  }
+
+  /** The company's TVA on Stripe, from its next invoice. Throws 502 if Stripe fails. */
+  syncSubscriptionTax(input: SubscriptionTaxInput): Promise<void> {
+    return this.syncSubscriptionTaxHandler.execute(input);
   }
 
   /** Checks the Stripe signature. Throws 400 if the request is not from Stripe. */

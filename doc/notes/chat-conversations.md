@@ -117,6 +117,13 @@ The primary key is `id`. Uniqueness is `UNIQUE (message_id, user_id, client_id)`
 
 Unread count for a conversation = messages with no matching row for that reader.
 
+**"Seen" ticks — team chat only.** Shown on the sender's own messages in the internal chat between employees (1-to-1 and group). Not on client emails, not in the support chat.
+
+- 1-to-1: ✓ = sent, ✓✓ = seen by the other person.
+- Group: **"Vu par X/Y"** — X = readers, Y = the other members.
+- Who counts in Y (and X): only **active** members who were in the group **when the message was sent**. A deactivated user never counts; a member added later does not count for older messages. The sender never counts. Y never changes after sending.
+- The count updates live when someone reads (socket event `message_read`).
+
 ## File attachments
 
 There is **no `attachments` column on `messages`.** Every attachment is a `media` row with `entity_type = 'message'` and `entity_id = messages.id`. One mechanism for files in the whole app — see [[media-files]].

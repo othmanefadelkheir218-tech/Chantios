@@ -13,6 +13,7 @@ import { StripeService } from '../../stripe/stripe.service';
 import { StripeRenewalInput } from '../dto/renewal-job.dto';
 import { ApplyPendingPlanIfDueHandler } from './apply-pending-plan-if-due.handler';
 import { CountUsageHandler } from './count-usage.handler';
+import { TenantVatHandler } from './tenant-vat.handler';
 
 /**
  * The renewal job, for one tenant, run inside that tenant's CLS context
@@ -44,6 +45,7 @@ export class RunRenewalHandler {
     private readonly applyPendingPlan: ApplyPendingPlanIfDueHandler,
     private readonly stripe: StripeService,
     private readonly notifications: NotificationsService,
+    private readonly tenantVat: TenantVatHandler,
   ) {}
 
   async execute(tenantId: number) {
@@ -155,12 +157,20 @@ export class RunRenewalHandler {
     if (totalOverage.gt(0)) {
       const closedPeriod = `${periodStart.toISOString().slice(0, 10)} – ${periodEnd.toISOString().slice(0, 10)}`;
       const idempotencyKey = `overage:${tenantId}:${periodStart.toISOString()}`;
+      // Step 27: the overage is taxed like the plan (no TVA → pushed untaxed, logged).
+      const vat = await this.tenantVat.execute(tenantId);
+      if (vat.kind === 'missing') {
+        this.logger.warn(
+          `Tenant ${tenantId}: overage pushed without TVA (${vat.reason})`,
+        );
+      }
       await this.stripe.pushOverageInvoiceItem(
         subscription.stripeCustomerId,
         totalOverage,
         `Overage for ${closedPeriod}`,
         idempotencyKey,
         invoiceId,
+        vat.kind === 'missing' ? null : vat.stripeTaxRateId,
       );
     }
     return { usage, totalOverage };

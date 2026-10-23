@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, Tenant, TenantStatus } from '@prisma/client';
+import { Prisma, Tenant, TenantStatus, VatNumberStatus } from '@prisma/client';
+import { env } from '../../config/env.config';
 import { PrismaService } from '../../prisma/prisma.service';
 
 /** The only place where the tenants module talks to the database. */
@@ -33,6 +34,19 @@ export class TenantRepository {
 
   findById(id: number): Promise<Tenant | null> {
     return this.prisma.tenant.findFirst({ where: { id, deletedAt: null } });
+  }
+
+  /** Step 27 — live companies whose TVA number waits for a VIES answer. */
+  async findPendingVatIds(): Promise<number[]> {
+    // A `not_checked` number (saved in test mode) is checked too once VIES is on.
+    const statuses: VatNumberStatus[] =
+      env.VAT_NUMBER_CHECK === 'off' ? ['pending'] : ['pending', 'not_checked'];
+    const rows = await this.prisma.tenant.findMany({
+      where: { vatNumberStatus: { in: statuses }, deletedAt: null },
+      select: { id: true },
+      orderBy: { id: 'asc' },
+    });
+    return rows.map((r) => r.id);
   }
 
   /** Every live, active company — the daily and hourly crons walk this list. */

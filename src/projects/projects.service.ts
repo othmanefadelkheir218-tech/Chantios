@@ -94,6 +94,18 @@ export class ProjectsService {
     return this.projects.findOpenForUser(userId);
   }
 
+  /** Client email (step 25): the client's open projects (`prospect`, `in_progress`). */
+  findOpenForClient(clientId: number) {
+    return this.projects.findOpenForClient(clientId);
+  }
+
+  /** Client email (step 25): id, name, client and status — topic project tags. */
+  findBasics(ids: number[]) {
+    return ids.length === 0
+      ? Promise.resolve([])
+      : this.projects.findBasicsByIds([...new Set(ids)]);
+  }
+
   /** Dashboard (step 18). A plain count, no rule beyond "open". */
   countOpenByStatus() {
     return this.projects.countOpenByStatus();

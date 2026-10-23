@@ -1,0 +1,1442 @@
+==============================================================================
+ CHANTIEROS - BUSINESS GUIDE (FEATURE BY FEATURE)
+==============================================================================
+ Written from the business notes in doc/notes/*.md, doc/Schema Proposal.md,
+ doc/Dashboard Pages.md, the technical phase files, and the real page list
+ of the frontend (ChanitOs_client/my-app) and the backend modules (src/).
+
+ This file explains WHAT the product does and WHY, not how the code works.
+ Language: simple English. Money examples are in EUR (the only currency in v1).
+
+ If this file and a note in doc/notes/ disagree, the NOTE wins.
+
+==============================================================================
+ TABLE OF CONTENTS
+==============================================================================
+  1.  The big picture
+  2.  The two worlds: the platform and the companies
+  3.  People and roles (who can do what)
+  4.  Getting started: signup, trial, login, team
+  5.  Company profile and settings
+  6.  Clients
+  7.  Catalogue: services, materials, categories, cost types, suppliers
+  8.  Projects (the center of everything)
+  9.  Quotes
+ 10.  Client portal (what the client sees)
+ 11.  Planning (tasks and Gantt)
+ 12.  Time entries (hours)
+ 13.  Site reports
+ 14.  Stock (materials)
+ 15.  Subcontracting
+ 16.  Purchase invoices (money OUT)
+ 17.  Margin and profitability
+ 18.  Client invoices and payments (money IN)
+ 19.  Document numbers, VAT and PDFs
+ 20.  Files and photos (media)
+ 21.  Chat
+ 22.  Email with clients
+ 23.  Alerts and notifications
+ 24.  Dashboard (company home page)
+ 25.  Analytics (company trends)
+ 26.  Contacts (employee directory)
+ 27.  Notes (like Google Keep)
+ 28.  Bulk import (Excel)
+ 29.  The worker's phone area ("Field")
+ 30.  Subscription and billing (what the company pays ChantierOS)
+ 31.  The platform admin side (ChantierOS staff)
+ 32.  Security and privacy rules
+ 33.  Full story: one project from start to end
+ 34.  Cheat sheet: where does each number come from?
+ 35.  Map of the frontend pages
+ 36.  Built / planned / not in v1
+ 37.  Things I noticed that are unclear or contradictory
+
+
+==============================================================================
+ 1. THE BIG PICTURE
+==============================================================================
+
+ ChantierOS is a SaaS (software you rent every month) for renovation and
+ construction companies, mainly in Belgium (VAT 6% / 21%, languages FR / NL /
+ EN).
+
+ Each company that uses it is called a "TENANT". Every company sees only its
+ own data. No company can ever see another company's data.
+
+ The app helps a small construction company answer these questions:
+
+   - Who are my clients and what did I promise them?      (clients, quotes)
+   - What work is planned, and who does it?               (projects, planning)
+   - How many hours did people work?                      (time entries)
+   - What materials do I have, and what did each job use? (stock)
+   - What did my subcontractors and suppliers bill me?    (purchase invoices)
+   - Am I making or losing money on each job?             (margin)
+   - Who owes me money, and is it late?                   (invoices, payments)
+   - Can my client see where we are, without calling me?  (client portal)
+
+ THE MAIN LOOP (one job):
+
+   client -> project -> quote -> accepted -> planning -> work on site
+          (materials + subcontractors + hours) -> real cost vs budget (margin)
+          -> invoices -> payment -> client sees everything in the portal
+
+ Every feature feeds the next one. For example the margin is only correct
+ because quotes, stock, subcontractor bills and hours all give it real
+ numbers.
+
+ THE 4 GOLDEN RULES OF THE PRODUCT
+
+   1. Nothing is "typed twice". A number is stored in ONE place and read
+      everywhere else (budget, stock quantity, progress %, margin).
+   2. History is never rewritten. Stock, payments, prices and hourly rates
+      are "frozen" when they happen. A correction is a NEW line, not an edit.
+   3. Costs are counted ONCE (a tile is counted when it leaves the stock, not
+      again when the supplier bill is entered).
+   4. The client sees only what the company decides to show. Costs, margin,
+      subcontractors, employees' names and hours are never visible to them.
+
+ VOCABULARY
+
+   Tenant ........ a company that uses the app
+   Platform admin  ChantierOS staff (the owner of the product)
+   Quote ......... the price offer sent to a client (French: "devis")
+   Invoice ....... the bill the company sends to a client (money IN)
+   Purchase invoice  a bill the company RECEIVES from a supplier or
+                  subcontractor (money OUT)
+   Budget ........ the total of the ACCEPTED quotes of a project
+   Margin ........ what the company keeps = budget - all real costs
+   Ledger ........ a list of events that is only added to, never edited
+   Frozen ........ copied at the moment of the event, so it never changes
+   Draft/Sent .... a document being prepared / a document already sent
+
+
+==============================================================================
+ 2. THE TWO WORLDS: THE PLATFORM AND THE COMPANIES
+==============================================================================
+
+ There are two completely separate groups of users. They never mix.
+
+ A) PLATFORM SIDE ("admin_users") - the staff of ChantierOS
+      - See and manage ALL companies.
+      - Two kinds: "super_admin" and "staff".
+      - Login with email + password + a 2FA code (authenticator app).
+      - They create plans, suspend companies, answer support tickets.
+
+ B) COMPANY SIDE ("users") - everybody inside one company
+      - Belong to ONE company only.
+      - See only the data of that company.
+      - 7 fixed roles (see section 3).
+
+ C) CLIENTS (the customers of a company) are NOT users. They have no account
+    and no password. They get a private link (the "portal") and/or emails.
+
+ One email address can belong to ONE company only. (Login has no "company"
+ field, so the same email cannot exist in two companies.)
+
+
+==============================================================================
+ 3. PEOPLE AND ROLES (WHO CAN DO WHAT)
+==============================================================================
+
+ The 7 company roles are fixed:
+
+   admin ............ "Main Manager" - the boss. Can do everything, and is the
+                      only one who manages the team, settings and billing.
+   manager .......... "Sub Manager" - runs projects day to day.
+   site_supervisor .. runs the site: reports, material usage, hours.
+   team_leader ...... leads a team on site: tasks, hours, reports.
+   worker ........... the field person. PHONE ONLY: my tasks + log my hours.
+   sales ............ clients and quotes.
+   accountant ....... invoices, purchase bills, margins.
+
+ DEFAULT PERMISSIONS (per module)
+
+   full = see + create + edit + delete.   view = read only.
+   own  = only the user's own rows.       -    = no access.
+
+   Module              admin  manager  site_sup  team_lead  worker  sales  accountant
+   ------------------  -----  -------  --------  ---------  ------  -----  ----------
+   clients             full   full     view      -          -       full   view
+   projects            full   full     full      view       -       view   view
+   tasks               full   full     full      full       own(v)  -      -
+   time_entries        full   full     full      full       own     -      -
+   catalogue           full   full     view      -          -       view   -
+   stock               full   full     view      view       -       -      view
+   quotes              full   full     -         -          -       full   view
+   invoices            full   -        -         -          -       view   full
+   purchase_invoices   full   -        -         -          -       -      full
+   margins             full   full     -         -          -       -      full
+   subcontractors      full   full     view      -          -       -      view
+   reports             full   full     full      full       own(v)  -      -
+   media (files)       full   full     full      full       own     view   view
+   chat                full   full     full      full       own     full   full
+   team                full   view     -         -          -       -      -
+   settings            full   -        -         -          -       -      -
+   analytics           view   -        -         -          -       -      view
+   contacts            view   view     -         -          -       -      -
+   notes               own    own      own       own        own     own    own
+   email               full   full     -         -          never   full   -
+
+ THE COMPANY BOSS CAN CHANGE THESE PER ROLE
+   The table above is the DEFAULT. The admin of a company can override it for
+   his own company only (example: let the manager see invoices). Only the
+   differences are stored.
+
+ THE "OWN" LEVEL
+   "own" means "yes, but only my rows". A worker sees only HIS tasks and logs
+   only HIS hours. A worker can never see the team's rows.
+
+ WHO MANAGES THE TEAM
+   Only the admin: add / deactivate people, change a role, set the HOURLY
+   RATE of each employee, change permissions.
+
+
+==============================================================================
+ 4. GETTING STARTED: SIGNUP, TRIAL, LOGIN, TEAM
+==============================================================================
+
+ 4.1 SIGNUP (public page /register)
+   A company registers itself. The app creates, in one step:
+     - the company,
+     - a trial subscription (14 days) on the plan marked "default",
+     - the first admin user.
+   The platform admin can also create a company by hand (sales-assisted).
+   Then the owner gets an invitation email and chooses his own password. The
+   platform admin never chooses anybody's password.
+
+   Business condition: at least one plan must exist and be marked "default"
+   before anybody can sign up. Otherwise signup fails (setup error).
+
+ 4.2 EMAIL VERIFICATION AND PASSWORD RESET
+   - 6-digit code by email to verify the company email.
+   - Forgot password: 2 steps. First enter the code (checked but not used),
+     then choose the new password. Wrong code: 5 tries maximum.
+
+ 4.3 THE 4 WAYS TO LOG IN
+   1. Company user: email + password.
+   2. Platform admin: email + password + 2FA code.
+   3. Worker on phone: email OR an 8-digit "login code" + a 4-6 digit PIN.
+      The PIN locks after 5 wrong tries.
+   4. Client portal: a private link (no login).
+
+   Sessions: an access token for 15 minutes, a refresh token for 7 days.
+   People can log out of one device or of all devices. Deactivating an
+   employee cuts all his sessions at once. A user can see his active
+   sessions in his account page.
+
+ 4.4 ADDING EMPLOYEES (admin only)
+   Three ways:
+     a) INVITATION: the admin enters name, email, role. The person gets a
+        link (valid 7 days) and chooses a password.
+     b) DIRECT with a temporary password (any role): the person must change
+        the password at the first login.
+     c) WORKER WITHOUT EMAIL: the admin gives name + PIN. The app creates an
+        8-digit login code. The worker uses it on the phone only. No
+        dashboard, no "forgot password" (the admin sets a new PIN).
+
+   Fields of an employee: name, email, phone, role, hourly rate, active/not.
+   Deactivated people cannot log in, but ALL their history stays.
+
+ 4.5 THE TRIAL AND WHAT HAPPENS AT THE END
+   Day 1  : trial starts (14 days).
+   Day 11 : reminder "your trial ends in 3 days, add a payment method".
+   Day 14 : trial over. Status "past_due" + 7 days of grace. The app still
+            works. A banner on every page says how many days are left.
+   Day 21 : still no payment -> company BLOCKED. People can still log in and
+            see the billing page to pay, but nothing else works. NO DATA IS
+            EVER DELETED.
+   Payment at any time: everything reopens at once.
+
+
+==============================================================================
+ 5. COMPANY PROFILE AND SETTINGS
+==============================================================================
+
+ The company edits its own profile (only roles with "settings" edit right;
+ by default the admin).
+
+ Editable: company name, legal name, VAT number, registration number, phone,
+ address, IBAN, BIC, default VAT rate (default 21%), default payment days
+ (default 30), language (fr / en / nl), time zone, the time of the daily
+ hours reminder (default 18:00), logo.
+
+ NOT editable by the company: email and currency (EUR), status.
+
+ Why it matters for the business:
+   - VAT number, address, IBAN, BIC and logo are printed on quotes and
+     invoices.
+   - "Default payment days" fills the due date of each new invoice.
+   - "Default VAT rate" pre-fills each new document line.
+   - The company language decides the language of PDFs and automatic emails.
+     French is the fallback.
+
+ Settings pages in the app: Company, Roles & permissions, Billing, Email
+ (mailboxes), Support (tickets), Feedback.
+
+
+==============================================================================
+ 6. CLIENTS
+==============================================================================
+
+ A client card = one person or company that pays.
+
+ Fields: type (individual / professional / property manager), name, contact
+ name, EMAIL (required), PHONE (required, format checked), second phone,
+ VAT number (required only for "professional"), address, internal note,
+ active/archived.
+
+ Rules
+   - Email is required because everything client-facing goes by email (quote,
+     invoice, reminders, portal link).
+   - Email is unique PER COMPANY: one card per person, so the whole history
+     (all projects over the years) stays on one card.
+   - Clients are never deleted, only archived.
+   - The internal note is never shown in the portal.
+   - A client can have extra email addresses (used by the email feature).
+
+ Client page shows: info, linked projects, quotes, invoices.
+ Access: sales and manager/admin can edit; accountant only reads.
+
+
+==============================================================================
+ 7. CATALOGUE: SERVICES, MATERIALS, CATEGORIES, COST TYPES, SUPPLIERS
+==============================================================================
+
+ The catalogue is "what we SELL" and "what we STOCK".
+
+ 7.1 SERVICES - what we sell
+   One row per sellable service with a selling price excl. VAT, a unit
+   (m2, hour, piece...), a category and an optional default VAT rate (for
+   example labour at 6%).
+   Example: "Painting per m2", EUR 12.00 / m2.
+
+ 7.2 CATEGORIES
+   A real list (Painting, Tiling, Plumbing...). No free text, so no typos
+   and easy reports. The platform provides default categories; each company
+   can add its own.
+
+ 7.3 MATERIALS - what we stock
+   One row per material: description, unit, current PURCHASE price, minimum
+   stock level (alert threshold). There is NO quantity stored on a material:
+   quantity always comes from the stock ledger (section 14).
+   Two materials of one company cannot have the same description.
+
+ 7.4 THE RECIPE (service <-> materials)
+   For each service: which materials it consumes per 1 unit sold.
+   Example: 1 m2 Painting = 0.15 L paint + 0.05 roll of tape + 0.02 kg filler.
+   The recipe is used to: (a) reserve stock when a quote is accepted,
+   (b) pre-fill the material usage on a site report.
+   The recipe is THEORY. Real use on site is always edited by a person.
+
+ 7.5 COST TYPES
+   Three defaults: material, subcontractor, labor. The company admin can add
+   his own (insurance, machine rental...). The margin screen groups costs by
+   cost type, so a new type appears by itself.
+
+ 7.6 SUPPLIERS
+   Address book of material suppliers (name, email, phone, address, VAT
+   number). Archived, never deleted.
+
+ 7.7 PICKING A SERVICE ON A QUOTE/INVOICE LINE
+   The line description accepts free text OR a catalogue service. Picking a
+   service COPIES its description, unit, price and VAT onto the line. A later
+   catalogue price change never changes an old quote. A catalogue line
+   reserves stock when accepted; a free-text line reserves nothing.
+
+
+==============================================================================
+ 8. PROJECTS (THE CENTER OF EVERYTHING)
+==============================================================================
+
+ A project = one job for one client at one site address.
+
+ Fields: client, name ("Dubois - bathroom"), description, status, SITE
+ address (often different from the client's), planned start/end, real end
+ date, project manager.
+
+ 4 STATUSES
+   prospect ....... created, not confirmed yet.
+   in_progress .... quote accepted, work is active.
+   completed ...... work finished.
+   cancelled ...... cancelled. FINAL.
+
+ ALLOWED MOVES (everything else is refused)
+   prospect    -> in_progress, cancelled
+   in_progress -> completed, cancelled
+   completed   -> in_progress   (ADMIN only, and it voids the closing snapshot)
+   cancelled   -> nothing. A client who comes back gets a NEW project.
+
+ AUTOMATIC EFFECTS
+   - Quote accepted      -> project becomes in_progress.
+   - Quote refused       -> project stays prospect.
+   - Project cancelled   -> unused stock reservations are released, and an
+                            alert reminds the manager to invoice the client
+                            for the work already done.
+   - Completed/cancelled -> the final financial numbers are frozen in a
+                            "closing snapshot" (see section 17).
+   - Every status change is written in a history.
+
+ WHAT A PROJECT DOES NOT STORE (on purpose)
+   - Budget       -> sum of accepted quotes.
+   - Progress %   -> the newest site report.
+   - Real cost and margin -> computed live.
+   This means they can never be out of date.
+
+ CLOSING IS NEVER BLOCKED BY MONEY
+   "Completed" means "work finished", not "fully paid". Clients often pay
+   weeks later. A cost or invoice that arrives AFTER closing is still saved
+   and shows in the live margin, but does not change the frozen snapshot. To
+   refresh the official number, the admin reopens and closes again.
+
+ DELETE
+   A project can be really deleted ONLY while it is "prospect" (nothing
+   committed yet). Its files are deleted with it.
+
+ PROJECT SUB-PAGES (in the app)
+   Overview, Quotes, Invoices, Purchases, Subcontracting, Tasks, Time,
+   Reports, Materials, Margin, Media (files), Chat, Emails, Client portal,
+   History.
+
+
+==============================================================================
+ 9. QUOTES
+==============================================================================
+
+ A quote is the PRICE OFFER inside a project. It is 100% owned by the
+ company; the client can only view, accept or refuse it.
+
+ WHO BUILDS IT
+   A company employee (owner, sales, manager). The person who visits the site
+   builds the quote directly in the app, from a computer or a phone.
+
+ CONTENT
+   Client (required), project (required), number (QUO-2026-0001), issue date,
+   "valid until" date, lines, note/terms, 3 totals (excl. VAT, VAT, incl. VAT).
+   Each LINE: description, unit, quantity, unit price excl. VAT, VAT rate
+   (6 or 21), optional link to a catalogue service, position.
+
+ 4 STATUSES AND MOVES
+   draft    -> sent
+   sent     -> draft (to fix a price), accepted, refused
+   accepted -> nothing (final)
+   refused  -> nothing (final; the client gets a NEW quote if he changes mind)
+
+ RULES
+   - A quote with no client or no lines cannot be accepted (no more "NaN"
+     totals).
+   - While DRAFT the totals recalculate at every line change. Once SENT the
+     lines and totals are FROZEN. A sent paper never changes.
+   - When sent, a PDF copy is saved and LOCKED forever (cannot be deleted).
+     If the quote goes back to draft and is sent again, a NEW locked PDF is
+     made.
+   - "Valid until" is a HARD block: after that date the quote cannot be
+     accepted. Prices may have changed. Staff re-sends it with a new date.
+   - Who can accept: the client in the portal (Accept / Refuse buttons), or
+     staff on behalf of a client who answers by phone. Both write the same
+     data (date of acceptance is always real).
+   - An accepted quote cannot be "undone". If the deal falls apart, cancel
+     the PROJECT.
+   - A quote can only be accepted while the project is prospect or
+     in_progress.
+
+ WHEN A QUOTE IS ACCEPTED (automatic)
+   1. Date of acceptance saved.
+   2. Project becomes in_progress.
+   3. Stock is RESERVED for the materials the quote will need (section 14).
+      This is a SOFT alert: the quote can be accepted even when stock is low;
+      an alert says "not enough stock, order more".
+
+ EXTRA WORK
+   Extra work in the middle of a project = a SECOND quote, not an edit of the
+   first. The budget grows automatically (10,000 + 1,500 = 11,500).
+
+ The quote PDF is in the company language (French by default).
+
+
+==============================================================================
+ 10. CLIENT PORTAL (WHAT THE CLIENT SEES)
+==============================================================================
+
+ A read-only web page for ONE project. No login, no account: the link itself
+ is the key. Example: https://app.../portal/<long random token>
+
+ CREATION
+   - MANUAL only: the company clicks "Generate link" on the project page.
+     Never automatic (otherwise a chat would open for every prospect that is
+     never won).
+   - One active link per project. Generating a new link kills the old one.
+   - Valid 90 DAYS, then it dies by itself. If the project lasts longer, the
+     company generates a new link.
+   - The company can REVOKE a link at any time (wrong email, cancelled
+     project). It stops working at once.
+   - Expired or revoked link shows: "This link has expired. Please contact
+     your company."
+   - The token is stored hashed; the raw token exists only in the link.
+
+ WHAT THE CLIENT SEES
+   - Quotes: only "sent" and "accepted" (never draft, never refused).
+   - Progress %: from the latest site report.
+   - Invoices: sent, partially paid, paid (never draft or cancelled). A late
+     invoice shows a red "late" label.
+   - Documents shared with him.
+   - Messages: he can write to the company and attach files (images + PDF,
+     10 MB each, max 10 files per message).
+   - He can ACCEPT or REFUSE a "sent" quote. This is the ONLY thing he can
+     change.
+
+ WHAT THE CLIENT NEVER SEES
+   Margin, costs, subcontractors, supplier bills, employee names and hours,
+   stock data, internal notes.
+
+ TRACKING
+   Every visit and download is logged ("opened 3 times, downloaded the invoice
+   once"), so the company knows if the client really looked at the quote.
+
+ CHAT IN THE PORTAL
+   No live connection for the client (v1): the page refreshes about every 20
+   seconds. The client also gets an email when the company replies. The
+   company staff get the client's messages live.
+
+
+==============================================================================
+ 11. PLANNING (TASKS AND GANTT)
+==============================================================================
+
+ The schedule of a project: a list of TASKS shown on a timeline (Gantt).
+
+ TASK: project, title, type (work / meeting), start date, end date (cannot be
+ before start), status (planned -> in_progress -> completed), one or more
+ ASSIGNED EMPLOYEES.
+
+ KEY RULES
+   - Assigned people must be REAL employee accounts (never a typed name).
+     Reason: the same person later logs his hours on that task.
+   - A task with 5 workers is ONE task (one bar on the Gantt), 5 assignees.
+   - A task needs at least one assignee before it can leave "planned".
+   - One employee can work on several projects.
+ Alerts: new task assigned, task starting tomorrow, task status changed.
+
+ Example: Week 1 = demolition + plumbing rough-in, Week 2 = tiling, Week 3 =
+ painting and finishing.
+
+
+==============================================================================
+ 12. TIME ENTRIES (HOURS)
+==============================================================================
+
+ One row = one employee, one day, one project (optionally one task).
+
+ Fields: project, employee, task (optional), date, hours (0-24), HOURLY RATE
+ (frozen at that moment), comment ("finished tiling the floor").
+
+ WHY THE RATE IS FROZEN
+   The boss can change an employee's rate any time. Old entries keep their old
+   rate, so past margins never move.
+
+ WHO CAN LOG WHAT
+   - The worker logs HIS OWN hours only, on projects where he is assigned to
+     at least one task (project-level check; the task itself is optional).
+   - A team leader can log his own and his team's hours.
+   - Manager/admin can edit or delete any entry at any time (old value kept in
+     the audit log).
+   - The employee can edit his own entry only the SAME day.
+
+ DAILY LIMIT (all projects together, per employee per day)
+   up to 12 h ..... saved normally.
+   over 12 h ...... saved + an "abnormal hours" alert to the manager.
+   over 24 h ...... REFUSED (impossible).
+
+ MANAGER VIEW
+   Just the hours, plainly: who, which project, which date, how many hours.
+   Filter by employee / project / date. No "activity score".
+
+ ALERTS
+   - Employee: end-of-day reminder (default 18:00) if no hours today.
+   - Manager: "missing timesheet" (a task is in progress today but no hours);
+     "abnormal hours"; "stalled project" (in_progress and no hours for 5 days).
+
+
+==============================================================================
+ 13. SITE REPORTS
+==============================================================================
+
+ The daily record of what happened on site. One report per project per day.
+
+ Content: date, progress % (0-100), weather, note, PHOTOS, and the MATERIALS
+ used that day.
+
+ WHO: admin, manager, site supervisor, team leader. NOT the worker, sales or
+ accountant.
+
+ IT FEEDS 3 THINGS
+   1. The client portal (progress % of the latest report).
+   2. Stock (the "Declare material used" action writes the consumption).
+   3. Photos (attached to the report).
+
+ DECLARING MATERIAL USED (the only action that moves stock out)
+   1. Open today's report. 2. Click "Declare material used".
+   3. Pick the service done (e.g. Painting, 20 m2).
+   4. The recipe pre-fills quantities (3 L paint...).
+   5. The person EDITS them to the real numbers (3.5 L).
+   6. Save: one consumption line per material, at the material's current
+      price (frozen).
+   Pre-fill gives speed; editing gives truth. Never automatic.
+
+ ALERTS: "missing report" (in_progress, no report for 3 days), "progress
+ stalled" (same % for 7 days). Both go to the manager and the admin.
+
+
+==============================================================================
+ 14. STOCK (MATERIALS)
+==============================================================================
+
+ STOCK IS COMPANY-WIDE
+   One shared pool for all projects, not one stock per project. If two
+   projects both need tiles, they draw from the same pile. That is where
+   shortages happen.
+
+ THE LEDGER (stock_movements)
+   Quantity is NEVER stored as a number you edit. It is the SUM of a ledger of
+   movements. 3 kinds:
+     purchase ..... we received goods (+). Belongs to no project.
+     consumption .. used on a project (-). Must name the project. Comes only
+                    from a site report.
+     adjustment ... a correction (+ or -). Needs a note. Can be linked to a
+                    project.
+   Each line freezes the unit price at that moment. The ledger is append-only:
+   a mistake is fixed by a new adjustment, never by editing.
+
+ STARTING STOCK
+   When creating a material, an optional "Starting stock" creates ONE
+   adjustment "Stock initial" at the material's price.
+
+ TWO NUMBERS FOR EACH MATERIAL
+   on_hand   = sum of the ledger.
+   reserved  = what accepted quotes are holding.
+   available = on_hand - reserved.
+
+ RESERVATIONS (SOFT)
+   When a quote is accepted, its catalogue lines walk through the recipes and
+   reserve materials. Example: 20 m2 painting -> reserve 3 L paint, 1 roll
+   tape, 0.4 kg filler.
+   - Not enough stock? The quote is still accepted, but an alert fires.
+   - New stock arrives? Reservations fill themselves and the alert clears.
+   - Consumption lowers the remaining reservation (the original is kept).
+   - Project cancelled: reserved-but-unused stock is released; what was
+     already consumed stays consumed.
+   - A second accepted quote adds to the existing reservation.
+   - Free-text lines reserve nothing (on purpose).
+
+ ALERTS: stock at or below minimum; reservation cannot be covered.
+
+ CORRECTING A WRONG CONSUMPTION
+   The manager adds an adjustment linked to the SAME project. +5 gives 5 units
+   back to the stock AND lowers that project's material cost by 5 x the
+   current price.
+
+ Who: admin/manager full; site supervisor, team leader, accountant view. The
+ worker never touches stock.
+
+
+==============================================================================
+ 15. SUBCONTRACTING
+==============================================================================
+
+ For work done by an outside person or company (e.g. an external plumber).
+
+ 3 LEVELS
+   Subcontractor (business card) -> Contract (one job) -> Purchase invoices
+   (the bills).
+
+   a) SUBCONTRACTOR: name, trade, email, phone (validated), optional hourly
+      rate. Created once, reused for every future job.
+   b) CONTRACT: subcontractor + ONE project, scope, agreed price, start/end
+      dates, status (in_progress / completed / cancelled).
+   c) BILLS: the subcontractor's invoices (see section 16). One contract can
+      produce several bills (stage payments).
+
+ PRIVACY
+   Contracts and subcontractors are INTERNAL. The client never sees the
+   subcontractor's name or price. The client sees only what the company
+   charges (EUR 2,900); the plumber's EUR 2,500 stays hidden. The
+   difference (EUR 400) is the company's margin on that work.
+
+ Subcontractors can be edited later (phone validated). Plan limit counts only
+ ACTIVE subcontractors.
+
+
+==============================================================================
+ 16. PURCHASE INVOICES (MONEY OUT)
+==============================================================================
+
+ A bill the company RECEIVES. Somebody else wrote it. The app only records it
+ so the company knows what it owes and counts the cost.
+
+ 2 TYPES (who sent it)
+   subcontractor ... needs a contract and a project.
+   supplier ........ needs a supplier. Project optional (see below).
+
+ Fields: our number (PUR-2026-0007), their number, amount excl. VAT, VAT
+ rate, issue date, due date, status (to_pay / paid), payment reference, paid
+ date, PDF of their invoice (PDF only), cost type.
+
+ THE IMPORTANT RULE: COST TYPE vs TYPE
+   "Type" = WHO sent the paper. "Cost type" = WHAT KIND of cost.
+   - Subcontractor bill (cost type subcontractor): always has a project and
+     COUNTS in that project's margin.
+   - Material bill (cost type material): NEVER has a project and does NOT
+     count in the margin. Reason: the tiles are counted when they LEAVE the
+     stock. Counting the bill too would count them TWICE.
+
+ BUYING MATERIAL = TWO RECORDS
+   - Stock "purchase" line: how many units do we now have?
+   - Purchase invoice: how much do we owe, to whom, by when?
+   They can exist alone (a correction needs no bill; transport needs no stock
+   line). When both exist they are linked.
+
+ UNPAID BILLS STILL COUNT
+   A bill counts in the margin from the moment it is entered, whether paid or
+   not. A cost you owe is a cost. Paying it later only says money left the
+   bank.
+
+ NO INSTALMENTS FOR MONEY OUT (v1)
+   Status is only to_pay / paid. For stage payments, the contract simply
+   produces several bills, each paid in full.
+
+ The two invoice types NEVER feed each other. The client's invoice is based on
+ the quote. The supplier's bill is only for internal cost tracking. (Re-billing
+ a cost to the client with a mark-up is a possible future feature; it does not
+ exist now.)
+
+ ALERT: purchase bill due soon.
+
+
+==============================================================================
+ 17. MARGIN AND PROFITABILITY
+==============================================================================
+
+ The margin is the money the company KEEPS on a project.
+
+   margin = budget - material cost - labour cost - other bills
+   margin % = margin / budget x 100
+
+ WHERE EACH PART COMES FROM
+   Budget ........ sum of ACCEPTED quotes (excl. VAT). Never typed.
+   Material cost . stock ledger: quantity x frozen price (consumptions, plus
+                   adjustments linked to the project).
+   Labour cost ... hours x frozen hourly rate.
+   Other bills ... purchase invoices of the project, grouped by cost type,
+                   WITHOUT the "material" type.
+   Three doors, never four. Each cost enters ONE time.
+
+ LIVE WHILE THE PROJECT IS ACTIVE
+   Computed fresh every time (a database view). Never saved as a fixed number.
+
+ FROZEN WHEN THE PROJECT CLOSES
+   When a project becomes completed OR cancelled, a "closing snapshot" saves
+   the final budget, total cost and margin (plus one line per cost type).
+   - Cancelled projects get a snapshot too (to freeze the cost of a dead job).
+   - Reopening a completed project VOIDS the old snapshot (never deletes it).
+
+ EARLY WARNING
+   80% of budget reached -> WARNING   (to admin + manager, in-app + email)
+   95% of budget reached -> CRITICAL  (same people)
+   Each level fires ONCE per project (no spam at every save). If an extra
+   accepted quote raises the budget and the cost falls back under the limit,
+   the memory is reset and the alerts can fire again.
+
+ EXAMPLE (Dubois)
+   Budget 10,000. Materials 400 + plumber 2,500 + hours 580 = cost 3,480.
+   Margin = 6,520 = 65.2%. Healthy.
+   Plumber sends a second bill of 1,800 and the team works more hours:
+   cost climbs to 8,050 = 80.5% of the budget -> WARNING alert, even though
+   the work is not finished. That is the point of the feature.
+
+ Who: admin, manager, accountant (full). Others no access.
+
+
+==============================================================================
+ 18. CLIENT INVOICES AND PAYMENTS (MONEY IN)
+==============================================================================
+
+ An invoice is what the client owes the company. It is created in the app by
+ staff and sent to the client.
+
+ CONTENT
+   Client, project (both required), optional quote link, number (INV-2026-0001),
+   issue date, DUE DATE (required), lines (with VAT per line), 3 totals,
+   note/payment terms, reminder counter, date of last reminder.
+
+ SPLITTING
+   One project can have many invoices (30% deposit, 40% progress, 30% final -
+   the company decides). The system only WARNS if the invoices do not add up to
+   the accepted quotes. It does not block.
+
+ 5 STATUSES (only about how much is paid)
+   draft ........... being prepared.
+   sent ............ sent to the client.
+   partially_paid .. some money received.
+   paid ............ fully paid (also if overpaid).
+   cancelled ....... dropped; keeps its number and leaves a gap.
+
+ NO "OVERDUE" STATUS
+   Late is CALCULATED every time: due date is past AND a balance remains. A
+   sent or partially paid invoice can both be late. The screen shows the status
+   plus a red "late" label. A daily job only SENDS reminders; it changes no data.
+
+ DUE DATE IS REQUIRED
+   Otherwise an invoice could never be late and never be chased. It is
+   pre-filled from "default payment days" (30) and can be changed per invoice.
+
+ PAYMENTS (a ledger, never a running total)
+   Each payment: amount, method (transfer, cheque, cash, stripe), reference,
+   note, date, who recorded it.
+   - Staff record payments by hand after seeing the bank transfer, cheque or
+     cash. There is no automatic bank sync in v1.
+   - Payments are NEVER edited or deleted.
+   - A mistake is fixed with a CORRECTION row (negative amount, with a
+     required note). Total paid can never go below 0.
+   - Status is recomputed from the ledger after each row, so a correction can
+     reopen "paid" into "partially_paid".
+   - balance due = invoice total incl. VAT - total paid.
+
+ RULES
+   - Draft: lines and totals recalculate. Sent: everything frozen. A PDF copy
+     is saved and locked.
+   - An invoice cannot be "sent" with no client.
+   - A cancelled invoice keeps its number.
+
+ LATE INVOICES AND REMINDERS
+   A daily job finds late invoices and alerts the admin and manager.
+   The client receives a late-payment reminder by email.
+
+ EXAMPLE
+   Invoice 1: EUR 3,000 + 21% VAT = 3,630. Client pays 3,630 -> paid.
+   Invoice 2: 4,840. Client pays 2,420 -> partially paid, balance 2,420.
+   Due date passes -> still "partially paid" + red "late" + alert.
+   Invoice 3: draft, still being prepared.
+
+ Who: admin and accountant full; sales view.
+
+
+==============================================================================
+ 19. DOCUMENT NUMBERS, VAT AND PDFs
+==============================================================================
+
+ NUMBERS
+   Quote QUO-2026-0001 / Invoice INV-2026-0042 / Purchase PUR-2026-0007.
+   - 4 digits, resets each January, unique per company (two companies can
+     both have INV-2026-0001).
+   - Given at creation (draft), never changes.
+   - NEVER reused. A cancelled document leaves a gap; accountants expect that.
+   - Two people clicking "create" at the same second get two different
+     numbers (the counter is locked).
+
+ VAT (TVA)
+   - The VAT rate is ON EACH LINE, not on the document. In Belgium renovation
+     work is often 6% while supplies are 21%, on the same document.
+   - The company sets the default (21%), staff can change it per line; a
+     service can have its own default rate (labour 6%).
+   - Totals: lines are grouped by rate, VAT is rounded ONCE per rate group,
+     then added. The printed breakdown by rate is read from the lines.
+   - Margins are always EXCL. VAT. Cash views (invoiced, collected, open) are
+     INCL. VAT.
+
+ PDFs
+   Quotes and invoices are generated as PDF in the company language, with
+   logo, address, VAT number, IBAN/BIC (invoices), due date and note. When
+   sent, the PDF is locked forever.
+
+
+==============================================================================
+ 20. FILES AND PHOTOS (MEDIA)
+==============================================================================
+
+ One system for ALL files: documents, site photos, chat attachments, avatars,
+ logos, note images, email attachments.
+
+ - Files are stored on ImageKit; the database keeps only the link and info.
+ - A file is linked to one thing (project, report, message, quote, invoice,
+   purchase invoice, user, company, note).
+ - Limit: 10 MB per file (25 MB for email attachments).
+ - Allowed types depend on the place:
+     purchase bill ........ PDF only
+     site report photos ... JPEG, PNG, WebP
+     chat ................. images + PDF
+     sent quote/invoice ... PDF only (the frozen copy)
+     project documents .... PDF + images
+     email attachments .... PDF, images, Office, ZIP, TXT, CSV (programs and
+                            scripts like .exe .bat .js are blocked)
+ - Rename changes only the display name.
+ - DELETE = TRASH first (soft delete). Restore possible. After 30 days a daily
+   job deletes it for good. Permanent delete is also possible at once.
+ - Frozen PDFs of sent quotes/invoices can NEVER be deleted.
+ - TRASH STILL COUNTS as storage in billing, until it is really purged.
+ - Private note images never show in the generic file list.
+ - Files count in the company's storage allowance (plan).
+
+
+==============================================================================
+ 21. CHAT
+==============================================================================
+
+ 3 types of conversation:
+   1. INTERNAL - employees of the same company. Any employee can start one,
+      the worker too. One-to-one chats are unique per pair (a second click
+      reopens the existing chat, even an archived one). Groups and
+      project-linked chats are always new.
+   2. PROJECT <-> CLIENT - staff and the client, on one project. Created when
+      the portal link is generated. The client uses the portal.
+   3. SUPPORT - the company admin and ChantierOS staff, linked to a support
+      ticket.
+
+ CORE RULE: a conversation belongs to exactly ONE company. No message can
+ cross companies. The platform admin can read a company's conversation for
+ support only, and every such access is written in the audit log.
+
+ Other rules
+   - Messages are real time (WebSocket). Unread counter per person.
+   - Messages and conversations are NEVER deleted, only archived (legal
+     reasons). Only the GDPR delete of a client's email chat removes messages.
+   - Files in chat: images + PDF only; a message with files still needs text.
+   - A new message sends an in-app alert and an email to the other members.
+   - Online status of users is visible.
+
+
+==============================================================================
+ 22. EMAIL WITH CLIENTS
+==============================================================================
+ (Rules decided on 2026-10-18/19. Plan step 25. Check section 36 for the
+ build status.)
+
+ GOAL: company staff talk to clients by EMAIL from inside ChantierOS. Emails
+ and portal messages appear TOGETHER in one chat per client (on our side only).
+ We NEVER read a mailbox. We only receive what is sent or forwarded to our
+ address, and we send only what the user writes and sends.
+
+ 3 KINDS OF MAILBOX
+   1. COMPANY ADDRESS (default): company-x@mail.<our domain>. Free, every plan.
+      SHARED inbox: everyone whose role has the "email" permission reads it.
+   2. PERSONAL GMAIL: connected by its owner. Mail comes in by a Gmail forward;
+      mail goes out through Gmail itself (so the client sees the real Gmail).
+      PRIVATE: only the owner reads it. Not even the admin. Billed per mailbox
+      like employees.
+   3. OWN DOMAIN (contact@companyx.be): idea kept open, NOT built.
+   Outlook/Microsoft 365: later.
+
+ PERMISSION "email": default admin, manager, sales full. Never the worker.
+ The admin decides which roles can use it and connect a Gmail.
+
+ ONE CHAT PER CLIENT, WITH TOPICS
+   Chat "Eya Jarraya" contains topics: a portal chat, an email thread "Quote
+   bathroom", another thread "Invoice question"... Each TOPIC has a project
+   tag (or "no project"). So one client can talk about several projects.
+
+ HOW THE PROJECT TAG IS CHOSEN
+   1. Reply in an existing topic -> same tag.
+   2. Email started from a project page -> that project.
+   3. Portal message -> the project of the portal link.
+   4. New email from the client: 0 open projects = no tag; 1 open project =
+      suggested tag; 2+ open projects = no tag and an alert asks to link it.
+   5. The tag can always be changed by the right users.
+
+ WHO IS THE CLIENT
+   The client whose email matches (a client can have several addresses). A
+   reply from another address lands in the right chat with a warning "new
+   address - add it?" (never added automatically). An unknown sender goes to
+   "Unknown contact" with a "Create client" button.
+
+ REPLIES GO TO THE ADDRESS THE CLIENT USED: Gmail -> Gmail, work address ->
+ work address, portal -> portal.
+
+ HOW A CLIENT'S REPLY FINDS ITS TOPIC
+   Company address: a hidden reply address with a token.
+   Personal Gmail: every subject ends with a topic code like [#K7Q2M9].
+   Otherwise the email starts a new topic. No guessing by subject. A wrongly
+   placed email can be MOVED to another topic.
+
+ WHAT IS SAVED
+   The original email (HTML + text, subject, from/to/cc), the attachments (as
+   files, counting in storage). Kept forever (no auto delete). Auto-replies
+   (holiday messages) are NOT saved.
+   GDPR: the admin can delete a client's whole email chat on request.
+
+ BILLING: each plan has "email_mailboxes" (some Gmail mailboxes included,
+ extra ones billed at renewal). Connecting is never blocked; there is no buy
+ button.
+
+ SECURITY: Google tokens are stored encrypted. If a user is deactivated his
+ Gmail is disconnected and his private chats stay locked. If Google access is
+ lost, sending STOPS with a clear message (it is never sent from another
+ address).
+
+ ALERTS: new_email (in-app only if the person is online, in-app + email if
+ not), mailbox disconnected, Gmail forward confirmation.
+
+ AI on emails: ON HOLD, not planned for now.
+
+
+==============================================================================
+ 23. ALERTS AND NOTIFICATIONS
+==============================================================================
+
+ Every alert goes TWO ways at once: an in-app notification (live, bell icon)
+ and an email. No SMS in v1 (SMS / Telegram / WhatsApp are v2). Emails are in
+ the company language (fr / nl / en; unknown -> en). Money and dates follow the
+ reader's language (10,00 EUR vs EUR 10.00).
+
+ ALERTS FOR THE COMPANY ADMIN (the manager gets the same, EXCEPT billing ones)
+   - New message.
+   - Client paid an invoice / client payment failed.
+   - Our own subscription: payment failed, renewal coming, trial ending, trial
+     ended, company blocked, payment received (admin only).
+   - Invoice late.
+   - Purchase bill due soon.
+   - Stock below minimum. Stock reservation not covered.
+   - Margin warning (80%) and critical (95%), once each.
+   - Abnormal hours (over 12 h in a day).
+   - Missing site report (3 days). Progress stalled (7 days).
+   - Project cancelled: remember to invoice the client.
+   - Employee missing timesheet.
+   - Support reply from ChantierOS.
+   - New email, mailbox problems, import finished/failed.
+
+ ALERTS FOR THE WORKER
+   New task, task starting tomorrow, end-of-day reminder (hours), task status
+   changed.
+
+ ALERTS FOR THE CLIENT (email only)
+   Quote sent, invoice sent, late-invoice reminder, optional manual project
+   update, "you have a reply".
+
+ ALERTS FOR PLATFORM STAFF
+   New company signed up, payment received, payment failed, company suspended
+   or banned, support ticket opened, storage usage spike (90% of the plan).
+
+ Read notifications are cleaned up according to the plan's "retention days".
+
+
+==============================================================================
+ 24. DASHBOARD (COMPANY HOME PAGE)
+==============================================================================
+
+ Answers: "what needs my attention TODAY?" Only numbers, each linking to the
+ list. One call loads everything.
+
+ WIDGETS (each shown only if the user can view that module)
+   projects ............ open projects per status.
+   tasks ............... tasks due today, overdue tasks.
+   hours ............... hours logged this week.
+   quotes .............. sent quotes waiting for the client (count + total).
+   invoices ............ unpaid and overdue (count + balance).
+   purchase_invoices ... bills due soon.
+   stock ............... materials under their minimum.
+   margins ............. open projects at each alert level.
+
+ A widget the user cannot see is LEFT OUT (not zero). "Own" scope is respected
+ (a worker sees only his own tasks/hours). "Today" and "this week" use the
+ company time zone.
+
+
+==============================================================================
+ 25. ANALYTICS (COMPANY TRENDS)
+==============================================================================
+
+ Answers: "how is my company doing OVER TIME?" For the boss and accountant
+ (default admin + accountant, view only). Not the same as the dashboard.
+
+ One period filter: default last 12 months, maximum 24. Presets: this month,
+ quarter, year, last 12 months, custom. Empty months show as 0.
+
+ 7 BLOCKS (each also needs view right on its source module)
+   revenue ........ invoiced vs collected, per month.
+   aging .......... unpaid invoices by lateness: not yet due, 1-30, 31-60,
+                    60+ days; total open to collect.
+   top_clients .... 5 clients with the most invoiced, % collected.
+   margins ........ average margin, 5 best and 5 worst open projects.
+   quotes ......... sent / accepted / refused per month; conversion rate.
+   hours .......... hours per month, 5 projects with the most hours.
+   purchases ...... supplier + subcontractor bills per month.
+
+ 4 cards on top: collected, average margin, quote conversion, open to collect.
+ Aging and margins are a picture of NOW, not of the chosen period.
+ Money: cash views incl. VAT; margins excl. VAT.
+
+ (Not the same as the "platform analytics events" used by ChantierOS staff.)
+
+
+==============================================================================
+ 26. CONTACTS (EMPLOYEE DIRECTORY)
+==============================================================================
+
+ A read-only page with every employee of the company as a CARD (photo or
+ initials, name, role, email, phone, "Inactive" badge). Search, 20 per page.
+ Click a card for details + the OPEN projects (prospect / in_progress) the
+ person manages or works on (name and status only).
+
+ - Default admin + manager (view).
+ - Employees only. No clients, no suppliers.
+ - It is NOT the Team page (Team is the admin page to edit people).
+ - The hourly rate and any secret (password, PIN, login code) are NEVER sent.
+
+
+==============================================================================
+ 27. NOTES (LIKE GOOGLE KEEP)
+==============================================================================
+
+ A personal notepad for every user (all 7 roles, even workers on the phone).
+
+ - PRIVATE: only the author sees a note. The admin cannot read, edit or
+   delete it. Platform staff cannot either; while a platform admin
+   impersonates a user, the notes routes are blocked.
+ - Independent: not linked to a project or client.
+ - Rich text, checklists, colors, pin, archive, labels, search, images
+   (images count in storage).
+ - Views: Notes, Archive, Trash. Pinned first, then most recently edited.
+ - Trash for 7 days, then deleted for good with its images.
+ - The admin can only remove the access per role.
+ - The audit log never stores a note's title or content.
+ Reason for privacy: people write private things (even passwords) in notes.
+
+
+==============================================================================
+ 28. BULK IMPORT (EXCEL)
+==============================================================================
+
+ For a new company with hundreds of materials. Fill an Excel file instead of
+ typing one by one.
+
+ FLOW: 1) export the current materials to .xlsx, 2) edit in Excel, 3) upload
+ (the page reads the file and shows a preview), 4) send, 5) a background job
+ checks and writes, 6) the user gets a notification (done / failed).
+
+ RULES
+   - .xlsx only. Max 500 rows.
+   - ALL OR NOTHING: one error = nothing is written. The job lists EVERY error
+     with its Excel line number and a clear reason.
+   - The "id" column is the key; the description must match it.
+   - Materials import: create new materials, or update only purchase price and
+     minimum stock. Name/unit changes are done in the form.
+   - Optional "starting stock" column (new rows only).
+   - Stock import: only "purchase" or "adjustment" (never consumption). The
+     price is always the material's current price.
+   - The same file cannot be imported twice (refused). A failed file can be
+     sent again.
+   - Every imported movement is traceable. To undo: add reverse adjustments.
+
+
+==============================================================================
+ 29. THE WORKER'S PHONE AREA ("FIELD")
+==============================================================================
+
+ There is NO native mobile app. "Mobile" means the website opened on a phone,
+ in the /field area. The worker sees only:
+
+   - My tasks (today / this week), with the project name and address.
+   - Log my hours.
+   - My notes.
+   - Chat (with any colleague).
+   - Notifications.
+   - Reports (read-only for the worker; team leaders and supervisors create
+     them).
+   - My account.
+
+ He never sees clients, quotes, invoices, margins or costs. A simple login:
+ login code or email + PIN. Why this design: workers have little technical
+ experience, so it is a very simple version of the same app. WhatsApp was
+ rejected because free text cannot become accurate data.
+
+
+==============================================================================
+ 30. SUBSCRIPTION AND BILLING (WHAT THE COMPANY PAYS CHANTIEROS)
+==============================================================================
+
+ PLANS (set by the platform super-admin)
+   A plan = a monthly base price + a value for each of 6 dimensions (and a
+   7th, mailboxes, for Gmail):
+     max_workers ........ active worker accounts (phone only)
+     max_managers ....... active other employees (dashboard)
+     max_clients ........ active client cards
+     max_subcontractors . active subcontractor cards
+     storage_gb ......... total file size
+     retention_days ..... how long history is kept (not billed)
+     email_mailboxes .... Gmail mailboxes
+   PROJECTS ARE UNLIMITED. Never counted, never billed.
+
+ PRICING MODEL: USAGE-BASED, NO BLOCKING
+   bill = base price + sum of (actual use - included) x extra price per unit
+   - Counted at each renewal. "Active" only: a company that deactivates an
+     employee pays less next month.
+   - Going over NEVER blocks anything. The 6th employee on a 5-employee plan is
+     allowed and billed as an extra.
+   - A rate of 0 means unlimited for free.
+   - No refund or proration in the middle of a month.
+   - Storage is the one exception: a DOWNGRADE of storage is refused while the
+     company still holds more data than the new allowance.
+
+ PLANS ARE VERSIONED
+   A plan in use is never edited. A change creates a NEW version; existing
+   companies stay on the old one until the platform admin moves them. A plan
+   change for a company starts at the next renewal. The default plan cannot be
+   deactivated. A public pricing page lists the active plans.
+
+ PAYING (Stripe)
+   The admin pays on a Stripe Checkout page. Stripe charges the card every
+   month; ChantierOS adds the overage as an invoice item. Paying during the
+   trial saves the card and charges on the last trial day. Card change and
+   Stripe invoices are in the Stripe customer portal.
+   Cancel: allowed; works until the end of the paid month; no refund; then
+   blocked (data kept). "Keep my subscription" undoes a cancel before the end.
+   A blocked company that pays starts a new month on the payment day.
+   VAT on the subscription: not now.
+
+ FAILED PAYMENT: the same as the trial end - 7 days of grace then block. A
+ second failure does not extend the date. A failure never reopens a blocked
+ company.
+
+ BILLING HISTORY: one block per finished period: usage vs included, plan
+ price + overage = total paid. Amounts are read from Stripe, never recomputed.
+ "Payment received" email after each paid invoice (not for 0 EUR trial).
+
+
+==============================================================================
+ 31. THE PLATFORM ADMIN SIDE (CHANTIEROS STAFF)
+==============================================================================
+
+ Pages (under /admin): Login (2FA), Dashboard, Tenants (list + detail with
+ billing, subscription and dev tools), Plans, Subscriptions, Admin users,
+ Support tickets, Feedback, Notifications, Audit logs.
+
+ DASHBOARD: cards for companies (by status), subscriptions (by status),
+ support (open, high priority), feedback (new); chart of new companies per
+ month (last 12); chart of companies per plan; the platform activity log.
+
+ TENANT ACTIONS
+   - Create, edit, suspend, ban, reactivate, delete (soft), restore.
+   - Suspend / delete / restore and plan or billing changes are SUPER-ADMIN
+     ONLY by default; the super-admin can give one "staff" admin the right to
+     manage tenants and/or billing.
+   - Impersonate ("log in as this company") for support. It writes an audit
+     row on entry and exit, shows a banner, and blocks private notes.
+   - A suspended company cannot log in. A deleted company is hidden.
+   - Send a verification email to the company.
+   - Dev tools to fast-forward trial/billing dates (testing only, never in
+     production).
+
+ SUPPORT: only the company admin opens a ticket (subject, category, priority).
+ A conversation is created automatically. Statuses: open, in_progress,
+ waiting_tenant, closed. Tickets are closed, never deleted.
+
+ FEEDBACK: a company posts a feature request / improvement / complaint. The
+ platform reads it and changes the status (new, reviewing, planned, declined,
+ shipped). It is one-way, not a chat.
+
+ AUDIT LOG: every sensitive platform action is written (who, what, which
+ company, when, old and new values).
+
+
+==============================================================================
+ 32. SECURITY AND PRIVACY RULES
+==============================================================================
+
+ - Isolation: every business row carries the company id; the app adds it to
+   every query automatically (from the login token, never from the URL or the
+   request body).
+ - Passwords and PINs are hashed (argon2id). Every token and code is stored
+   hashed. Raw values exist only in the cookie, email link or phone.
+ - Refresh tokens rotate; reuse of an old one kills all sessions.
+ - Rate limits and attempt limits on codes and PINs.
+ - Impersonation and cross-company reads are always audit-logged.
+ - Private notes and personal Gmail inboxes are unreadable even by the admin.
+ - Money history (payments, stock, hours' rates, snapshots) is never rewritten.
+ - Sent PDFs are locked.
+ - Employees' hourly rates are never shown on the contacts page.
+ - GDPR: a client's email chat can be deleted on request (audit row
+   "gdpr_delete").
+ - Business data is NEVER deleted by retention rules. Retention only cleans
+   analytics events and read notifications.
+
+
+==============================================================================
+ 33. FULL STORY: ONE PROJECT FROM START TO END
+==============================================================================
+
+ 1. Mr. Dubois calls. The office creates a CLIENT card (individual, email,
+    phone).
+ 2. A PROJECT "Bathroom - Dubois" is created. Status: prospect.
+ 3. A manager visits the site and builds a QUOTE: demolition 800, plumbing
+    2,500, tiling 3,200, painting 900, electricity 600 = 8,000 excl. VAT +
+    VAT. The quote is SENT (PDF locked, email to the client).
+ 4. The office clicks "Generate link". Mr. Dubois opens the PORTAL (valid 90
+    days), sees the quote and clicks ACCEPT.
+ 5. Automatic: quote accepted, project -> in_progress, stock reserved
+    (tiles, paint...), alert if stock is not enough.
+ 6. PLANNING: Week 1 demolition + plumbing, Week 2 tiling, Week 3 painting.
+    Each task has real employees assigned. Workers get alerts.
+ 7. SUBCONTRACTING: an external plumber (subcontractor card), a contract of
+    2,500 for this project.
+ 8. ON SITE: workers log HOURS on their phones. The supervisor posts a SITE
+    REPORT (progress %, photos) and declares MATERIAL used (recipe pre-fills,
+    he corrects). Stock goes down; reservations go down.
+ 9. The plumber's BILL is entered (purchase invoice, 2,500, counts in the
+    margin at once). The tile supplier's bill is entered separately (material
+    type: no project, not counted twice).
+10. MARGIN is live: 8,000 - materials - plumber - hours. At 80% of the budget
+    a WARNING goes to the admin and manager, once.
+11. After demolition and plumbing, a 50% deposit INVOICE (4,000 excl. VAT) is
+    sent. Mr. Dubois pays by transfer. The accountant records the PAYMENT ->
+    paid. At the end, the second invoice. If it is late: red label + reminders
+    + alerts.
+12. The portal always shows: the accepted quote, progress %, invoices with
+    status. Mr. Dubois never calls to ask "where are we?". He can also write
+    in the portal chat.
+13. The supervisor closes the project: COMPLETED. The final margin is frozen
+    in the closing snapshot.
+14. Later: analytics shows revenue, conversion rate, best and worst margins.
+
+
+==============================================================================
+ 34. CHEAT SHEET: WHERE DOES EACH NUMBER COME FROM?
+==============================================================================
+
+   Stock quantity .......... sum of the stock ledger (never typed)
+   Reserved / available .... active reservations; available = on hand - reserved
+   Project budget .......... sum of ACCEPTED quotes, excl. VAT
+   Progress % .............. newest site report of the project
+   Material cost ........... consumptions x frozen price (+ project adjustments)
+   Labour cost ............. hours x frozen hourly rate
+   Subcontractor/other cost  purchase invoices by cost type (not "material")
+   Margin ................... budget - the three costs above
+   Final margin ............ closing snapshot (frozen at completed/cancelled)
+   Invoice total ........... stored totals (frozen once sent)
+   Amount paid ............. sum of the payments ledger
+   Balance due ............. invoice total incl. VAT - amount paid
+   Is it late? ............. due date passed AND balance > 0 (calculated)
+   Overage on the plan ..... (usage - included) x extra rate, counted at renewal
+   Document number ......... counter per company, per type, per year
+
+
+==============================================================================
+ 35. MAP OF THE FRONTEND PAGES (what really exists)
+==============================================================================
+
+ PUBLIC: home, features, pricing, FAQ, contact, legal notice, terms, privacy
+ policy, cookie policy.
+
+ AUTH: login, register, verify email, forgot / reset password, accept
+ invitation.
+
+ COMPANY APP (desktop):
+   Dashboard, Apps menu, Analytics, Clients (+ detail), Projects (+ 15
+   sub-pages: overview, quotes, invoices, purchases, subcontracting, tasks,
+   time, reports, materials, margin, media, chat, emails, client portal,
+   history), Quotes, Invoices, Purchase invoices, Margins, Tasks (planning),
+   Time entries, Reports, Stock (+ imports), Catalogue (services, materials,
+   categories, cost types, suppliers), Subcontractors (+ contracts), Media,
+   Chat (+ client chats), Contacts, Notes, Notifications, Team (+
+   invitations), Account (+ sessions), Settings (company, roles, billing,
+   email, support, feedback).
+
+ WORKER APP (phone, /field): tasks (+ detail), hours, reports, notes, chat,
+ notifications, account.
+
+ CLIENT PORTAL (/portal/<token>): home, quotes, invoices, documents, messages.
+
+ PLATFORM ADMIN (/admin): login, dashboard, tenants (detail, billing,
+ subscription, dev), plans, subscriptions, admin users, support, feedback,
+ notifications, audit logs.
+
+ Languages of the app: French (default), English, Dutch.
+
+
+==============================================================================
+ 36. BUILT / PLANNED / NOT IN V1
+==============================================================================
+
+ According to doc/notes/WhereIStop/state.md (last update 2026-10-18):
+
+ BUILT (backend v1 complete, many parts also in the frontend)
+   Platform + plans, auth + team, clients + projects, catalogue + stock +
+   reservations, quotes + invoices + payments, subcontracting + purchase
+   invoices, planning + time entries, margin + snapshots, media, client portal,
+   chat, alerts, subscriptions + Stripe Checkout, documents/PDF, site
+   reports, support + feedback, bulk import, trial end + dev tools, tenant
+   analytics (step 22), contacts (step 23), notes (step 24), platform stats.
+
+ PLANNED, NOT BUILT (as written in state.md)
+   Step 25 - Email with clients. Rules are decided; test code exists
+   (src/inbound-email, src/email-connections). Build starts at task A1.
+
+ NOT IN V1 (v2 / later)
+   - AI layer: AI agents, HITL validations, connectors, AI token packs. AI on
+     emails is on hold.
+   - SMS, Telegram, WhatsApp alerts.
+   - Own-domain mailbox and Outlook/Microsoft 365.
+   - Automatic bank reconciliation.
+   - Payment instalments for purchase bills (purchase_payments ledger).
+   - Re-billing a subcontractor cost to the client with a mark-up.
+   - VAT on the ChantierOS subscription.
+   - "Pay now" button in failed-payment emails and link to Stripe PDF.
+   - Todo page with reminders and a Holiday page (ToDo/notes-todo-holiday.md).
+   - Making the 90-day portal duration configurable per company.
+   - Multi-currency (EUR only).
+
+
+==============================================================================
+ 37. THINGS I NOTICED THAT ARE UNCLEAR OR CONTRADICTORY
+==============================================================================
+
+ These are business-level points to confirm. I did not change any file.
+
+ 1. "Overdue" status. The old doc "Scenarios and Explanation.md" and
+    "Dashboard Pages.md" still list an "overdue" status. The newer note
+    (client-invoices.md) says there is NO overdue status: late is calculated.
+    The newer note wins.
+
+ 2. Project chat creation. chat-conversations.md says the project-client chat
+    is auto-created when the portal link is generated. client-portal.md says
+    the link is created manually only (to avoid chats for prospects).
+    Both agree if the chat is created only when someone clicks "Generate
+    link". Worth confirming.
+
+ 3. Old page documents still mention AI pages (Agents IA, HITL, Connectors,
+    Tokens) and a "mobile chat (AI)". The notes say the AI layer is out of v1.
+    "Dashboard Pages.md" is older than the notes.
+
+ 4. The progress tracker says "Frontend: planned, not started", but the
+    frontend already has many pages (including notes, contacts, analytics).
+    The tracker is out of date on that line.
+
+ 5. The email feature: client-email.md describes the company mailbox and
+    personal Gmail as "Built" in one table, while state.md says step 25 is
+    "planned, not built" with only test code. The status needs one clear
+    answer.
+
+ 6. Worker "own" access on reports: reports are "own (view)" for the worker in
+    the table, but site-reports.md says the worker cannot post reports. The
+    meaning is: he can only read. A "Reports" page exists in /field.
+
+ 7. Quote status "sent -> draft". Allowed so staff can fix a price, but the
+    client may already have seen the sent quote in the portal. The locked PDF
+    stays forever. Think about how you want to explain this to a client.
+
+ 8. Portal link lasts 90 days only. A long project needs a new link by hand.
+    There is no automatic reminder for this in the notes. Possible
+    improvement.
+
+ 9. Invoices vs accepted quotes. The app only WARNS when invoices do not add
+    up to the accepted quotes. It is a soft rule on purpose; staff are
+    responsible for the final numbers.
+
+10. Stock reservations: "soft" alert, never a hard block. This was a conscious
+    choice (a company may buy materials after signing).
+
+ OPEN LISTS (the only official ones)
+   - "To do" section of doc/notes/A_progress-tracker.md
+   - "Open questions" section of doc/Schema Proposal.md
+   At the last read, the tracker's items were all decided; only the frontend
+   line was still open.
+
+==============================================================================
+ END
+==============================================================================

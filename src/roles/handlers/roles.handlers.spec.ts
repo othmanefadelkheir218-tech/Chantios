@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getLoggerToken } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
@@ -91,8 +91,8 @@ describe('Roles handlers', () => {
         canDelete: true,
       });
 
-      // 2 roles x 19 modules
-      expect(matrix.length).toBe(38);
+      // 2 roles x 21 modules
+      expect(matrix.length).toBe(42);
     });
   });
 
@@ -113,6 +113,30 @@ describe('Roles handlers', () => {
           actor,
         ),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('never gives the email permission to the worker role', async () => {
+      repo.findRoleById.mockResolvedValue({
+        id: 5,
+        name: 'worker',
+        label: 'Worker',
+        isActive: true,
+      });
+      await expect(
+        upsertPermission.execute(
+          5,
+          'email',
+          {
+            can_view: true,
+            can_create: false,
+            can_edit: false,
+            can_delete: false,
+            scope: 'all',
+          },
+          actor,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(repo.upsertOverride).not.toHaveBeenCalled();
     });
 
     it('creates a new override and writes one audit entry', async () => {

@@ -12,6 +12,12 @@ import { SubcontractorsModule } from '../subcontractors/subcontractors.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { UsersModule } from '../users/users.module';
+import { VatRatesModule } from '../vat-rates/vat-rates.module';
+import { TenantVatHandler } from './handlers/tenant-vat.handler';
+import { SyncTenantTaxHandler } from './handlers/sync-tenant-tax.handler';
+import { BILLING_TAX_SYNC_QUEUE } from './dto/tax-sync-job.dto';
+import { TaxEventsListener } from './listeners/tax-events.listener';
+import { TaxSyncProcessor } from './processors/tax-sync.processor';
 import { AdminBillingController } from './admin-billing.controller';
 import { BillingController } from './billing.controller';
 import { BillingService } from './billing.service';
@@ -47,6 +53,7 @@ import { RenewalProcessor } from './processors/renewal.processor';
     RolesModule,
     TenantsModule,
     BullModule.registerQueue({ name: BILLING_RENEWAL_QUEUE }),
+    BullModule.registerQueue({ name: BILLING_TAX_SYNC_QUEUE }),
     SubscriptionsModule,
     PlansModule,
     UsersModule,
@@ -55,6 +62,7 @@ import { RenewalProcessor } from './processors/renewal.processor';
     SubcontractorsModule,
     MediaModule,
     StripeModule,
+    VatRatesModule,
     // The trial alerts (step 20). `forwardRef`: the same long cycle
     // `StripeModule` documents (Notifications -> ... -> this module).
     forwardRef(() => NotificationsModule),
@@ -75,6 +83,11 @@ import { RenewalProcessor } from './processors/renewal.processor';
     StartCheckoutHandler,
     OpenPortalHandler,
     CancelCardSubscriptionHandler,
+    TenantVatHandler,
+    // Step 27 — TVA on the subscription, re-synced on Stripe in the background.
+    SyncTenantTaxHandler,
+    TaxEventsListener,
+    TaxSyncProcessor,
     RenewalProcessor,
   ],
   // `UsageCounterHelper` is also used directly by `CronsModule` (step 16's

@@ -7,6 +7,7 @@ import { Test } from '@nestjs/testing';
 import { getLoggerToken } from 'nestjs-pino';
 import { AuditService } from '../../audit/audit.service';
 import { ClientRepository } from '../repositories/client.repository';
+import { AddClientEmailHandler } from './add-client-email.handler';
 import { ArchiveClientHandler } from './archive-client.handler';
 import { CreateClientHandler } from './create-client.handler';
 import { FindClientHandler } from './find-client.handler';
@@ -46,6 +47,9 @@ describe('Clients handlers', () => {
     update: jest.fn(),
     setActive: jest.fn(),
     countActive: jest.fn(),
+    findByAnyEmail: jest.fn(),
+    addEmail: jest.fn(),
+    listEmails: jest.fn(),
   };
   const audit = { write: jest.fn() };
   const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn() };
@@ -55,6 +59,7 @@ describe('Clients handlers', () => {
   let findClient: FindClientHandler;
   let updateClient: UpdateClientHandler;
   let archiveClient: ArchiveClientHandler;
+  let addClientEmail: AddClientEmailHandler;
 
   beforeEach(async () => {
     jest.resetAllMocks();
@@ -64,6 +69,7 @@ describe('Clients handlers', () => {
       FindClientHandler,
       UpdateClientHandler,
       ArchiveClientHandler,
+      AddClientEmailHandler,
     ];
     const module = await Test.createTestingModule({
       providers: [
@@ -82,6 +88,7 @@ describe('Clients handlers', () => {
     findClient = module.get(FindClientHandler);
     updateClient = module.get(UpdateClientHandler);
     archiveClient = module.get(ArchiveClientHandler);
+    addClientEmail = module.get(AddClientEmailHandler);
   });
 
   describe('CreateClientHandler', () => {
@@ -177,10 +184,12 @@ describe('Clients handlers', () => {
       await expect(findClient.execute(99)).rejects.toThrow(NotFoundException);
     });
 
-    it('returns the client', async () => {
+    it('returns the client with its extra addresses', async () => {
       repo.findById.mockResolvedValue(client());
+      repo.listEmails.mockResolvedValue([{ id: 7, email: 'work@test.local' }]);
       const result = await findClient.execute(2);
       expect(result.id).toBe(2);
+      expect(result.extraEmails).toEqual([{ id: 7, email: 'work@test.local' }]);
     });
   });
 
@@ -244,6 +253,37 @@ describe('Clients handlers', () => {
       expect(repo.setActive).toHaveBeenCalledWith(2, false);
       expect(result.isActive).toBe(false);
       expect(audit.write).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('AddClientEmailHandler', () => {
+    it('adds a new address, lower-cased', async () => {
+      repo.findById.mockResolvedValue(client());
+      repo.findByAnyEmail.mockResolvedValue(null);
+      repo.addEmail.mockResolvedValue({
+        id: 3,
+        email: 'work@test.local',
+        createdAt: new Date(),
+      });
+      const result = await addClientEmail.execute(2, ' Work@Test.local ');
+      expect(repo.addEmail).toHaveBeenCalledWith(2, 'work@test.local');
+      expect(result.email).toBe('work@test.local');
+    });
+
+    it('refuses an address of another client', async () => {
+      repo.findById.mockResolvedValue(client());
+      repo.findByAnyEmail.mockResolvedValue(client({ id: 9 }));
+      await expect(
+        addClientEmail.execute(2, 'other@test.local'),
+      ).rejects.toThrow(ConflictException);
+      expect(repo.addEmail).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unknown client', async () => {
+      repo.findById.mockResolvedValue(null);
+      await expect(addClientEmail.execute(99, 'a@test.local')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

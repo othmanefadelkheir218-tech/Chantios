@@ -27,6 +27,10 @@ export const TENANT_ALERT_TYPES = [
   'subscription_blocked',
   'import_done',
   'import_failed',
+  // Step 25 — email with clients (doc/notes/client-email.md § Where it shows).
+  'new_email',
+  'email_mailbox_disconnected',
+  'email_forward_confirm',
 ] as const;
 
 /** Alerts for ChantierOS staff (stored in `notifications.admin_user_id`, `tenant_id` NULL). */
@@ -70,6 +74,7 @@ export type NotificationRecipient =
  *   `entity_id` is the key `dedupeDays` looks at.
  * - `dedupeDays`: skip a recipient who already got the same type + `entity_id`
  *   inside that window (a daily cron must not repeat itself every morning).
+ * - `emailOnlyIfOffline`: step 25 — skip the email of a user who is online.
  * - `attachment`: step 15 — the frozen quote/invoice PDF to attach to a
  *   `client_quote_sent`/`client_invoice_sent` email. `content` travels as a
  *   base64 string, never a raw `Buffer`, because this whole context is
@@ -83,6 +88,11 @@ export interface DispatchContext {
   payload?: Record<string, unknown>;
   dedupeDays?: number;
   attachment?: { filename: string; content: string };
+  /**
+   * Step 25: the in-app row always; the email only to a recipient with NO
+   * open socket (`presence:user:<id>`) — online users are not emailed.
+   */
+  emailOnlyIfOffline?: boolean;
 }
 
 export interface NotificationJob {

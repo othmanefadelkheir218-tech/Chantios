@@ -5,6 +5,9 @@ import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { EmailModule } from '../email/email.module';
 import { OneTimeCodesModule } from '../one-time-codes/one-time-codes.module';
+import { VatRatesModule } from '../vat-rates/vat-rates.module';
+import { CheckVatNumberHandler } from './handlers/check-vat-number.handler';
+import { PrepareTaxFieldsHandler } from './handlers/prepare-tax-fields.handler';
 import { CreateTenantHandler } from './handlers/create-tenant.handler';
 import { FindTenantHandler } from './handlers/find-tenant.handler';
 import { FindTenantsHandler } from './handlers/find-tenants.handler';
@@ -29,6 +32,8 @@ import { TenantsService } from './tenants.service';
     AuditModule,
     EmailModule,
     OneTimeCodesModule,
+    // Step 27: the country must be an active country of the TVA table.
+    VatRatesModule,
   ],
   controllers: [TenantsController],
   providers: [
@@ -46,6 +51,8 @@ import { TenantsService } from './tenants.service';
     RestoreTenantsHandler,
     SendTenantVerificationEmailHandler,
     VerifyTenantEmailHandler,
+    PrepareTaxFieldsHandler,
+    CheckVatNumberHandler,
   ],
   exports: [TenantsService],
 })

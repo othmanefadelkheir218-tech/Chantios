@@ -15,7 +15,7 @@ describe('AdminCreateTenantHandler — step 18', () => {
   const prisma = {
     $transaction: jest.fn((cb: (client: unknown) => unknown) => cb(tx)),
   };
-  const tenants = { create: jest.fn() };
+  const tenants = { create: jest.fn(), checkVatNumber: jest.fn() };
   const subscriptions = { create: jest.fn() };
   const plans = { findDefault: jest.fn() };
   const invitations = {
@@ -36,6 +36,7 @@ describe('AdminCreateTenantHandler — step 18', () => {
     name: 'Bravo Bouw',
     email: 'info@bravo.be',
     locale: 'nl',
+    country: 'BE',
     owner_name: 'Bram Boss',
     owner_email: 'Bram@Bravo.be',
   };
@@ -61,7 +62,12 @@ describe('AdminCreateTenantHandler — step 18', () => {
       'bram@bravo.be',
     );
     expect(tenants.create).toHaveBeenCalledWith(
-      { name: 'Bravo Bouw', email: 'info@bravo.be', locale: 'nl' },
+      {
+        name: 'Bravo Bouw',
+        email: 'info@bravo.be',
+        locale: 'nl',
+        country: 'BE',
+      },
       actor,
       tx,
     );

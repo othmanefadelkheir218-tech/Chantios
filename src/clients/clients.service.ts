@@ -4,6 +4,7 @@ import { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
 import { CreateClientDto } from './dto/create-client.dto';
 import { FindClientsQueryDto } from './dto/find-clients-query.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { AddClientEmailHandler } from './handlers/add-client-email.handler';
 import { ArchiveClientHandler } from './handlers/archive-client.handler';
 import { CreateClientHandler } from './handlers/create-client.handler';
 import { FindClientHandler } from './handlers/find-client.handler';
@@ -21,6 +22,7 @@ export class ClientsService {
     private readonly findClient: FindClientHandler,
     private readonly updateClient: UpdateClientHandler,
     private readonly archiveClient: ArchiveClientHandler,
+    private readonly addClientEmail: AddClientEmailHandler,
   ) {}
 
   create(dto: CreateClientDto, actor: AuthenticatedUser) {
@@ -63,5 +65,27 @@ export class ClientsService {
     return ids.length === 0
       ? Promise.resolve([])
       : this.clients.findNamesByIds(ids);
+  }
+
+  // ---- Internal API for client email (step 25) ----
+
+  /** The client owning this address — main or extra, case-insensitive. */
+  findByAnyEmail(email: string): Promise<Client | null> {
+    return this.clients.findByAnyEmail(email.trim());
+  }
+
+  /** "Add this address": `409` if the address is already a client's. */
+  addEmail(clientId: number, email: string) {
+    return this.addClientEmail.execute(clientId, email);
+  }
+
+  listEmails(clientId: number) {
+    return this.clients.listEmails(clientId);
+  }
+
+  /** Client ids matching a search (name, contact, any email) — the client chat list. */
+  findIdsMatching(search: string): Promise<number[]> {
+    const text = search.trim();
+    return text ? this.clients.findIdsMatching(text) : Promise.resolve([]);
   }
 }

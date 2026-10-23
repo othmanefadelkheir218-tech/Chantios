@@ -26,6 +26,16 @@ export class MediaRepository {
     });
   }
 
+  /** `GET /api/media/:id` — excludes trash; `visible` adds the note files this caller may see. */
+  findVisibleById(
+    id: number,
+    visible: Prisma.MediaWhereInput,
+  ): Promise<Media | null> {
+    return this.tenantPrisma.db.media.findFirst({
+      where: { id, deletedAt: null, AND: [visible] },
+    });
+  }
+
   /** Bypasses the trash filter — restore/hard-delete need to see an already-trashed row. Never a private file. */
   findByIdIncludingTrashed(id: number): Promise<Media | null> {
     return this.tenantPrisma.db.media.findFirst({
@@ -106,6 +116,19 @@ export class MediaRepository {
     if (ids.length === 0) return Promise.resolve([]);
     return this.tenantPrisma.db.media.findMany({
       where: { id: { in: ids }, ...NOT_PRIVATE_MEDIA },
+    });
+  }
+
+  /**
+   * Bulk lookup for the attach rule — private types included: an email file
+   * (`email_attachment`) is private yet must be attached to its message. Safe
+   * because the caller only accepts a pending file of the asked type,
+   * uploaded by the same user.
+   */
+  findManyByIdsForAttach(ids: number[]): Promise<Media[]> {
+    if (ids.length === 0) return Promise.resolve([]);
+    return this.tenantPrisma.db.media.findMany({
+      where: { id: { in: ids } },
     });
   }
 

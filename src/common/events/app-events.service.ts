@@ -9,6 +9,18 @@ export interface AppEvents {
     companyName: string;
     status: string;
   };
+  /** A tenant admin deactivated a user (step 25: their Gmail inboxes are removed). */
+  'user.deactivated': { tenantId: number; userId: number };
+  /**
+   * Step 27 — the super-admin changed a TVA-table row (rate or EU flag). Billing
+   * re-points the card subscriptions of that country, from the next invoice.
+   */
+  'vat_rate.changed': { countryCode: string };
+  /**
+   * Step 27 — a company's country or TVA number (or its VIES status) changed.
+   * Billing re-syncs its Stripe TVA, from the next invoice.
+   */
+  'tenant.tax_profile_changed': { tenantId: number };
 }
 
 /**

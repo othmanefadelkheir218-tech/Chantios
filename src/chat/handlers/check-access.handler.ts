@@ -7,6 +7,7 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { ChatIdentity, isMemberOf } from '../helpers/chat-access.helper';
 import { ConversationWithMembers } from '../helpers/chat.helper';
 import { ConversationRepository } from '../repositories/conversation.repository';
+import { ClientChatAccessHandler } from './client-chat-access.handler';
 
 /**
  * "Is this caller a member of this conversation?" — loaded once, decided by
@@ -23,7 +24,22 @@ export class CheckAccessHandler {
     @InjectPinoLogger(CheckAccessHandler.name)
     private readonly logger: PinoLogger,
     private readonly conversations: ConversationRepository,
+    private readonly clientChats: ClientChatAccessHandler,
   ) {}
+
+  /**
+   * The socket `join` of a user: a client chat (step 25) has no members, its
+   * inbox rule decides (company inbox → `email` view; Gmail → the owner);
+   * every other conversation keeps the membership check.
+   */
+  async assertCanJoin(conversationId: number, userId: number): Promise<void> {
+    const conversation = await this.conversations.findById(conversationId);
+    if (conversation?.type === 'client') {
+      await this.clientChats.assertChatForUser(conversationId, userId);
+      return;
+    }
+    await this.assertMember(conversationId, { userId });
+  }
 
   async assertMember(
     conversationId: number,

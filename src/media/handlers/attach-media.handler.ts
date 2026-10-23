@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { MediaEntityType } from '@prisma/client';
+import { Media, MediaEntityType } from '@prisma/client';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { TenantTransactionClient } from '../../common/prisma/tenant-prisma.service';
 import { MediaUploader, PENDING_ENTITY_ID } from '../helpers/media.helper';
@@ -38,11 +38,29 @@ export class AttachMediaHandler {
     tx?: TenantTransactionClient,
   ): Promise<void> {
     if (mediaIds.length === 0) return;
+    await this.assertAttachable(mediaIds, entityType, entityId, actor);
+    await this.media.setEntityId(mediaIds, entityId, tx);
+    this.logger.info(
+      `${mediaIds.length} file(s) attached to ${entityType} ${entityId}`,
+    );
+  }
+
+  /**
+   * The attach rule alone, no write — the files that WILL be attached. An
+   * email reads them (name, URL, size) before it is sent (step 25).
+   */
+  async assertAttachable(
+    mediaIds: number[],
+    entityType: MediaEntityType,
+    entityId: number,
+    actor: MediaUploader,
+  ): Promise<Media[]> {
+    if (mediaIds.length === 0) return [];
     if (new Set(mediaIds).size !== mediaIds.length) {
       throw new BadRequestException('A file can only be attached once');
     }
 
-    const rows = await this.media.findManyByIds(mediaIds);
+    const rows = await this.media.findManyByIdsForAttach(mediaIds);
     const byId = new Map(rows.map((row) => [row.id, row]));
     for (const id of mediaIds) {
       const row = byId.get(id);
@@ -61,10 +79,6 @@ export class AttachMediaHandler {
         );
       }
     }
-
-    await this.media.setEntityId(mediaIds, entityId, tx);
-    this.logger.info(
-      `${mediaIds.length} file(s) attached to ${entityType} ${entityId}`,
-    );
+    return mediaIds.map((id) => byId.get(id) as Media);
   }
 }

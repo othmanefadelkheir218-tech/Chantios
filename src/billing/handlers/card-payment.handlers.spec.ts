@@ -72,6 +72,20 @@ describe('StartCheckoutHandler — the "Pay" button', () => {
     createCheckoutSession: jest
       .fn()
       .mockResolvedValue('https://checkout.stripe.com/x'),
+    syncSubscriptionTax: jest.fn(),
+  };
+  // Step 27: a Belgian company, TVA 21 %.
+  const tenantVat = {
+    withNumber: jest.fn(),
+  };
+  const domestic = {
+    vat: {
+      kind: 'domestic',
+      country: 'BE',
+      rate: '21.00',
+      stripeTaxRateId: 'txr_be',
+    },
+    euVatNumber: 'BE0123456789',
   };
   const handler = new StartCheckoutHandler(
     logger as never,
@@ -79,11 +93,49 @@ describe('StartCheckoutHandler — the "Pay" button', () => {
     plans as never,
     tenants as never,
     stripe as never,
+    tenantVat as never,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
     plans.findOne.mockResolvedValue({ id: 1, stripePriceId: 'price_1' });
+    tenantVat.withNumber.mockResolvedValue(domestic);
+  });
+
+  it.each([
+    ['no_country', 'Fill in your company country first'],
+    ['country_not_supported', 'Your country is not supported yet'],
+  ])(
+    'no TVA (%s) → 409, nothing in Stripe (step 27)',
+    async (reason, message) => {
+      tenantVat.withNumber.mockResolvedValue({
+        vat: { kind: 'missing', reason },
+        euVatNumber: null,
+      });
+      await expect(handler.execute(7, { locale: 'fr' })).rejects.toThrow(
+        message,
+      );
+      expect(stripe.createCheckoutSession).not.toHaveBeenCalled();
+      expect(stripe.syncSubscriptionTax).not.toHaveBeenCalled();
+    },
+  );
+
+  it('Checkout gets the TaxRate; the customer its TVA number first (step 27)', async () => {
+    subscriptions.findByTenant.mockResolvedValue(
+      row({ stripeCustomerId: 'cus_1' }),
+    );
+    await handler.execute(7, { locale: 'fr' });
+    expect(stripe.syncSubscriptionTax).toHaveBeenCalledWith({
+      customerId: 'cus_1',
+      subscriptionId: null,
+      taxRateId: 'txr_be',
+      reverseCharge: false,
+      euVatNumber: 'BE0123456789',
+    });
+    expect(
+      callArg<CheckoutSessionInput>(stripe.createCheckoutSession, 0, 0)
+        .taxRateId,
+    ).toBe('txr_be');
   });
 
   it('a trial company → new customer + Checkout with the trial end', async () => {
@@ -258,6 +310,14 @@ describe('RunRenewalHandler — card companies (Q2)', () => {
     applyPendingPlan as never,
     stripe as never,
     {} as never,
+    {
+      execute: () =>
+        Promise.resolve({
+          kind: 'domestic',
+          rate: '21.00',
+          stripeTaxRateId: 'txr_be',
+        }),
+    } as never,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -296,6 +356,7 @@ describe('RunRenewalHandler — card companies (Q2)', () => {
       expect.any(String),
       `overage:7:${periodStart.toISOString()}`,
       'in_1',
+      'txr_be',
     );
     expect(subscriptions.applyPendingPlan).toHaveBeenCalledWith(7);
     expect(subscriptions.setPeriod).not.toHaveBeenCalled();

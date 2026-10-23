@@ -56,6 +56,8 @@ export const DEFAULT_PERMISSION_MATRIX: Record<
     analytics: 'view',
     contacts: 'view',
     notes: 'own',
+    email: 'full',
+    email_gmail: 'full',
   },
   manager: {
     clients: 'full',
@@ -77,6 +79,8 @@ export const DEFAULT_PERMISSION_MATRIX: Record<
     analytics: 'none',
     contacts: 'view',
     notes: 'own',
+    email: 'full',
+    email_gmail: 'none',
   },
   site_supervisor: {
     clients: 'view',
@@ -98,6 +102,8 @@ export const DEFAULT_PERMISSION_MATRIX: Record<
     analytics: 'none',
     contacts: 'none',
     notes: 'own',
+    email: 'none',
+    email_gmail: 'none',
   },
   team_leader: {
     clients: 'none',
@@ -119,6 +125,8 @@ export const DEFAULT_PERMISSION_MATRIX: Record<
     analytics: 'none',
     contacts: 'none',
     notes: 'own',
+    email: 'none',
+    email_gmail: 'none',
   },
   worker: {
     clients: 'none',
@@ -140,6 +148,8 @@ export const DEFAULT_PERMISSION_MATRIX: Record<
     analytics: 'none',
     contacts: 'none',
     notes: 'own',
+    email: 'none',
+    email_gmail: 'none',
   },
   sales: {
     clients: 'full',
@@ -161,6 +171,8 @@ export const DEFAULT_PERMISSION_MATRIX: Record<
     analytics: 'none',
     contacts: 'none',
     notes: 'own',
+    email: 'full',
+    email_gmail: 'none',
   },
   accountant: {
     clients: 'view',
@@ -182,8 +194,25 @@ export const DEFAULT_PERMISSION_MATRIX: Record<
     analytics: 'view',
     contacts: 'none',
     notes: 'own',
+    email: 'none',
+    email_gmail: 'none',
   },
 };
+
+/**
+ * Modules a role can never get, not even through a tenant override
+ * (doc/notes/client-email.md: the worker never has `email` nor `email_gmail`).
+ */
+export const NEVER_GRANTED: Partial<Record<RoleName, PermissionModule[]>> = {
+  worker: ['email', 'email_gmail'],
+};
+
+export function isNeverGranted(
+  role: RoleName,
+  module: PermissionModule,
+): boolean {
+  return NEVER_GRANTED[role]?.includes(module) ?? false;
+}
 
 function levelToPermission(level: Level): ResolvedPermission {
   switch (level) {

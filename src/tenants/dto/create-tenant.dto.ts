@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsIn,
@@ -30,11 +31,13 @@ export class CreateTenantDto {
   legal_name?: string;
 
   @ApiPropertyOptional({
-    description: 'Company VAT number, printed on invoices',
+    description:
+      'Company TVA number, printed on invoices. Country code then number (BE0123456789); spaces and dots are removed. Checked with VIES (step 27). null / "" clears it.',
+    nullable: true,
   })
   @IsOptional()
   @IsString()
-  vat_number?: string;
+  vat_number?: string | null;
 
   @ApiPropertyOptional({ description: 'Company register number' })
   @IsOptional()
@@ -66,11 +69,17 @@ export class CreateTenantDto {
   @IsString()
   city?: string;
 
-  @ApiPropertyOptional({ description: 'ISO 2-letter code', example: 'BE' })
-  @IsOptional()
+  @ApiProperty({
+    description:
+      'ISO 2-letter code. Required: an active country of the TVA table (GET /api/vat-rates/countries). It decides the TVA on the subscription.',
+    example: 'BE',
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
   @IsString()
-  @Length(2, 2)
-  country?: string;
+  @Matches(/^[A-Z]{2}$/, { message: 'country must be 2 letters (BE)' })
+  country: string;
 
   @ApiPropertyOptional({
     description: 'VAT pre-fill for new document lines, as a string',

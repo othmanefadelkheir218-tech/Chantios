@@ -18,7 +18,7 @@ const file = (over: Record<string, unknown> = {}) => ({
 });
 
 describe('AttachMediaHandler', () => {
-  const repo = { findManyByIds: jest.fn(), setEntityId: jest.fn() };
+  const repo = { findManyByIdsForAttach: jest.fn(), setEntityId: jest.fn() };
   const logger = { info: jest.fn(), warn: jest.fn(), debug: jest.fn() };
   let handler: AttachMediaHandler;
 
@@ -35,19 +35,30 @@ describe('AttachMediaHandler', () => {
   });
 
   it('links pending files of this user to the new message, in the given tx', async () => {
-    repo.findManyByIds.mockResolvedValue([file({ id: 7 }), file({ id: 8 })]);
+    repo.findManyByIdsForAttach.mockResolvedValue([
+      file({ id: 7 }),
+      file({ id: 8 }),
+    ]);
     await handler.execute([7, 8], 'message', 100, actor, tx);
     expect(repo.setEntityId).toHaveBeenCalledWith([7, 8], 100, tx);
   });
 
+  it('attaches a private email file (email_attachment) to its message', async () => {
+    repo.findManyByIdsForAttach.mockResolvedValue([
+      file({ entityType: 'email_attachment' }),
+    ]);
+    await handler.execute([7], 'email_attachment', 61, actor, tx);
+    expect(repo.setEntityId).toHaveBeenCalledWith([7], 61, tx);
+  });
+
   it('nothing to attach is a no-op', async () => {
     await handler.execute([], 'message', 100, actor, tx);
-    expect(repo.findManyByIds).not.toHaveBeenCalled();
+    expect(repo.findManyByIdsForAttach).not.toHaveBeenCalled();
     expect(repo.setEntityId).not.toHaveBeenCalled();
   });
 
   it("refuses another user's file", async () => {
-    repo.findManyByIds.mockResolvedValue([file({ uploadedBy: 2 })]);
+    repo.findManyByIdsForAttach.mockResolvedValue([file({ uploadedBy: 2 })]);
     await expect(
       handler.execute([7], 'message', 100, actor, tx),
     ).rejects.toThrow(BadRequestException);
@@ -55,26 +66,30 @@ describe('AttachMediaHandler', () => {
   });
 
   it('refuses a file that is already attached to something', async () => {
-    repo.findManyByIds.mockResolvedValue([file({ entityId: 55 })]);
+    repo.findManyByIdsForAttach.mockResolvedValue([file({ entityId: 55 })]);
     await expect(
       handler.execute([7], 'message', 100, actor, tx),
     ).rejects.toThrow(BadRequestException);
   });
 
   it('refuses a file of another entity type (a project photo is not a chat file)', async () => {
-    repo.findManyByIds.mockResolvedValue([file({ entityType: 'project' })]);
+    repo.findManyByIdsForAttach.mockResolvedValue([
+      file({ entityType: 'project' }),
+    ]);
     await expect(
       handler.execute([7], 'message', 100, actor, tx),
     ).rejects.toThrow(BadRequestException);
   });
 
   it('refuses a file in the trash, an unknown id, and the same id twice', async () => {
-    repo.findManyByIds.mockResolvedValue([file({ deletedAt: new Date() })]);
+    repo.findManyByIdsForAttach.mockResolvedValue([
+      file({ deletedAt: new Date() }),
+    ]);
     await expect(
       handler.execute([7], 'message', 100, actor, tx),
     ).rejects.toThrow(BadRequestException);
 
-    repo.findManyByIds.mockResolvedValue([]);
+    repo.findManyByIdsForAttach.mockResolvedValue([]);
     await expect(
       handler.execute([99], 'message', 100, actor, tx),
     ).rejects.toThrow(BadRequestException);
@@ -85,7 +100,7 @@ describe('AttachMediaHandler', () => {
   });
 
   it('one bad file attaches NONE of them', async () => {
-    repo.findManyByIds.mockResolvedValue([
+    repo.findManyByIdsForAttach.mockResolvedValue([
       file({ id: 7 }),
       file({ id: 8, uploadedBy: 5 }),
     ]);

@@ -14,6 +14,8 @@ const valid = {
   PORTAL_BASE_URL: 'http://localhost:3000/portal',
   JWT_ACCESS_SECRET: 'a'.repeat(32),
   JWT_REFRESH_SECRET: 'b'.repeat(32),
+  EMAIL_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
+  INBOUND_EMAIL_DOMAIN: 'mail.example.com',
 };
 Object.assign(process.env, valid);
 
@@ -47,6 +49,9 @@ describe('validateEnv (Stripe + ImageKit + Resend)', () => {
 describe('validateEnv (production must not use localhost links)', () => {
   const prod = {
     ...valid,
+    RESEND_WEBHOOK_SECRET: 'whsec_abc',
+    GOOGLE_CLIENT_ID: 'id.apps.googleusercontent.com',
+    GOOGLE_CLIENT_SECRET: 'secret',
     NODE_ENV: 'production',
     APP_URL: 'https://app.chantieros.com',
     PORTAL_BASE_URL: 'https://app.chantieros.com/portal',
@@ -98,4 +103,54 @@ describe('validateEnv COOKIE_DOMAIN (step 18)', () => {
       );
     },
   );
+});
+
+describe('validateEnv client email (step 25)', () => {
+  it('refuses a key that is not 32 bytes', () => {
+    expect(() =>
+      validateEnv({
+        ...valid,
+        EMAIL_TOKEN_ENCRYPTION_KEY: Buffer.alloc(16).toString('base64'),
+      }),
+    ).toThrow('EMAIL_TOKEN_ENCRYPTION_KEY must be 32 bytes');
+  });
+
+  it('needs the Google and Resend secrets in production only', () => {
+    const prod = {
+      ...valid,
+      NODE_ENV: 'production',
+      APP_URL: 'https://app.chantieros.com',
+      PORTAL_BASE_URL: 'https://app.chantieros.com/portal',
+    };
+    expect(() => validateEnv(prod)).toThrow(
+      'RESEND_WEBHOOK_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET must be set',
+    );
+    expect(() => validateEnv(valid)).not.toThrow();
+  });
+});
+
+describe('validateEnv TVA on the subscription (step 27)', () => {
+  it('defaults to a Belgian seller and the VIES check', () => {
+    const value = validateEnv(valid);
+    expect(value.SELLER_COUNTRY).toBe('BE');
+    expect(value.VAT_NUMBER_CHECK).toBe('vies');
+  });
+
+  it('accepts VAT_NUMBER_CHECK=off (its own switch, not NODE_ENV)', () => {
+    expect(
+      validateEnv({ ...valid, VAT_NUMBER_CHECK: 'off' }).VAT_NUMBER_CHECK,
+    ).toBe('off');
+  });
+
+  it.each(['be', 'BEL', 'B1', ''])('refuses SELLER_COUNTRY "%s"', (value) => {
+    expect(() => validateEnv({ ...valid, SELLER_COUNTRY: value })).toThrow(
+      'SELLER_COUNTRY',
+    );
+  });
+
+  it('refuses an unknown VAT_NUMBER_CHECK', () => {
+    expect(() => validateEnv({ ...valid, VAT_NUMBER_CHECK: 'yes' })).toThrow(
+      'VAT_NUMBER_CHECK',
+    );
+  });
 });

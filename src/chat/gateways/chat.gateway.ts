@@ -18,12 +18,13 @@ import { ALLOWED_ORIGINS } from '../../config/env.config';
 import { AdminJoinSupportHandler } from '../handlers/admin-join-support.handler';
 import { CheckAccessHandler } from '../handlers/check-access.handler';
 import { conversationRoom, readCookie } from '../helpers/chat-access.helper';
+import { ReadReceipt } from '../helpers/read-receipt.helper';
 import {
   onlineUserIds,
   PresenceEvent,
   tenantPresenceRoom,
   userPresenceRoom,
-} from '../helpers/presence.helper';
+} from '../../common/helpers/presence.helper';
 
 /** Who a connected socket is. Set once, at the handshake, from a signed token. */
 export type SocketIdentity =
@@ -129,9 +130,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         await this.cls.run(async () => {
           this.tenantContext.setTenantId(identity.tenantId);
           this.tenantContext.setUserId(identity.userId);
-          await this.access.assertMember(conversationId, {
-            userId: identity.userId,
-          });
+          await this.access.assertCanJoin(conversationId, identity.userId);
         });
       } else {
         const tenantId = Number(body?.tenant_id);
@@ -184,16 +183,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       .emit('new_message', toSnakeKeys(message));
   }
 
-  /** `message_read` — server → room: a reader has seen a message. */
+  /**
+   * `message_read` — server → room: a reader has seen a message. In the team
+   * chat it also carries the message's new `read_count` / `member_count`
+   * (step 26 C), so the sender's ticks update without a reload.
+   */
   emitMessageRead(
     conversationId: number,
     messageId: number,
     reader: { type: 'employee' | 'client'; id: number },
+    receipt?: ReadReceipt,
   ): void {
     this.server?.to(conversationRoom(conversationId)).emit('message_read', {
       conversation_id: conversationId,
       message_id: messageId,
       reader,
+      ...(receipt && {
+        read_count: receipt.readCount,
+        member_count: receipt.memberCount,
+      }),
     });
   }
 

@@ -16,7 +16,12 @@ import { RestoreMediaHandler } from './handlers/restore-media.handler';
 import { SoftDeleteMediaHandler } from './handlers/soft-delete-media.handler';
 import { StorageUsageHandler } from './handlers/storage-usage.handler';
 import { UploadMediaHandler } from './handlers/upload-media.handler';
-import { MediaUploader, toMediaEntity } from './helpers/media.helper';
+import {
+  checkEmailAttachment,
+  EmailAttachmentCheck,
+  MediaUploader,
+  toMediaEntity,
+} from './helpers/media.helper';
 import { MediaRepository } from './repositories/media.repository';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
@@ -50,6 +55,35 @@ export class MediaService {
     return this.uploadMedia.execute(file, dto, actor, isLocked);
   }
 
+  /**
+   * Uploads a file already in memory (no Multer file) — the attachments of
+   * an inbound email. Same MIME, size and audit rules as `upload`.
+   */
+  uploadBuffer(
+    buffer: Buffer,
+    filename: string,
+    mimeType: string,
+    dto: UploadMediaDto,
+    actor: MediaUploader,
+  ) {
+    return this.uploadMedia.executeBuffer(
+      buffer,
+      filename,
+      mimeType,
+      dto,
+      actor,
+    );
+  }
+
+  /** D2 — may this email file be saved (allowed type, not blocked, 25 MB)? */
+  checkEmailAttachment(
+    filename: string,
+    contentType: string | null | undefined,
+    size: number,
+  ): EmailAttachmentCheck {
+    return checkEmailAttachment(filename, contentType, size);
+  }
+
   /** The size + type rule only — to check many files before uploading any. */
   assertUploadable(file: Express.Multer.File, entityType: MediaEntityType) {
     this.uploadMedia.assertUploadable(file, entityType);
@@ -63,8 +97,13 @@ export class MediaService {
     return this.findMedia.execute(query, actor, scope);
   }
 
-  findOne(id: number, actor?: AuthenticatedUser, scope?: PermissionScope) {
-    return this.findMedia.findOne(id, actor, scope);
+  /** Internal callers only — never a note file. */
+  findOne(id: number) {
+    return this.findMedia.findOne(id);
+  }
+
+  findVisible(id: number, actor: AuthenticatedUser, scope: PermissionScope) {
+    return this.findMedia.findVisible(id, actor, scope);
   }
 
   rename(id: number, dto: RenameMediaDto, actor: AuthenticatedUser) {
@@ -147,6 +186,24 @@ export class MediaService {
     tx?: TenantTransactionClient,
   ) {
     return this.attachMedia.execute(mediaIds, entityType, entityId, actor, tx);
+  }
+
+  /**
+   * The pending files this user may attach (same rule as `attachToEntity`),
+   * read before anything is written — an email needs their URL to be sent.
+   */
+  async findAttachable(
+    mediaIds: number[],
+    entityType: MediaEntityType,
+    actor: MediaUploader,
+  ) {
+    const rows = await this.attachMedia.assertAttachable(
+      mediaIds,
+      entityType,
+      0,
+      actor,
+    );
+    return rows.map(toMediaEntity);
   }
 
   /**

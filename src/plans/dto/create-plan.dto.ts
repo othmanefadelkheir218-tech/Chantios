@@ -22,8 +22,14 @@ export const FEATURE_KEYS = [
   'max_subcontractors',
   'storage_gb',
   'retention_days',
+  // Step 25 (D1): Gmail mailboxes, billed like employees. Optional: a plan
+  // without it does not bill mailboxes (doc/notes/client-email.md § Billing).
+  'email_mailboxes',
 ] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
+
+/** Keys a plan may leave out (older plans were made before they existed). */
+export const OPTIONAL_FEATURE_KEYS: readonly FeatureKey[] = ['email_mailboxes'];
 
 const MONEY = /^\d{1,10}(\.\d{1,2})?$/;
 

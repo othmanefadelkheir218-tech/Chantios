@@ -38,6 +38,7 @@ export const MONEY_KEYS = [
   'plan_amount',
   'extra_amount',
   'tax_amount',
+  'subtotal',
   'total',
 ] as const;
 

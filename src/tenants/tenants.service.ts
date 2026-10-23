@@ -20,6 +20,7 @@ import { SoftDeleteTenantsHandler } from './handlers/soft-delete-tenants.handler
 import { UpdateTenantProfileHandler } from './handlers/update-tenant-profile.handler';
 import { UpdateTenantHandler } from './handlers/update-tenant.handler';
 import { VerifyTenantEmailHandler } from './handlers/verify-tenant-email.handler';
+import { CheckVatNumberHandler } from './handlers/check-vat-number.handler';
 import { TenantRepository } from './repositories/tenant.repository';
 
 /** Orchestration only: each method calls the handler that owns the business logic. */
@@ -38,6 +39,7 @@ export class TenantsService {
     private readonly sendVerificationEmail: SendTenantVerificationEmailHandler,
     private readonly verifyEmail: VerifyTenantEmailHandler,
     private readonly updateTenantProfile: UpdateTenantProfileHandler,
+    private readonly checkVatNumberHandler: CheckVatNumberHandler,
     private readonly tenants: TenantRepository,
   ) {}
 
@@ -102,6 +104,21 @@ export class TenantsService {
   /** Locale, timezone and end-of-day time of one company — used by notifications. */
   findForNotifications(id: number) {
     return this.tenants.findById(id);
+  }
+
+  /** Step 27 — country, TVA number and its VIES status: billing resolves the TVA from them. */
+  findForBilling(id: number) {
+    return this.tenants.findById(id);
+  }
+
+  /** Step 27 — asks VIES about a `pending` TVA number. Never throws on a VIES failure. */
+  checkVatNumber(id: number) {
+    return this.checkVatNumberHandler.execute(id);
+  }
+
+  /** Step 27 — the companies the VIES retry job walks. */
+  findPendingVatIds() {
+    return this.tenants.findPendingVatIds();
   }
 
   /** Id + name of these companies — the admin subscription list shows names, not ids. */

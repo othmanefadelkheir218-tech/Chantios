@@ -3,7 +3,6 @@ import {
   ForbiddenException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { AdminUsersService } from '../admin-users.service';
 import { AdminTenantAccessGuard } from './admin-tenant-access.guard';
 
 const contextFor = (user?: { id: number; role: string }) =>
@@ -13,9 +12,7 @@ const contextFor = (user?: { id: number; role: string }) =>
 
 describe('AdminTenantAccessGuard', () => {
   const adminUsers = { findByIdRaw: jest.fn() };
-  const guard = new AdminTenantAccessGuard(
-    adminUsers as unknown as AdminUsersService,
-  );
+  const guard = new AdminTenantAccessGuard(adminUsers);
 
   beforeEach(() => jest.resetAllMocks());
 

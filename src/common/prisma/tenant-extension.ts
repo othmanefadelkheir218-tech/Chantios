@@ -2,7 +2,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { TenantContextService } from '../cls/tenant-context.service';
 
 /**
- * The only 8 tables excluded from tenant scoping — platform-level data with
+ * The only tables excluded from tenant scoping — platform-level data with
  * no `tenant_id` column. See doc/notes/technical/build-order.md § 1b. Every
  * other table gets `tenant_id` injected automatically, child tables included.
  */
@@ -11,7 +11,9 @@ export const TENANT_EXTENSION_SKIP_LIST = [
   'AdminUser',
   'Plan',
   'PlanFeature',
+  'SubscriptionVatRate',
   'StripeEvent',
+  'InboundEmailEvent',
   'Role',
   'RefreshToken',
   'OneTimeCode',

@@ -51,14 +51,18 @@ export const ApiFindMedia = () =>
     ApiOperation({
       summary: 'List media (media:view)',
       description:
-        'Paginated, newest first. Filter with `entity_type`/`entity_id`. A `worker` (scope `own`) only sees their own uploads. Excludes trashed rows.',
+        'Paginated, newest first. Filter with `entity_type`/`entity_id`. A `worker` (scope `own`) only sees their own uploads. Excludes trashed rows. Note files (`entity_type = note`) show to their uploader, and all of them to the tenant admin, with `entity_id = null`; never while impersonating, never in an `entity_id` search.',
     }),
     ApiPaginatedResponse(MediaEntity, 'Paginated list of files'),
   );
 
 export const ApiFindOneMedia = () =>
   applyDecorators(
-    ApiOperation({ summary: 'Get one file (media:view)' }),
+    ApiOperation({
+      summary: 'Get one file (media:view)',
+      description:
+        'A note file answers to its uploader and the tenant admin only, with `entity_id = null`.',
+    }),
     idParam(),
     ApiOkResponse({ description: 'The file', type: MediaEntity }),
     ApiNotFoundResponse({ description: 'Media not found' }),

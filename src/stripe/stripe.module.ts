@@ -5,6 +5,10 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { STRIPE_WEBHOOKS_QUEUE } from './dto/webhook.dto';
 import { ArchivePlanPriceHandler } from './handlers/archive-plan-price.handler';
+import { ArchiveTaxRateHandler } from './handlers/archive-tax-rate.handler';
+import { CreateTaxRateHandler } from './handlers/create-tax-rate.handler';
+import { SyncSubscriptionTaxHandler } from './handlers/sync-subscription-tax.handler';
+import { FindTaxRatesHandler } from './handlers/find-tax-rates.handler';
 import { CreateCheckoutSessionHandler } from './handlers/create-checkout-session.handler';
 import { CreateCustomerHandler } from './handlers/create-customer.handler';
 import { CreatePlanPriceHandler } from './handlers/create-plan-price.handler';
@@ -91,6 +95,11 @@ import { StripeService } from './stripe.service';
     HandleSubscriptionUpdatedHandler,
     HandleInvoiceCreatedHandler,
     HandleInvoicePaidHandler,
+    // Step 27 — TVA on the subscription.
+    CreateTaxRateHandler,
+    ArchiveTaxRateHandler,
+    SyncSubscriptionTaxHandler,
+    FindTaxRatesHandler,
     StripeWebhookProcessor,
   ],
   exports: [StripeService],

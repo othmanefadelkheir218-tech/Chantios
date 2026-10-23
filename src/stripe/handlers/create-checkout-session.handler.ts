@@ -22,8 +22,8 @@ export class CreateCheckoutSessionHandler {
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         // Stripe "Managed Payments" (Stripe handles VAT) is on by default on
-        // new accounts and needs a tax code per product. VAT is decided later
-        // (step 21, Q7): plan prices are charged as they are.
+        // new accounts. We set the TVA ourselves with a TaxRate (step 27, Q1),
+        // so it stays off.
         managed_payments: { enabled: false },
         customer: input.customerId,
         client_reference_id: tenantId,
@@ -33,6 +33,8 @@ export class CreateCheckoutSessionHandler {
         payment_method_collection: 'always',
         subscription_data: {
           metadata: { tenant_id: tenantId },
+          // Step 27: TVA on top of the HT price, on every invoice of it.
+          default_tax_rates: [input.taxRateId],
           ...(input.trialEnd && { trial_end: input.trialEnd }),
         },
         locale: input.locale,
@@ -41,7 +43,7 @@ export class CreateCheckoutSessionHandler {
       });
       if (!session.url) throw new Error('Checkout session has no url');
       this.logger.info(
-        `Checkout session ${session.id} for tenant ${tenantId} (price ${input.priceId})`,
+        `Checkout session ${session.id} for tenant ${tenantId} (price ${input.priceId}, tax rate ${input.taxRateId})`,
       );
       return session.url;
     } catch (error) {

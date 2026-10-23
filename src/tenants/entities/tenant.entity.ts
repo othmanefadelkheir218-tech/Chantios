@@ -15,6 +15,17 @@ export class TenantEntity {
   @ApiProperty({ nullable: true })
   vat_number: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    enum: ['valid', 'invalid', 'pending', 'not_checked'],
+    description:
+      'Step 27 — the VIES check of `vat_number`. null = no number (or a non-EU one). pending = VIES busy, retried every 30 min. not_checked = VAT_NUMBER_CHECK=off (counts as valid).',
+  })
+  vat_number_status: 'valid' | 'invalid' | 'pending' | 'not_checked' | null;
+
+  @ApiProperty({ nullable: true, description: 'Last VIES answer' })
+  vat_number_checked_at: Date | null;
+
   @ApiProperty({ nullable: true })
   registration_number: string | null;
 

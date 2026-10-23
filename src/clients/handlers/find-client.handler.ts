@@ -17,6 +17,10 @@ export class FindClientHandler {
       this.logger.warn(`Client ${id} not found`);
       throw new NotFoundException('Client not found');
     }
-    return toClientEntity(client);
+    const extraEmails = await this.clients.listEmails(id);
+    return {
+      ...toClientEntity(client),
+      extraEmails: extraEmails.map((row) => ({ id: row.id, email: row.email })),
+    };
   }
 }

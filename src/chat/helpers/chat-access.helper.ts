@@ -54,3 +54,17 @@ export function readCookie(
   }
   return undefined;
 }
+
+/**
+ * Step 25 — who reads a client chat (doc/notes/client-email.md § Who reads
+ * what): the company inbox → a user with `email` view; a Gmail inbox → its
+ * owner only (still with `email` view: a role without it reads no email).
+ */
+export function canReadInbox(
+  inbox: { kind: 'company' | 'gmail'; ownerUserId: number | null },
+  userId: number,
+  canViewEmail: boolean,
+): boolean {
+  if (!canViewEmail) return false;
+  return inbox.kind === 'company' || inbox.ownerUserId === userId;
+}

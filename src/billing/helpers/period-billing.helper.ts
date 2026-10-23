@@ -7,8 +7,19 @@ export type PeriodBillingStatus = 'paid' | 'due' | 'none';
 
 /** What Stripe charged for one period. Amounts in euros, 2 decimals, as strings. */
 export type PeriodBilling = {
+  /** HT. */
   planAmount: string;
+  /** HT. */
   extraAmount: string;
+  /** Step 27 — Total HT = plan + extra. */
+  subtotal: string;
+  /** Step 27 — the TVA of every line of the period. */
+  taxAmount: string;
+  /** Step 27 — one TVA percent ("21.00"); `null` = none, or the period mixes rates. */
+  taxRate: string | null;
+  /** Step 27 — every taxed line is 0 % "autoliquidation". */
+  reverseCharge: boolean;
+  /** TTC: what the card was really charged (HT + TVA). */
   total: string;
   /** `paid` = every invoice involved is paid; `due` = one is not paid yet; `none` = nothing was charged. */
   status: PeriodBillingStatus;
@@ -32,6 +43,9 @@ export function periodBilling(
   const start = Math.floor(periodStart.getTime() / 1000);
   let plan = 0;
   let extra = 0;
+  let tax = 0;
+  const rates = new Set<string>();
+  const taxed: boolean[] = [];
   const used = new Map<string, string>();
 
   for (const invoice of invoices) {
@@ -43,6 +57,11 @@ export function periodBilling(
       if (!counts) continue;
       if (line.kind === 'plan') plan += line.amount;
       else extra += line.amount;
+      tax += line.tax;
+      if (line.taxRate !== null) {
+        rates.add(line.taxRate);
+        taxed.push(line.reverseCharge);
+      }
       used.set(invoice.id, invoice.status);
     }
   }
@@ -58,7 +77,11 @@ export function periodBilling(
   return {
     planAmount: euros(plan),
     extraAmount: euros(extra),
-    total: euros(plan + extra),
+    subtotal: euros(plan + extra),
+    taxAmount: euros(tax),
+    taxRate: rates.size === 1 ? [...rates][0] : null,
+    reverseCharge: taxed.length > 0 && taxed.every(Boolean),
+    total: euros(plan + extra + tax),
     status,
     invoiceIds: [...used.keys()],
   };

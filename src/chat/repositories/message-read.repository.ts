@@ -69,6 +69,29 @@ export class MessageReadRepository {
     return rows.map((row) => row.messageId);
   }
 
+  /**
+   * Step 26 C — who (employees only) has read these messages, in ONE query
+   * for the whole page. `tenant_id` passed by hand: the unscoped client.
+   */
+  findUserReads(
+    messageIds: number[],
+    tenantId: number,
+  ): Promise<{ messageId: number; userId: number }[]> {
+    if (messageIds.length === 0) return Promise.resolve([]);
+    return this.prisma.messageRead
+      .findMany({
+        where: {
+          tenantId,
+          messageId: { in: messageIds },
+          userId: { not: null },
+        },
+        select: { messageId: true, userId: true },
+      })
+      .then((rows) =>
+        rows.map((row) => ({ messageId: row.messageId, userId: row.userId! })),
+      );
+  }
+
   /** Messages in one conversation the user has not read (and did not write). */
   async countUnread(
     conversationId: number,
@@ -114,5 +137,32 @@ export class MessageReadRepository {
       GROUP BY m.conversation_id
       ORDER BY m.conversation_id
     `;
+  }
+
+  /**
+   * Step 25 — the unread count of these client conversations for one user.
+   * A client chat has no members (the inbox rule decides who reads it), so
+   * the conversations are named, not joined through `conversation_members`.
+   */
+  async countUnreadForConversations(
+    conversationIds: number[],
+    userId: number,
+    tenantId: number,
+  ): Promise<Map<number, number>> {
+    if (conversationIds.length === 0) return new Map();
+    const rows = await this.prisma.$queryRaw<UnreadRow[]>`
+      SELECT m.conversation_id AS "conversationId", COUNT(*)::int AS unread
+      FROM messages m
+      WHERE m.tenant_id = ${tenantId}
+        AND m.conversation_id = ANY(${conversationIds}::int[])
+        AND m.is_archived = false
+        AND NOT (m.sender_type = 'employee' AND m.sender_id = ${userId})
+        AND NOT EXISTS (
+          SELECT 1 FROM message_reads r
+          WHERE r.message_id = m.id AND r.user_id = ${userId}
+        )
+      GROUP BY m.conversation_id
+    `;
+    return new Map(rows.map((row) => [row.conversationId, row.unread]));
   }
 }

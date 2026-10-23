@@ -72,6 +72,9 @@ export class AdminCreateTenantHandler {
       },
     );
 
+    // Step 27: the TVA number (if any) is asked to VIES once the company exists.
+    await this.tenants.checkVatNumber(tenant.id);
+
     await this.invitations.sendFirstAdminInvitation(
       ownerEmail,
       rawToken,

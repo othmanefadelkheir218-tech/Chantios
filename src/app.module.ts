@@ -39,6 +39,7 @@ import { NotesModule } from './notes/notes.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { OneTimeCodesModule } from './one-time-codes/one-time-codes.module';
 import { PlansModule } from './plans/plans.module';
+import { VatRatesModule } from './vat-rates/vat-rates.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProjectsModule } from './projects/projects.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -94,6 +95,7 @@ import { AdminStatsModule } from './admin-stats/admin-stats.module';
     TenantsModule,
     AdminUsersModule,
     PlansModule,
+    VatRatesModule,
     SubscriptionsModule,
     AnalyticsModule,
     FeedbackModule,

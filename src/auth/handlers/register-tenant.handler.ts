@@ -55,7 +55,12 @@ export class RegisterTenantHandler {
 
     const { tenant, user } = await this.prisma.$transaction(async (tx) => {
       const tenant = await this.tenants.create(
-        { name: dto.company_name, email, locale: dto.locale },
+        {
+          name: dto.company_name,
+          email,
+          locale: dto.locale,
+          country: dto.country,
+        },
         { adminUserId: null, ip: null },
         tx,
       );

@@ -1,9 +1,11 @@
 import Stripe from 'stripe';
+import { invoiceTotals, TaxRateInfo } from './invoice-tax.helper';
 
 /** The money of one paid Stripe invoice, for the payment email. Euros as `"10.00"`, dates as `YYYY-MM-DD`. */
 export type InvoiceReceipt = {
   invoice_number: string | null;
   paid_at: string;
+  /** HT (step 27). */
   plan_amount: string;
   /** The month the plan line pays for (paid at its START). */
   period_start: string | null;
@@ -12,7 +14,14 @@ export type InvoiceReceipt = {
   /** The month the overage belongs to (the month that ended). */
   extra_period_start: string | null;
   extra_period_end: string | null;
+  /** Step 27 — Total HT. */
+  subtotal: string;
   tax_amount: string;
+  /** Step 27 — "21.00", or null (no TVA / mixed rates). */
+  tax_rate: string | null;
+  /** Step 27 — 0 % "autoliquidation". */
+  reverse_charge: boolean;
+  /** TTC: what the card was really charged. */
   total: string;
 };
 
@@ -26,7 +35,10 @@ const day = (seconds: number) =>
  * line is the plan; any other line is an invoice item = overage. The overage
  * of a cycle invoice belongs to the invoice's own period (the month that ended).
  */
-export function invoiceReceipt(invoice: Stripe.Invoice): InvoiceReceipt {
+export function invoiceReceipt(
+  invoice: Stripe.Invoice,
+  rates: Map<string, TaxRateInfo> = new Map(),
+): InvoiceReceipt {
   let plan = 0;
   let extra = 0;
   let planPeriod: Stripe.InvoiceLineItem['period'] | null = null;
@@ -40,7 +52,7 @@ export function invoiceReceipt(invoice: Stripe.Invoice): InvoiceReceipt {
     }
   }
 
-  const tax = invoice.total - (invoice.total_excluding_tax ?? invoice.total);
+  const totals = invoiceTotals(invoice, rates);
   const paidAt = invoice.status_transitions?.paid_at ?? invoice.created;
 
   return {
@@ -52,7 +64,10 @@ export function invoiceReceipt(invoice: Stripe.Invoice): InvoiceReceipt {
     extra_amount: euros(extra),
     extra_period_start: extra > 0 ? day(invoice.period_start) : null,
     extra_period_end: extra > 0 ? day(invoice.period_end) : null,
-    tax_amount: euros(Math.max(0, tax)),
+    subtotal: totals.subtotal,
+    tax_amount: totals.tax_amount,
+    tax_rate: totals.tax_rate,
+    reverse_charge: totals.reverse_charge,
     total: euros(invoice.amount_paid),
   };
 }

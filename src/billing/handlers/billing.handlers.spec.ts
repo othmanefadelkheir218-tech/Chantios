@@ -13,6 +13,7 @@ import { CountUsageHandler } from './count-usage.handler';
 import { RequestDowngradeHandler } from './request-downgrade.handler';
 import { BlockExpiredGraceHandler } from './block-expired-grace.handler';
 import { RunRenewalHandler } from './run-renewal.handler';
+import { TenantVatHandler } from './tenant-vat.handler';
 import { TrialReminderHandler } from './trial-reminder.handler';
 
 const plan = (over: Record<string, unknown> = {}) => ({
@@ -91,6 +92,14 @@ describe('RunRenewalHandler / RequestDowngradeHandler (step 14)', () => {
         { provide: UsageCounterHelper, useValue: usageCounter },
         { provide: ApplyPendingPlanIfDueHandler, useValue: applyPendingPlan },
         { provide: NotificationsService, useValue: notifications },
+        // Step 27: no TVA here (the TVA tests are in card-payment / tax-sync specs).
+        {
+          provide: TenantVatHandler,
+          useValue: {
+            execute: () =>
+              Promise.resolve({ kind: 'missing', reason: 'no_country' }),
+          },
+        },
         ...handlers.map((h) => ({
           provide: getLoggerToken(h.name),
           useValue: logger,

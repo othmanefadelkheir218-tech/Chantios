@@ -5,6 +5,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { toMediaEntity } from '../../media/helpers/media.helper';
+import { ReadReceipt } from './read-receipt.helper';
 
 export type ConversationWithMembers = Conversation & {
   members: ConversationMember[];
@@ -34,10 +35,13 @@ export function toConversationEntity(conversation: ConversationWithMembers) {
 /**
  * What may leave the module: a message and its files. There is no
  * `attachments` column — they are `media` rows with `entity_type = 'message'`.
+ * `receipt` (step 26 C): the "seen" info, only on the sender's own messages
+ * in the team chat.
  */
 export function toMessageEntity(
   message: Message,
   attachments: AttachmentEntity[] = [],
+  receipt?: ReadReceipt,
 ) {
   return {
     id: message.id,
@@ -54,6 +58,10 @@ export function toMessageEntity(
       fileType: file.fileType,
       fileSize: file.fileSize,
     })),
+    ...(receipt && {
+      readCount: receipt.readCount,
+      memberCount: receipt.memberCount,
+    }),
   };
 }
 

@@ -1,3 +1,4 @@
+import { ModuleRef } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { ClientsService } from '../../clients/clients.service';
 import { MediaService } from '../../media/media.service';
@@ -16,11 +17,15 @@ describe('UsageCounterHelper — the single place usage is counted', () => {
   const clients = { countActive: jest.fn() };
   const subcontractors = { countActive: jest.fn() };
   const media = { getStorageUsage: jest.fn() };
+  const emailConnections = { countBillable: jest.fn() };
+  const moduleRef = { get: jest.fn(() => emailConnections) };
 
   let usageCounter: UsageCounterHelper;
 
   beforeEach(async () => {
     jest.resetAllMocks();
+    moduleRef.get.mockImplementation(() => emailConnections);
+    emailConnections.countBillable.mockResolvedValue(0);
     const module = await Test.createTestingModule({
       providers: [
         UsageCounterHelper,
@@ -28,6 +33,7 @@ describe('UsageCounterHelper — the single place usage is counted', () => {
         { provide: ClientsService, useValue: clients },
         { provide: SubcontractorsService, useValue: subcontractors },
         { provide: MediaService, useValue: media },
+        { provide: ModuleRef, useValue: moduleRef },
       ],
     }).compile();
 
@@ -61,12 +67,13 @@ describe('UsageCounterHelper — the single place usage is counted', () => {
     );
   });
 
-  it('returns a flat object with exactly the 5 billed dimensions, no retention_days', async () => {
+  it('returns a flat object with exactly the 6 billed dimensions, no retention_days', async () => {
     users.countActiveByRole.mockResolvedValue(3);
     users.countActiveExcludingRole.mockResolvedValue(2);
     clients.countActive.mockResolvedValue(42);
     subcontractors.countActive.mockResolvedValue(8);
     media.getStorageUsage.mockResolvedValue({ gb: 12.4 });
+    emailConnections.countBillable.mockResolvedValue(2);
 
     const result = await usageCounter.countAll(7);
 
@@ -76,6 +83,7 @@ describe('UsageCounterHelper — the single place usage is counted', () => {
       max_clients: 42,
       max_subcontractors: 8,
       storage_gb: 12.4,
+      email_mailboxes: 2,
     });
     expect(result).not.toHaveProperty('retention_days');
   });

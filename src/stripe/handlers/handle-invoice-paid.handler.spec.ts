@@ -55,23 +55,33 @@ describe('invoiceReceipt', () => {
       extra_amount: '4.00',
       extra_period_start: '2026-10-01',
       extra_period_end: '2026-11-01',
+      subtotal: '14.00',
       tax_amount: '0.00',
+      tax_rate: null,
+      reverse_charge: false,
       total: '14.00',
     });
   });
 
-  it('no overage line: no extra period; VAT = total minus total without tax', () => {
+  it('no overage line: no extra period; HT / TVA 21 % / TTC from Stripe (step 27)', () => {
     const out = invoiceReceipt(
       paidInvoice({
         amount_paid: 1210,
         total: 1210,
         total_excluding_tax: 1000,
+        total_taxes: [
+          { amount: 210, tax_rate_details: { tax_rate: 'txr_be' } },
+        ],
         lines: { data: [paidInvoice().lines.data[0]] },
       }),
+      new Map([['txr_be', { percentage: '21.00', reverseCharge: false }]]),
     );
     expect(out.extra_amount).toBe('0.00');
     expect(out.extra_period_start).toBeNull();
+    expect(out.subtotal).toBe('10.00');
     expect(out.tax_amount).toBe('2.10');
+    expect(out.tax_rate).toBe('21.00');
+    expect(out.reverse_charge).toBe(false);
     expect(out.total).toBe('12.10');
   });
 });
@@ -89,6 +99,7 @@ describe('HandleInvoicePaidHandler', () => {
     tenants as unknown as TenantsService,
     notifications as unknown as NotificationsService,
     moduleRef as unknown as ModuleRef,
+    { execute: () => Promise.resolve(new Map()) } as never,
   );
   const event = (invoice: Stripe.Invoice) =>
     ({

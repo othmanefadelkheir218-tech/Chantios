@@ -148,6 +148,8 @@ enum ConversationType {
   internal
   project_client
   support
+  /// One chat with one client (or unknown contact) in one email inbox — doc/notes/client-email.md.
+  client
 
   @@map("conversation_type")
 }
@@ -156,6 +158,8 @@ enum SenderType {
   employee
   client
   admin
+  /// An email from an address that is not a client yet. sender_id is NULL.
+  contact
 
   @@map("sender_type")
 }
@@ -279,6 +283,8 @@ enum PermissionModule {
   analytics
   contacts
   notes
+  email
+  email_gmail
 
   @@map("permission_module")
 }
@@ -293,19 +299,65 @@ enum MediaEntityType {
   invoice
   message
   note
+  /// Files of an email (more types, 25 MB) — doc/notes/client-email.md § What we save.
+  email_attachment
 
   @@map("media_entity_type")
+}
+
+enum EmailInboxKind {
+  company
+  gmail
+
+  @@map("email_inbox_kind")
+}
+
+enum EmailInboxStatus {
+  active
+  disconnected
+  removed
+
+  @@map("email_inbox_status")
+}
+
+enum EmailDirection {
+  inbound
+  outbound
+
+  @@map("email_direction")
+}
+
+enum EmailTransport {
+  resend
+  gmail
+
+  @@map("email_transport")
 }
 
 // ============================================================================
 // 1. PLATFORM
 // ============================================================================
 
+/// Step 27 — the VIES check of a company's TVA number.
+/// NULL on the tenant = no TVA number. `not_checked` only while VAT_NUMBER_CHECK=off.
+enum VatNumberStatus {
+  valid
+  invalid
+  pending
+  not_checked
+
+  @@map("vat_number_status")
+}
+
 model Tenant {
   id                   Int          @id @default(autoincrement())
   name                 String
   legalName            String?      @map("legal_name")
   vatNumber            String?      @map("vat_number")
+  /// Step 27 — VIES answer for `vatNumber`. Reverse charge needs `valid` or `not_checked`.
+  vatNumberStatus      VatNumberStatus? @map("vat_number_status")
+  /// Step 27 — last VIES answer
+  vatNumberCheckedAt   DateTime?    @map("vat_number_checked_at") @db.Timestamptz(6)
   registrationNumber   String?      @map("registration_number")
   email                String       @unique
   phone                String?
@@ -383,6 +435,11 @@ model Tenant {
   notes                Note[]
   noteLabels           NoteLabel[]
   noteLabelLinks       NoteLabelLink[]
+  emailInboxes         EmailInbox[]
+  emailAddresses       EmailAddress[]
+  clientEmails         ClientEmail[]
+  conversationTopics   ConversationTopic[]
+  messageEmails        MessageEmail[]
 
   @@map("tenants")
 }
@@ -453,6 +510,28 @@ model PlanFeature {
 
   @@unique([planId, featureKey])
   @@map("plan_features")
+}
+
+/// Step 27 — the TVA a company pays ChantierOS on its subscription, one row per
+/// country. Created by the super-admin, never seeded. Platform table: no tenant_id.
+/// Which rate applies: doc/notes/subscription-plans.md § TVA on the subscription.
+model SubscriptionVatRate {
+  id                           Int      @id @default(autoincrement())
+  /// ISO 3166-1 alpha-2, upper case ('BE')
+  countryCode                  String   @unique @map("country_code") @db.Char(2)
+  rate                         Decimal  @db.Decimal(5, 2)
+  /// EU country: reverse charge applies to a company with a TVA number
+  isEu                         Boolean  @default(true) @map("is_eu")
+  /// false = closed: no new payment from this country
+  isActive                     Boolean  @default(true) @map("is_active")
+  /// Stripe TaxRate for `rate`. A rate change creates a new one, the old one is archived.
+  stripeTaxRateId              String   @map("stripe_tax_rate_id")
+  /// Stripe TaxRate 0 % "Autoliquidation" for this country. EU rows only.
+  stripeReverseChargeTaxRateId String?  @map("stripe_reverse_charge_tax_rate_id")
+  createdAt                    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("subscription_vat_rates")
 }
 
 /// One row per tenant. There is NO `subscriptions` table.
@@ -680,6 +759,8 @@ model User {
   messageReads        MessageRead[]
   notes               Note[]
   noteLabels          NoteLabel[]
+  emailInboxes        EmailInbox[]
+  createdTopics       ConversationTopic[]
 
   @@index([tenantId])
   @@map("users")
@@ -823,8 +904,11 @@ model Client {
   portalTokens        PortalToken[]
   conversationMembers ConversationMember[]
   messageReads        MessageRead[]
+  emails              ClientEmail[]
+  clientConversations Conversation[]       @relation("ClientConversation")
 
   @@unique([tenantId, email])
+  @@unique([tenantId, id])
   @@index([tenantId])
   @@map("clients")
 }
@@ -877,6 +961,7 @@ model Project {
   marginAlerts      ProjectMarginAlert[]
   portalTokens      PortalToken[]
   conversations     Conversation[]
+  emailTopics       ConversationTopic[]
 
   @@index([tenantId, status])
   @@map("projects")
@@ -1609,7 +1694,7 @@ model Media {
   /// ImageKit URL. Never changes after upload — rename touches fileName only.
   fileUrl    String          @map("file_url")
   fileType   String          @map("file_type")
-  /// CHECK: > 0 AND <= 10485760 (10 MB)
+  /// chk_media_file_size: > 0 AND <= 10 MB, or <= 25 MB when entityType = email_attachment
   fileSize   BigInt          @map("file_size")
   isLocked   Boolean         @default(false) @map("is_locked")
   uploadedBy Int?            @map("uploaded_by")
@@ -1769,14 +1854,23 @@ model Conversation {
   type            ConversationType
   projectId       Int?             @map("project_id")
   supportTicketId Int?             @map("support_ticket_id")
+  /// type = client only: the email inbox of this chat.
+  inboxId         Int?             @map("inbox_id")
+  /// type = client only: the client, or NULL for an unknown contact (contactEmail set).
+  clientId        Int?             @map("client_id")
+  contactEmail    String?          @map("contact_email") @db.VarChar(255)
+  contactName     String?          @map("contact_name") @db.VarChar(255)
   isArchived      Boolean          @default(false) @map("is_archived")
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
 
   tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   project       Project?             @relation(fields: [projectId], references: [id], onDelete: Cascade)
   supportTicket SupportTicket?       @relation(fields: [supportTicketId], references: [id], onDelete: Cascade)
+  inbox         EmailInbox?          @relation(fields: [inboxId], references: [id])
+  client        Client?              @relation("ClientConversation", fields: [clientId], references: [id])
   members       ConversationMember[]
   messages      Message[]
+  topics        ConversationTopic[]
 
   @@index([tenantId])
   @@map("conversations")
@@ -1809,15 +1903,21 @@ model Message {
   tenantId       Int        @map("tenant_id")
   conversationId Int        @map("conversation_id")
   senderType     SenderType @map("sender_type")
-  /// users.id | clients.id | admin_users.id, per senderType.
-  senderId       Int        @map("sender_id")
+  /// users.id | clients.id | admin_users.id, per senderType. NULL only for
+  /// senderType = contact (chk_message_sender).
+  senderId       Int?       @map("sender_id")
+  /// Email topic of a client conversation. NULL for every other message.
+  topicId        Int?       @map("topic_id")
+  /// For an email: the clean text (quotes cut off). The rest is in MessageEmail.
   content        String
   isArchived     Boolean    @default(false) @map("is_archived")
   createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  conversation Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  topic        ConversationTopic? @relation(fields: [topicId], references: [id], onDelete: Cascade)
   reads        MessageRead[]
+  email        MessageEmail?
 
   @@index([conversationId, createdAt])
   @@map("messages")
@@ -1843,4 +1943,161 @@ model MessageRead {
 
   @@unique([messageId, userId, clientId])
   @@map("message_reads")
+}
+
+// ============================================================================
+// CLIENT EMAIL — doc/notes/client-email.md (step 25)
+// Partial / expression indexes and CHECKs are raw SQL in migration
+// 20261018120100_client_email: uq_inbox_company, uq_inbox_gmail,
+// uq_email_local_part, uq_client_emails, uq_client_conv_client,
+// uq_client_conv_contact, chk_inbox_kind_fields, chk_email_local_part,
+// chk_client_conversation, chk_message_sender.
+// ============================================================================
+
+/// One row per inbox: the company address (1 per tenant) or a connected Gmail
+/// (1 per user + address). Only the status is ever shown to someone else.
+model EmailInbox {
+  id                    Int              @id @default(autoincrement())
+  tenantId              Int              @map("tenant_id")
+  kind                  EmailInboxKind
+  /// gmail only: the only user who reads this inbox.
+  ownerUserId           Int?             @map("owner_user_id")
+  gmailAddress          String?          @map("gmail_address") @db.VarChar(255)
+  /// gmail only. AES-256-GCM (common/helpers/crypto.helper.ts). Wiped on remove.
+  refreshTokenEncrypted String?          @map("refresh_token_encrypted")
+  scopes                String?
+  status                EmailInboxStatus @default(active)
+  lastError             String?          @map("last_error")
+  /// Gmail's "confirm forwarding" link, shown to the owner.
+  forwardConfirmUrl     String?          @map("forward_confirm_url")
+  connectedAt           DateTime?        @map("connected_at") @db.Timestamptz(6)
+  disconnectedAt        DateTime?        @map("disconnected_at") @db.Timestamptz(6)
+  removedAt             DateTime?        @map("removed_at") @db.Timestamptz(6)
+  lastUsedAt            DateTime?        @map("last_used_at") @db.Timestamptz(6)
+  lastReceivedAt        DateTime?        @map("last_received_at") @db.Timestamptz(6)
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner         User?          @relation(fields: [ownerUserId], references: [id])
+  addresses     EmailAddress[]
+  conversations Conversation[]
+  messageEmails MessageEmail[]
+
+  @@unique([tenantId, id])
+  @@map("email_inboxes")
+}
+
+/// Every address we receive on: <localPart>@<INBOUND_EMAIL_DOMAIN>. localPart
+/// is unique app-wide (the webhook has no tenant yet). Company: 'company-x'
+/// (old names stay, isPrimary = false). Gmail forward: 'company-x.<random>'.
+model EmailAddress {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int      @map("tenant_id")
+  inboxId   Int      @map("inbox_id")
+  localPart String   @map("local_part") @db.VarChar(64)
+  isPrimary Boolean  @default(true) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inbox  EmailInbox @relation(fields: [tenantId, inboxId], references: [tenantId, id])
+
+  @@index([inboxId])
+  @@map("email_addresses")
+}
+
+/// Extra addresses of a client. clients.email stays the main one.
+model ClientEmail {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int      @map("tenant_id")
+  clientId  Int      @map("client_id")
+  email     String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [tenantId, clientId], references: [tenantId, id])
+
+  @@index([clientId])
+  @@map("client_emails")
+}
+
+/// A topic = one email thread (one subject) inside a client conversation.
+model ConversationTopic {
+  id               Int      @id @default(autoincrement())
+  tenantId         Int      @map("tenant_id")
+  conversationId   Int      @map("conversation_id")
+  /// Stored without Re:/Fwd: prefixes and without the [#code].
+  subject          String   @db.VarChar(998)
+  /// The project tag. NULL = no project.
+  projectId        Int?     @map("project_id")
+  /// true = set by the "1 open project" rule, not confirmed yet.
+  projectSuggested Boolean  @default(false) @map("project_suggested")
+  /// Reply-To: reply-<token>@<INBOUND_EMAIL_DOMAIN> (company inbox).
+  replyToken       String   @unique @map("reply_token") @db.VarChar(64)
+  /// '[#K7Q2M9]' ends the subject of every email sent from a Gmail inbox.
+  subjectCode      String   @map("subject_code") @db.VarChar(8)
+  /// NULL = opened by the client.
+  createdBy        Int?     @map("created_by")
+  lastMessageAt    DateTime @default(now()) @map("last_message_at") @db.Timestamptz(6)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  project      Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  creator      User?        @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  messages     Message[]
+
+  @@unique([conversationId, subjectCode])
+  @@index([tenantId, projectId])
+  @@map("conversation_topics")
+}
+
+/// The email details of one message. messages.content = the clean text.
+model MessageEmail {
+  messageId          Int             @id @map("message_id")
+  tenantId           Int             @map("tenant_id")
+  direction          EmailDirection
+  /// outbound only.
+  transport          EmailTransport?
+  inboxId            Int             @map("inbox_id")
+  headerMessageId    String?         @map("header_message_id") @db.VarChar(998)
+  inReplyTo          String?         @map("in_reply_to") @db.VarChar(998)
+  referencesIds      String[]        @default([]) @map("references_ids")
+  fromAddress        String          @map("from_address") @db.VarChar(255)
+  fromName           String?         @map("from_name") @db.VarChar(255)
+  toAddresses        String[]        @map("to_addresses")
+  ccAddresses        String[]        @default([]) @map("cc_addresses")
+  subject            String          @db.VarChar(998)
+  /// The email as it was (its style).
+  html               String?
+  /// Full text, quotes included.
+  textFull           String?         @map("text_full")
+  /// [{ filename, reason: 'blocked_type' | 'too_large' }]
+  skippedAttachments Json            @default("[]") @map("skipped_attachments")
+  /// true = inbound from an address that is not one of the client's (UI: "Add this address").
+  newAddress         Boolean         @default(false) @map("new_address")
+  resendEmailId      String?         @map("resend_email_id") @db.VarChar(64)
+  gmailMessageId     String?         @map("gmail_message_id") @db.VarChar(64)
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  message Message    @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  tenant  Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inbox   EmailInbox @relation(fields: [inboxId], references: [id])
+
+  @@index([tenantId, headerMessageId])
+  @@map("message_emails")
+}
+
+/// PLATFORM table (no tenant scope, like stripe_events): one row per Resend
+/// webhook, for idempotency. In TENANT_EXTENSION_SKIP_LIST.
+model InboundEmailEvent {
+  id            Int       @id @default(autoincrement())
+  resendEmailId String    @unique @map("resend_email_id") @db.VarChar(64)
+  payload       Json
+  /// Filled once routed, for support only.
+  tenantId      Int?      @map("tenant_id")
+  processedAt   DateTime? @map("processed_at") @db.Timestamptz(6)
+  error         String?
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("inbound_email_events")
 }

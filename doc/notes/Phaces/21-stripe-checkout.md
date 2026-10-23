@@ -22,7 +22,7 @@ Answered by the owner on 2026-10-15. **Nothing left open.**
 | Q5 | **Change card / see Stripe invoices** | ✅ Stripe Customer Portal, "update card" and "invoices" only. No cancel and no plan change there (cancel is our own button, Q6) |
 | Q6 | Can the tenant admin **cancel**? | ✅ **Yes.** The app keeps working until the end of the paid month. **No refund.** At the period end → `cancelled` (blocked, data kept, can pay again) |
 | Q6b | Can they **undo** the cancel before the month ends? | ✅ Yes, a "Keep my subscription" button |
-| Q7 | **VAT** | ✅ Not in this step. Prices stay as they are, decide later |
+| Q7 | **VAT** | ✅ Not in this step — built in [27-subscription-tva.md](27-subscription-tva.md) (our own rates per country, HT prices) |
 | Q8 | A **blocked** company pays again: does a new month start on the payment day? | ✅ Yes. Example: blocked on 1 March, pays 20 March → new month 20 March → 20 April |
 
 ## 3. Tables
@@ -91,7 +91,7 @@ A **blocked** company must reach both routes, so it can pay. `tenant_id` comes f
 
 **Stripe setting (test + live):** Dashboard → Billing → Subscriptions → "If all retries fail" = **leave the subscription past due** (do not cancel). Our 7-day rule does the block, not Stripe.
 
-**Managed Payments is turned off on every Checkout** (`managed_payments: { enabled: false }`). Found live 2026-10-15: the account has it on by default (Stripe handles VAT), and then Stripe refuses any product without a tax code. VAT is decided later (Q7); turning it on later means tax codes on the plan products.
+**Managed Payments is turned off on every Checkout** (`managed_payments: { enabled: false }`). Found live 2026-10-15: the account has it on by default (Stripe handles VAT), and then Stripe refuses any product without a tax code. It stays off: the TVA is our own rate per country, sent as a Stripe TaxRate ([27-subscription-tva.md](27-subscription-tva.md)).
 
 ## 7. Tasks
 

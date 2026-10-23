@@ -29,6 +29,9 @@ describe('UpdateTenantProfileHandler — step 18', () => {
     logger,
     tenants as unknown as TenantRepository,
     audit as unknown as AuditService,
+    { execute: () => Promise.resolve({}) } as never,
+    { execute: jest.fn() } as never,
+    { emit: jest.fn() } as never,
   );
   const actor = { userId: 3, tenantId: 1, roleId: 1, email: 'boss@alpha.be' };
 

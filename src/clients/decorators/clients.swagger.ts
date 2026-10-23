@@ -11,7 +11,7 @@ import {
   ApiIntParam,
   ApiPaginatedResponse,
 } from '../../common/swagger/api-paginated.decorator';
-import { ClientEntity } from '../entities/client.entity';
+import { ClientDetailEntity, ClientEntity } from '../entities/client.entity';
 
 const idParam = () => ApiIntParam('id', 'Client id');
 
@@ -42,7 +42,7 @@ export const ApiFindClient = () =>
   applyDecorators(
     ApiOperation({ summary: 'Get one client (clients:view)' }),
     idParam(),
-    ApiOkResponse({ description: 'The client', type: ClientEntity }),
+    ApiOkResponse({ description: 'The client', type: ClientDetailEntity }),
     ApiNotFoundResponse({ description: 'Client not found' }),
   );
 

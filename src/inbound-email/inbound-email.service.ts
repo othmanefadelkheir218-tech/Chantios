@@ -1,8 +1,15 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Queue } from 'bullmq';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { WebhookEventPayload } from 'resend';
 import { env } from '../config/env.config';
 import { resend } from '../config/resend.config';
+import {
+  INBOUND_EMAIL_QUEUE,
+  InboundEmailJobData,
+} from './dto/inbound-email-job.dto';
+import { RecordInboundEventHandler } from './handlers/record-inbound-event.handler';
 
 interface SignatureHeaders {
   id?: string;
@@ -10,14 +17,22 @@ interface SignatureHeaders {
   signature?: string;
 }
 
+/**
+ * The Resend inbound webhook (doc/notes/client-email.md § Security): check
+ * the Svix signature, store the notice once, queue it. The email itself is
+ * fetched and routed by the worker (`ProcessInboundEmailHandler`).
+ */
 @Injectable()
 export class InboundEmailService {
   constructor(
     @InjectPinoLogger(InboundEmailService.name)
     private readonly logger: PinoLogger,
+    @InjectQueue(INBOUND_EMAIL_QUEUE)
+    private readonly queue: Queue<InboundEmailJobData>,
+    private readonly recordInboundEvent: RecordInboundEventHandler,
   ) {}
 
-  /** Rejects any call that is not signed by Resend with our webhook secret. */
+  /** Refuses any call that is not signed by Resend with our webhook secret. */
   verifyEvent(
     rawBody: Buffer | undefined,
     headers: SignatureHeaders,
@@ -39,40 +54,39 @@ export class InboundEmailService {
         webhookSecret: env.RESEND_WEBHOOK_SECRET,
       });
     } catch {
+      this.logger.warn('Resend webhook refused: wrong signature');
       throw new BadRequestException('Invalid webhook signature');
     }
   }
 
-  /** The webhook only carries a notice — the body comes from a second API call. */
-  async logReceived(event: WebhookEventPayload): Promise<void> {
+  /**
+   * Stored in Postgres BEFORE the `200`, then queued. A second delivery of
+   * the same email is stored once and never queued again. Only the queue
+   * step is best effort: the notice stays on file for a replay.
+   */
+  async recordAndEnqueue(event: WebhookEventPayload): Promise<void> {
     if (event.type !== 'email.received') {
-      this.logger.info({ type: event.type }, 'Resend webhook ignored (test)');
+      this.logger.info(`Resend webhook ${event.type} ignored`);
       return;
     }
-    const { data, error } = await resend.emails.receiving.get(
-      event.data.email_id,
-    );
-    if (error || !data) {
-      this.logger.error({ error }, 'Resend inbound email fetch failed (test)');
-      return;
+    const { row, isNew } = await this.recordInboundEvent.execute(event);
+    if (!isNew) return;
+    try {
+      await this.queue.add(
+        'process',
+        { eventRowId: row.id, resendEmailId: row.resendEmailId },
+        {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 2000 },
+          removeOnComplete: true,
+          removeOnFail: 100,
+        },
+      );
+      this.logger.info(`Queued inbound email ${row.resendEmailId}`);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Stored inbound email ${row.resendEmailId} but could not queue it: ${String(error)}`,
+      );
     }
-    this.logger.info(
-      {
-        from: data.from,
-        to: data.to,
-        subject: data.subject,
-        messageId: data.message_id,
-        inReplyTo: data.headers?.['in-reply-to'] ?? null,
-        references: data.headers?.['references'] ?? null,
-        text: data.text,
-        htmlLength: data.html?.length ?? 0,
-        attachments: data.attachments.map((a) => ({
-          filename: a.filename,
-          contentType: a.content_type,
-          size: a.size,
-        })),
-      },
-      'Resend inbound email received (test)',
-    );
   }
 }

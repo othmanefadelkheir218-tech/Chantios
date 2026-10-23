@@ -382,6 +382,7 @@ describe('Auth handlers', () => {
           email: 'a@acme.test',
           password: 'LongEnough123',
           name: 'Admin',
+          country: 'BE',
         }),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.$transaction).not.toHaveBeenCalled();
@@ -400,6 +401,7 @@ describe('Auth handlers', () => {
         email: 'A@Acme.test',
         password: 'LongEnough123',
         name: 'Admin',
+        country: 'BE',
       });
 
       expect(tenants.create).toHaveBeenCalledWith(

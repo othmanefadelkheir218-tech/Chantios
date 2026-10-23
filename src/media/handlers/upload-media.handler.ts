@@ -7,7 +7,7 @@ import {
   ALLOWED_MIME_TYPES,
   buildMediaFolder,
   isMimeAllowed,
-  MAX_FILE_SIZE_BYTES,
+  maxFileSize,
   MediaUploader,
   toMediaEntity,
 } from '../helpers/media.helper';
@@ -88,6 +88,26 @@ export class UploadMediaHandler {
   }
 
   /**
+   * A file that is already in memory, with no HTTP upload behind it — an
+   * attachment of an inbound email (step 25). Same checks, same row, same audit.
+   */
+  executeBuffer(
+    buffer: Buffer,
+    filename: string,
+    mimeType: string,
+    dto: UploadMediaDto,
+    actor: MediaUploader,
+  ) {
+    const file = {
+      buffer,
+      originalname: filename,
+      mimetype: mimeType,
+      size: buffer.length,
+    } as Express.Multer.File;
+    return this.execute(file, dto, actor);
+  }
+
+  /**
    * The size and type rule, alone — a caller that uploads several files at
    * once (the portal chat) checks them all BEFORE the first one goes to
    * ImageKit, so a bad third file leaves no first file behind.
@@ -96,9 +116,10 @@ export class UploadMediaHandler {
     if (!file) {
       throw new BadRequestException('No file was sent');
     }
-    if (file.size > MAX_FILE_SIZE_BYTES) {
+    const maxBytes = maxFileSize(entityType);
+    if (file.size > maxBytes) {
       throw new BadRequestException(
-        `File too large: max ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB`,
+        `File too large: max ${maxBytes / (1024 * 1024)} MB`,
       );
     }
     if (!isMimeAllowed(entityType, file.mimetype)) {

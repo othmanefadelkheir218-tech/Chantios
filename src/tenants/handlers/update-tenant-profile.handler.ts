@@ -5,10 +5,14 @@ import type { AuthenticatedUser } from '../../auth/decorators/current-user.decor
 import { UpdateTenantProfileDto } from '../dto/update-tenant-profile.dto';
 import {
   isSameTenant,
+  taxProfileChanged,
   toTenantEntity,
   toTenantProfileData,
 } from '../helpers/tenant.helper';
 import { TenantRepository } from '../repositories/tenant.repository';
+import { AppEventsService } from '../../common/events/app-events.service';
+import { CheckVatNumberHandler } from './check-vat-number.handler';
+import { PrepareTaxFieldsHandler } from './prepare-tax-fields.handler';
 
 /**
  * `PATCH /api/tenant` (route in `company-profile`) — `settings` module,
@@ -22,6 +26,9 @@ export class UpdateTenantProfileHandler {
     private readonly logger: PinoLogger,
     private readonly tenants: TenantRepository,
     private readonly audit: AuditService,
+    private readonly taxFields: PrepareTaxFieldsHandler,
+    private readonly checkVatNumber: CheckVatNumberHandler,
+    private readonly events: AppEventsService,
   ) {}
 
   async execute(
@@ -42,10 +49,20 @@ export class UpdateTenantProfileHandler {
       throw new NotFoundException('Tenant not found');
     }
 
-    const updated = await this.tenants.update(
-      tenantId,
-      toTenantProfileData(dto),
+    // Step 27: the country is never emptied and must be an active TVA
+    // country; the TVA number is format-checked, then asked to VIES.
+    const tax = await this.taxFields.execute(
+      { country: dto.country, vatNumber: dto.vat_number },
+      current,
     );
+    let updated = await this.tenants.update(tenantId, {
+      ...toTenantProfileData(dto),
+      ...tax,
+    });
+    if (taxProfileChanged(current, updated)) {
+      updated = (await this.checkVatNumber.execute(tenantId, false)) ?? updated;
+      this.events.emit('tenant.tax_profile_changed', { tenantId });
+    }
     const before = toTenantEntity(current);
     const after = toTenantEntity(updated);
 

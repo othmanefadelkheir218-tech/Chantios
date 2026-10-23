@@ -46,7 +46,7 @@ describe('Notifications handlers', () => {
     deleteReadOlderThan: jest.fn(),
   };
   const queue = { add: jest.fn() };
-  const gateway = { emit: jest.fn() };
+  const gateway = { emit: jest.fn(), isUserOnline: jest.fn() };
   const users = { findActiveWithRole: jest.fn() };
   const roles = { findOverridesForRole: jest.fn() };
   const tenants = { findForNotifications: jest.fn() };
@@ -320,6 +320,68 @@ describe('Notifications handlers', () => {
         payload: {},
       });
       expect(users.findActiveWithRole).toHaveBeenCalledWith([7]);
+    });
+  });
+
+  describe('DispatchNotificationHandler — client email (step 25)', () => {
+    const everyone = [
+      person(1, 'admin'),
+      person(2, 'manager'),
+      person(6, 'sales'),
+      person(7, 'accountant'),
+      person(5, 'worker'),
+    ];
+    const rowsFor = () =>
+      callArg<Array<{ userId: number }>>(repo.createMany, 0, 0).map(
+        (row) => row.userId,
+      );
+
+    it('new_email (company inbox): every role with email view, not the accountant or the worker', async () => {
+      users.findActiveWithRole.mockResolvedValue(everyone);
+      await dispatch.execute('new_email', { tenantId: 1, payload: {} });
+      expect(rowsFor()).toEqual([1, 2, 6]);
+    });
+
+    it('new_email (Gmail inbox): the owner only', async () => {
+      users.findActiveWithRole.mockResolvedValue(everyone);
+      await dispatch.execute('new_email', {
+        tenantId: 1,
+        userIds: [2],
+        payload: {},
+      });
+      expect(rowsFor()).toEqual([2]);
+    });
+
+    it('emailOnlyIfOffline: an online user gets the in-app row only', async () => {
+      users.findActiveWithRole.mockResolvedValue(everyone.slice(0, 2));
+      gateway.isUserOnline.mockImplementation((id: number) =>
+        Promise.resolve(id === 2),
+      );
+      await dispatch.execute('new_email', {
+        tenantId: 1,
+        emailOnlyIfOffline: true,
+        payload: {},
+      });
+      expect(rowsFor()).toEqual([1, 2]);
+      expect(gateway.emit).toHaveBeenCalledTimes(2);
+      expect(queuedEmails().map((job) => job.to)).toEqual(['u1@test.local']);
+    });
+
+    it('without emailOnlyIfOffline presence is never checked', async () => {
+      users.findActiveWithRole.mockResolvedValue(everyone.slice(0, 2));
+      await dispatch.execute('new_email', { tenantId: 1, payload: {} });
+      expect(gateway.isUserOnline).not.toHaveBeenCalled();
+      expect(queuedEmails()).toHaveLength(2);
+    });
+
+    it('email_mailbox_disconnected: the users with settings + the owner', async () => {
+      users.findActiveWithRole.mockResolvedValue(everyone);
+      await dispatch.execute('email_mailbox_disconnected', {
+        tenantId: 1,
+        userIds: [6],
+        payload: {},
+      });
+      expect(rowsFor().sort()).toEqual([1, 6]);
     });
   });
 
